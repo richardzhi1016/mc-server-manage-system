@@ -1,4 +1,4 @@
-# mc_server_manager_v2.py
+# mc_server_manager_v2_ui_fixed.py
 import os
 import subprocess
 import threading
@@ -19,6 +19,11 @@ BACKUP_DIR = "backups"
 DEFAULT_XMS = "1G"
 DEFAULT_XMX = "2G"
 START_BUTTON_BLOCK_MS = 15000  # 启动按钮最长锁定时间（毫秒）
+
+# 奶白色按钮配色（你要求的）
+MILKY_FG = "#F5F5DC"       # 主色（奶白）
+MILKY_HOVER = "#F0EBD8"    # 悬停稍深
+MILKY_TEXT = "#111111"     # 文字颜色（深色，便于阅读）
 
 # ------------------ 工具函数 ------------------
 def ensure_dirs():
@@ -52,7 +57,8 @@ class PageManager(ctk.CTk):
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
         self.title("Minecraft Server Manager V2")
-        self.geometry("1000x760")
+        self.geometry("1300x760")  # 增加窗口宽度以适应更宽的左侧面板
+        self.minsize(1100, 640)   # 增加最小宽度
 
         # 状态变量（替代全局）
         self.server_process = None
@@ -68,184 +74,311 @@ class PageManager(ctk.CTk):
         # 启动过程控制
         self.start_in_progress = False
 
-        # 备份包含项（默认 world 必备）
-        self.include_mods = ctk.BooleanVar(value=False)
-        self.include_plugins = ctk.BooleanVar(value=False)
-        self.include_config = ctk.BooleanVar(value=False)
-        self.include_serverprops = ctk.BooleanVar(value=False)
-        self.include_whitelist = ctk.BooleanVar(value=False)
+        # 便捷同步选项
+        self.startup_backup_var = ctk.BooleanVar(value=True)
+        self.periodic_backup_var = ctk.BooleanVar(value=False)
 
-        # 左侧导航（用一个小菜单按钮实现弹出式样式）
-        self.sidebar = ctk.CTkFrame(self, width=200)
-        self.sidebar.pack(side="left", fill="y")
-        # 菜单按钮（像你给的三点）
-        self.menu_button = ctk.CTkButton(self.sidebar, text="⋯", width=36, command=self.toggle_nav_menu)
-        self.menu_button.pack(pady=8)
-        # 动态菜单框（默认隐藏）
-        self.nav_menu_frame = None
+        # 顶部标题条（贴合截图，深色，左上显示应用名）
+        top_bar = ctk.CTkFrame(self, height=36, corner_radius=0)
+        top_bar.pack(side="top", fill="x")
+        lbl_title = ctk.CTkLabel(top_bar, text="Minecraft Server Manager V2", anchor="w")
+        lbl_title.pack(side="left", padx=8)
 
-        # 主区域
-        self.main_frame = ctk.CTkFrame(self)
-        self.main_frame.pack(side="right", fill="both", expand=True)
+        # 主区域：左右两栏
+        container = ctk.CTkFrame(self)
+        container.pack(fill="both", expand=True, padx=8, pady=8)
 
-        # 页面容器
+        # 左侧窄面板（像截图）- 宽度增加一倍
+        self.sidebar = ctk.CTkFrame(container, width=640, corner_radius=6)  # 从320改为640
+        self.sidebar.pack(side="left", fill="y", padx=(0,8), pady=0)
+        self.sidebar.pack_propagate(False)
+
+        # 右侧主区（日志 + 命令行）
+        self.right_area = ctk.CTkFrame(container, corner_radius=6)
+        self.right_area.pack(side="right", fill="both", expand=True)
+        self.right_area.grid_rowconfigure(0, weight=1)  # 日志区域可扩展
+        self.right_area.grid_rowconfigure(1, weight=0)  # 命令行区域固定高度
+        self.right_area.grid_columnconfigure(0, weight=1)
+
+        # 在左侧放置菜单图标（竖向三横）和按钮
+        self._build_sidebar()
+
+        # 在右侧放置日志框和命令行
+        self._build_right_area()
+
+        # 页面容器（备份 / 扩展）隐藏在 sidebar 的底部菜单中
         self.pages = {}
+        self.current_page = None
         self.create_pages()
-        self.show_main_page()
 
         # 定时拉取 stdout 队列并更新 GUI
         self.after(READ_QUEUE_POLL_MS, self.poll_stdout_queue)
         # 关闭时清理
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-    # ---------------- 导航菜单 ----------------
+    # ---------------- 左侧面板 UI ----------------
+    def _build_sidebar(self):
+        # 左上角菜单图标（类似截图的三条线）
+        menu_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        menu_frame.pack(fill="x", pady=(6, 8))
+        self.menu_button = ctk.CTkButton(menu_frame, text="≡", width=34, height=34,
+                                         fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT,
+                                         command=self.toggle_nav_menu)
+        self.menu_button.pack(side="left", padx=6)
+
+        # 动态菜单容器（隐藏）
+        self.nav_menu_frame = None
+
     def toggle_nav_menu(self):
-        """显示或隐藏左侧弹出菜单，宽高会自适应内容"""
         if self.nav_menu_frame and self.nav_menu_frame.winfo_ismapped():
-            self.nav_menu_frame.pack_forget()
+            self.nav_menu_frame.destroy()
+            self.nav_menu_frame = None
             return
-        if not self.nav_menu_frame:
-            self.nav_menu_frame = ctk.CTkFrame(self.sidebar, corner_radius=8)
-            # 菜单项（文字长度不同，Frame 会自动调整）
-            btn_main = ctk.CTkButton(self.nav_menu_frame, text="启动页面", anchor="w", command=lambda: (self.show_main_page(), self.nav_menu_frame.pack_forget()))
-            btn_backup = ctk.CTkButton(self.nav_menu_frame, text="备份设置", anchor="w", command=lambda: (self.show_backup_page(), self.nav_menu_frame.pack_forget()))
-            btn_extra = ctk.CTkButton(self.nav_menu_frame, text="功能待开发", anchor="w", command=lambda: (self.show_extra_page(), self.nav_menu_frame.pack_forget()))
-            # 可按需添加更多项，例如归档、报告、删除（这里仅导航）
-            btn_main.pack(fill="x", padx=8, pady=4)
-            btn_backup.pack(fill="x", padx=8, pady=4)
-            btn_extra.pack(fill="x", padx=8, pady=4)
-        # 放在 menu_button 下方
-        self.nav_menu_frame.pack(pady=(0,6))
+        self.nav_menu_frame = ctk.CTkFrame(self.sidebar, corner_radius=6)
+        self.nav_menu_frame.place(x=8, y=48)  # 在菜单按钮下方浮动
+        
+        # 确保菜单在最顶层
+        self.nav_menu_frame.lift()
+        
+        btn_main = ctk.CTkButton(self.nav_menu_frame, text="启动页面", width=220,
+                                 fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT,
+                                 command=lambda: self._close_menu_and_show('main'))
+        btn_backup = ctk.CTkButton(self.nav_menu_frame, text="备份设置", width=220,
+                                   fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT,
+                                   command=lambda: self._close_menu_and_show('backup'))
+        btn_extra = ctk.CTkButton(self.nav_menu_frame, text="扩展功能", width=220,
+                                  fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT,
+                                  command=lambda: self._close_menu_and_show('extra'))
+        btn_main.pack(padx=8, pady=(6,4))
+        btn_backup.pack(padx=8, pady=4)
+        btn_extra.pack(padx=8, pady=(4,8))
 
-    # ---------------- 页面创建 ----------------
-    def create_pages(self):
-        self.create_main_page()
-        self.create_backup_page()
-        self.create_extra_page()
+    def _close_menu_and_show(self, page):
+        if self.nav_menu_frame:
+            self.nav_menu_frame.destroy()
+            self.nav_menu_frame = None
+        self.show_page(page)
 
-    # ---------------- 主页面（原有 UI） ----------------
-    def create_main_page(self):
-        main_page = ctk.CTkFrame(self.main_frame)
-        self.pages['main'] = main_page
-
-        # Top controls: 选择目录 / 选择 jar
-        top_frame = ctk.CTkFrame(main_page)
-        top_frame.pack(fill='x', padx=12, pady=8)
-
-        select_button = ctk.CTkButton(top_frame, text="选择服务器文件夹", command=self.select_server_folder)
-        select_button.grid(row=0, column=0, padx=6, pady=6)
-        choose_jar_btn = ctk.CTkButton(top_frame, text="直接选择 server.jar", command=self.choose_jar_file)
-        choose_jar_btn.grid(row=0, column=1, padx=6, pady=6)
-
-        self.folder_label = ctk.CTkLabel(top_frame, text="当前文件夹: 无")
-        self.folder_label.grid(row=1, column=0, columnspan=2, sticky='w', padx=6)
-
-        self.jar_label = ctk.CTkLabel(top_frame, text="使用Jar: 未选择")
-        self.jar_label.grid(row=2, column=0, columnspan=2, sticky='w', padx=6, pady=(2,8))
-
-        self.jar_entry = ctk.CTkEntry(top_frame, placeholder_text="server.jar 路径（可选，留空则自动检测）", width=620)
-        self.jar_entry.grid(row=0, column=2, rowspan=3, padx=8, pady=6)
-
-        # 内存设置（Xms / Xmx）
-        mem_frame = ctk.CTkFrame(main_page)
-        mem_frame.pack(fill='x', padx=12, pady=(4,8))
-        ctk.CTkLabel(mem_frame, text="Xms:").grid(row=0, column=0, padx=6, sticky='w')
-        self.xms_entry = ctk.CTkEntry(mem_frame, placeholder_text=DEFAULT_XMS, width=80)
-        self.xms_entry.grid(row=0, column=1, padx=6)
-        ctk.CTkLabel(mem_frame, text="Xmx:").grid(row=0, column=2, padx=6, sticky='w')
-        self.xmx_entry = ctk.CTkEntry(mem_frame, placeholder_text=DEFAULT_XMX, width=80)
-        self.xmx_entry.grid(row=0, column=3, padx=6)
-        ctk.CTkLabel(mem_frame, text="（示例：2G 或 1024M）").grid(row=0, column=4, padx=6, sticky='w')
-
-        # 备份简要配置（与备份页面保持同步）
-        brief_frame = ctk.CTkFrame(main_page)
-        brief_frame.pack(fill='x', padx=12, pady=(4,8))
-        self.startup_backup_var = ctk.BooleanVar(value=True)
-        self.periodic_backup_var = ctk.BooleanVar(value=False)
-        ctk.CTkCheckBox(brief_frame, text="启动前自动备份", variable=self.startup_backup_var).grid(row=0, column=0, padx=6, pady=6, sticky='w')
-        ctk.CTkCheckBox(brief_frame, text="运行中周期备份", variable=self.periodic_backup_var).grid(row=0, column=1, padx=6, pady=6, sticky='w')
-
-        # 启动 / 停止 按钮 （注意：保存为 self.start_button 以便控制状态）
-        self.start_button = ctk.CTkButton(main_page, text="启动服务器", command=self.start_server, width=200)
-        self.start_button.pack(pady=(6,4))
-        stop_button = ctk.CTkButton(main_page, text="停止服务器", command=self.stop_server, width=200)
-        stop_button.pack(pady=(0,10))
-
-        self.status_label = ctk.CTkLabel(main_page, text="服务器状态: 未运行", text_color="white")
-        self.status_label.pack(pady=6)
+    # ---------------- 右侧主区（日志 + 命令行） ----------------
+    def _build_right_area(self):
+        # 带蓝色边框的大日志卡片（贴合截图）
+        self.log_container = ctk.CTkFrame(self.right_area, corner_radius=6, fg_color="transparent",
+                                     border_width=2, border_color="#3A86FF")
+        self.log_container.grid(row=0, column=0, sticky="nsew", padx=6, pady=6)
+        self.log_container.grid_columnconfigure(0, weight=1)
+        self.log_container.grid_rowconfigure(0, weight=1)
 
         # 日志文本框
-        self.log_text = ctk.CTkTextbox(main_page, width=940, height=360)
-        self.log_text.pack(padx=12, pady=8)
+        self.log_text = ctk.CTkTextbox(self.log_container, wrap="word")
+        self.log_text.grid(row=0, column=0, sticky="nsew", padx=6, pady=6)
         self.log_text.insert('0.0', '💡 欢迎使用 Minecraft Server Manager（增强版）！\n')
         self.log_text.configure(state='disabled')
 
-        # 命令输入
-        input_frame = ctk.CTkFrame(main_page)
-        input_frame.pack(fill='x', padx=12, pady=(4,12))
-        self.input_entry = ctk.CTkEntry(input_frame, placeholder_text="在此输入指令 (按回车发送)")
-        self.input_entry.pack(side='left', fill='x', expand=True, padx=6, pady=6)
+        # 命令行区域 - 与日志区域共享相同的容器和边距
+        self.command_container = ctk.CTkFrame(self.right_area, corner_radius=6, fg_color="transparent",
+                                         border_width=2, border_color="#3A86FF")
+        self.command_container.grid(row=1, column=0, sticky="ew", padx=6, pady=(0,6))
+        self.command_container.grid_columnconfigure(0, weight=1)
+        
+        # 输入指令标签
+        cmd_label = ctk.CTkLabel(self.command_container, text="在此输入指令 (按回车发送)", anchor="w")
+        cmd_label.grid(row=0, column=0, sticky="ew", padx=10, pady=(8,2))
+        
+        # 输入框和发送按钮
+        input_row = ctk.CTkFrame(self.command_container, fg_color="transparent")
+        input_row.grid(row=1, column=0, sticky="ew", padx=10, pady=(2,8))
+        input_row.grid_columnconfigure(0, weight=1)
+        
+        self.input_entry = ctk.CTkEntry(input_row, placeholder_text="输入服务器指令...")
+        self.input_entry.grid(row=0, column=0, sticky="ew", padx=(0,6), pady=0)
         self.input_entry.bind('<Return>', self.send_command)
-        send_btn = ctk.CTkButton(input_frame, text="发送", command=self.send_command, width=80)
-        send_btn.pack(side='right', padx=6, pady=6)
+        
+        send_btn = ctk.CTkButton(input_row, text="发送", command=self.send_command,
+                                 fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT, width=70)
+        send_btn.grid(row=0, column=1, padx=0, pady=0)
 
-    # ---------------- 备份页面 ----------------
-    def create_backup_page(self):
-        backup_page = ctk.CTkFrame(self.main_frame)
+    # ---------------- 页面创建（备份/扩展） ----------------
+    def create_pages(self):
+        # 创建页面容器 - 放在菜单按钮下方
+        self.page_container = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        self.page_container.pack(fill="both", expand=True, padx=0, pady=0)
+        
+        # 主页面（启动页面）
+        main_page = ctk.CTkFrame(self.page_container, corner_radius=6, fg_color="transparent")
+        self.pages['main'] = main_page
+        
+        # 主页面内容
+        # 两个顶部按钮 - 左右排列
+        btns_frame = ctk.CTkFrame(main_page)
+        btns_frame.pack(fill="x", padx=20, pady=(0, 12))
+        btns_frame.grid_columnconfigure(0, weight=1)
+        btns_frame.grid_columnconfigure(1, weight=1)
+        
+        self.select_folder_btn = ctk.CTkButton(btns_frame, text="选择服务器文件夹", command=self.select_server_folder,
+                                               fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT)
+        self.select_folder_btn.grid(row=0, column=0, padx=(0, 4), pady=0, sticky="ew")
+        
+        self.choose_jar_btn = ctk.CTkButton(btns_frame, text="选择 server.jar", command=self.choose_jar_file,
+                                            fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT)
+        self.choose_jar_btn.grid(row=0, column=1, padx=(4, 0), pady=0, sticky="ew")
+
+        # 当前路径与使用jar标签
+        self.folder_label = ctk.CTkLabel(main_page, text="当前文件夹: 未选择", anchor="w")
+        self.folder_label.pack(fill="x", padx=20, pady=(8,2))
+        self.jar_label = ctk.CTkLabel(main_page, text="使用Jar: 未选择", anchor="w")
+        self.jar_label.pack(fill="x", padx=20, pady=(0,8))
+
+        # Jar 路径输入框
+        self.jar_entry = ctk.CTkEntry(main_page, placeholder_text="server.jar 路径（可选）")
+        self.jar_entry.pack(fill="x", padx=20, pady=(0,12))
+
+        # 内存设置 Xms/Xmx - 使用两列布局以利用更宽的空间
+        mem_card = ctk.CTkFrame(main_page, corner_radius=6)
+        mem_card.pack(fill="x", padx=20, pady=(0,12))
+        mem_card.grid_columnconfigure(0, weight=1)
+        mem_card.grid_columnconfigure(1, weight=1)
+        
+        # 第一行：Xms 和 Xmx
+        xms_frame = ctk.CTkFrame(mem_card, fg_color="transparent")
+        xms_frame.grid(row=0, column=0, padx=8, pady=8, sticky="ew")
+        lbl_xms = ctk.CTkLabel(xms_frame, text="Xms:")
+        lbl_xms.pack(side="left", padx=(0,8))
+        self.xms_entry = ctk.CTkEntry(xms_frame, placeholder_text=DEFAULT_XMS, width=120)
+        self.xms_entry.pack(side="left", fill="x", expand=True)
+        
+        xmx_frame = ctk.CTkFrame(mem_card, fg_color="transparent")
+        xmx_frame.grid(row=0, column=1, padx=8, pady=8, sticky="ew")
+        lbl_xmx = ctk.CTkLabel(xmx_frame, text="Xmx:")
+        lbl_xmx.pack(side="left", padx=(0,8))
+        self.xmx_entry = ctk.CTkEntry(xmx_frame, placeholder_text=DEFAULT_XMX, width=120)
+        self.xmx_entry.pack(side="left", fill="x", expand=True)
+        
+        # 第二行：示例文本和应用按钮在同一行
+        hint_btn_frame = ctk.CTkFrame(mem_card, fg_color="transparent")
+        hint_btn_frame.grid(row=1, column=0, columnspan=2, padx=8, pady=(0,8), sticky="ew")
+        hint_btn_frame.grid_columnconfigure(0, weight=1)
+        hint_btn_frame.grid_columnconfigure(1, weight=0)
+        
+        # 提示文本
+        lbl_hint = ctk.CTkLabel(hint_btn_frame, text="（示例：2G 或 1024M）")
+        lbl_hint.grid(row=0, column=0, padx=(0,8), pady=0, sticky="w")
+        
+        # 应用内存设置按钮
+        self.apply_mem_btn = ctk.CTkButton(hint_btn_frame, text="应用内存设置", command=self.apply_memory_settings,
+                                      fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT, width=120)
+        self.apply_mem_btn.grid(row=0, column=1, padx=0, pady=0)
+
+        # 启动/停止 按钮 - 左右排列
+        control_card = ctk.CTkFrame(main_page, corner_radius=6)
+        control_card.pack(fill="x", padx=20, pady=(0,12))
+        control_card.grid_columnconfigure(0, weight=1)
+        control_card.grid_columnconfigure(1, weight=1)
+        
+        self.start_button = ctk.CTkButton(control_card, text="启动服务器", command=self.start_server,
+                                          fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT)
+        self.start_button.grid(row=0, column=0, padx=(10, 5), pady=10, sticky="ew")
+        
+        stop_btn = ctk.CTkButton(control_card, text="停止服务器", command=self.stop_server,
+                                 fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT)
+        stop_btn.grid(row=0, column=1, padx=(5, 10), pady=10, sticky="ew")
+
+        # 状态条
+        self.status_label = ctk.CTkLabel(main_page, text="服务器状态: 未运行", anchor="w")
+        self.status_label.pack(fill="x", padx=20, pady=(0,8))
+
+        # 简要备份设置 - 使用两列布局
+        brief_frame = ctk.CTkFrame(main_page, corner_radius=6)
+        brief_frame.pack(fill="x", padx=20, pady=(0,8))
+        brief_frame.grid_columnconfigure(0, weight=1)
+        brief_frame.grid_columnconfigure(1, weight=1)
+        
+        self.startup_backup_cb = ctk.CTkCheckBox(brief_frame, text="启动前自动备份", variable=self.startup_backup_var)
+        self.startup_backup_cb.grid(row=0, column=0, padx=8, pady=8, sticky="w")
+        self.periodic_backup_cb = ctk.CTkCheckBox(brief_frame, text="运行中周期备份", variable=self.periodic_backup_var)
+        self.periodic_backup_cb.grid(row=0, column=1, padx=8, pady=8, sticky="w")
+        
+        # 备份页面
+        backup_page = ctk.CTkFrame(self.page_container, corner_radius=6, fg_color="transparent")
         self.pages['backup'] = backup_page
-
-        ctk.CTkLabel(backup_page, text="备份设置页面").pack(pady=12)
-
-        # 备份目录：取消用户选择（只读）
+        
+        # 备份页面内容 - 使用更宽的布局
+        ctk.CTkLabel(backup_page, text="备份设置", font=ctk.CTkFont(size=18, weight="bold")).pack(pady=16)
+        
+        # 备份目录信息
+        dir_frame = ctk.CTkFrame(backup_page, corner_radius=6)
+        dir_frame.pack(fill="x", padx=20, pady=(0,12))
+        ctk.CTkLabel(dir_frame, text="备份目录（只读）:", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=12, pady=(8,0))
         self.backup_dir_var = ctk.StringVar(value=os.path.abspath(BACKUP_DIR))
-        ctk.CTkLabel(backup_page, text="备份目录（只读）:").pack(pady=(4,0))
-        ctk.CTkLabel(backup_page, textvariable=self.backup_dir_var).pack(pady=4)
+        ctk.CTkLabel(dir_frame, textvariable=self.backup_dir_var, wraplength=500).pack(anchor="w", padx=12, pady=(0,8))
+        
+        ctk.CTkLabel(backup_page, text="只备份世界文件夹，使用安全备份流程", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=20, pady=(8,4))
+        
+        # 自动备份设置 - 放在同一个背景格子内
+        auto_frame = ctk.CTkFrame(backup_page, corner_radius=6)
+        auto_frame.pack(fill="x", padx=20, pady=(0,12))
+        auto_frame.grid_columnconfigure(0, weight=1)
+        auto_frame.grid_columnconfigure(1, weight=1)
+        
+        # 启用自动备份开关
+        # [修改点] 直接绑定 self.periodic_backup_var，实现与主页面复选框的同步
+        self.auto_backup_switch = ctk.CTkSwitch(auto_frame, text="启用自动备份（运行中周期备份）", 
+                                               variable=self.periodic_backup_var)
+        self.auto_backup_switch.grid(row=0, column=0, columnspan=2, padx=12, pady=(12,8), sticky="w")
+        
+        # 周期设置使用两列布局
+        ctk.CTkLabel(auto_frame, text="周期(分钟):").grid(row=1, column=0, padx=12, pady=(8,4), sticky="w")
+        ctk.CTkLabel(auto_frame, text="保留最近 N 个备份:").grid(row=1, column=1, padx=12, pady=(8,4), sticky="w")
+        
+        self.periodic_interval_entry = ctk.CTkEntry(auto_frame, placeholder_text="10", width=120)
+        self.periodic_interval_entry.grid(row=2, column=0, padx=12, pady=(0,8), sticky="w")
+        
+        self.backup_keep_entry = ctk.CTkEntry(auto_frame, placeholder_text="10", width=120)
+        self.backup_keep_entry.grid(row=2, column=1, padx=12, pady=(0,8), sticky="w")
+        
+        # 应用周期备份设置按钮 - 放在同一行右侧
+        btn_hint_frame = ctk.CTkFrame(auto_frame, fg_color="transparent")
+        btn_hint_frame.grid(row=3, column=0, columnspan=2, padx=12, pady=(0,12), sticky="ew")
+        btn_hint_frame.grid_columnconfigure(0, weight=1)
+        
+        self.apply_periodic_btn = ctk.CTkButton(btn_hint_frame, text="应用周期备份设置", command=self.apply_periodic_backup_settings,
+                                          fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT, width=140)
+        self.apply_periodic_btn.grid(row=0, column=1, padx=0, pady=0)
+        
+        # 操作按钮
+        btn_frame = ctk.CTkFrame(backup_page, fg_color="transparent")
+        btn_frame.pack(fill="x", padx=20, pady=(0,12))
+        self.manual_backup_btn = ctk.CTkButton(btn_frame, text="立即备份世界", command=self._manual_backup,
+                      fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT)
+        self.manual_backup_btn.pack(fill="x", pady=6)
+        self.open_backup_btn = ctk.CTkButton(btn_frame, text="打开备份文件夹", command=self._open_backup_folder,
+                      fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT)
+        self.open_backup_btn.pack(fill="x", pady=6)
 
-        # 备份包含项：默认仅备份 world（没有复选项），用户可勾选额外项
-        ctk.CTkLabel(backup_page, text="默认会备份 world 文件夹，可额外选择以下项：").pack(pady=(8,4))
-        ctk.CTkCheckBox(backup_page, text="备份 mods/（如存在）", variable=self.include_mods).pack(anchor='w', padx=12, pady=2)
-        ctk.CTkCheckBox(backup_page, text="备份 plugins/（如存在）", variable=self.include_plugins).pack(anchor='w', padx=12, pady=2)
-        ctk.CTkCheckBox(backup_page, text="备份 config/（如存在）", variable=self.include_config).pack(anchor='w', padx=12, pady=2)
-        ctk.CTkCheckBox(backup_page, text="备份 server.properties（如存在）", variable=self.include_serverprops).pack(anchor='w', padx=12, pady=2)
-        ctk.CTkCheckBox(backup_page, text="备份 whitelist.json（如存在）", variable=self.include_whitelist).pack(anchor='w', padx=12, pady=2)
-
-        # 自动备份开关与参数（周期备份）
-        self.auto_backup_enabled = ctk.BooleanVar(value=False)
-        ctk.CTkSwitch(backup_page, text="启用自动备份（运行中周期备份）", variable=self.auto_backup_enabled, command=self._toggle_periodic_backup).pack(pady=10)
-        ctk.CTkLabel(backup_page, text="周期(分钟):").pack(pady=(6,0))
-        self.periodic_interval_entry = ctk.CTkEntry(backup_page, placeholder_text="10", width=100)
-        self.periodic_interval_entry.pack(pady=4)
-        ctk.CTkLabel(backup_page, text="保留最近 N 个备份:").pack(pady=(6,0))
-        self.backup_keep_entry = ctk.CTkEntry(backup_page, placeholder_text="10", width=100)
-        self.backup_keep_entry.pack(pady=4)
-
-        # 立即备份 / 打开备份文件夹
-        ctk.CTkButton(backup_page, text="立即备份（仅 world + 选中项）", command=self._manual_backup).pack(pady=8)
-        ctk.CTkButton(backup_page, text="打开备份文件夹", command=self._open_backup_folder).pack(pady=4)
-
-    # ---------------- 扩展页面（占位） ----------------
-    def create_extra_page(self):
-        extra_page = ctk.CTkFrame(self.main_frame)
+        # 扩展功能页面
+        extra_page = ctk.CTkFrame(self.page_container, corner_radius=6, fg_color="transparent")
         self.pages['extra'] = extra_page
-        ctk.CTkLabel(extra_page, text="扩展功能页面（占位）").pack(pady=20)
-        ctk.CTkLabel(extra_page, text="这里以后可以添加自动重启、崩溃检测等功能").pack(pady=8)
+        ctk.CTkLabel(extra_page, text="扩展功能页面（占位）", font=ctk.CTkFont(size=18, weight="bold")).pack(pady=20)
+        ctk.CTkLabel(extra_page, text="这里以后可以添加自动重启、崩溃检测等功能", font=ctk.CTkFont(size=14)).pack(pady=8)
 
-    # ---------------- 页面切换 ----------------
-    def show_page(self, name):
-        for p in self.pages.values():
-            p.pack_forget()
-        self.pages[name].pack(fill='both', expand=True)
-
-    def show_main_page(self):
+        # 将所有页面堆叠在一起，默认显示主页面
+        for page_name, page_frame in self.pages.items():
+            page_frame.place(in_=self.page_container, x=0, y=0, relwidth=1, relheight=1)
+        
+        # 默认显示主页面
         self.show_page('main')
+        
+        # 初始时更新控件状态
+        self.update_controls_state()
 
-    def show_backup_page(self):
-        # 页面同步：将备份选项从 main 页面反向同步
-        self.auto_backup_enabled.set(self.periodic_backup_var.get())
-        self.show_page('backup')
-
-    def show_extra_page(self):
-        self.show_page('extra')
+    def show_page(self, name):
+        # 将所有页面降低层级
+        for page_name, page_frame in self.pages.items():
+            page_frame.lower()
+        
+        # 将目标页面提升到顶部
+        if name in self.pages:
+            self.pages[name].lift()
+            self.current_page = name
 
     # ---------------- 文件/目录选择 ----------------
     def select_server_folder(self):
@@ -329,10 +462,9 @@ class PageManager(ctk.CTk):
             updated = False
             while not self.stdout_queue.empty():
                 line = self.stdout_queue.get_nowait()
-                # 启动成功检测
+                # 启动成功检测（与原逻辑相同）
                 if not self.server_running and re.search(r"\bDone\s*\(", line):
                     self.server_running = True
-                    # 启动成功 — 解除 start_in_progress 并恢复按钮
                     if self.start_in_progress:
                         self.start_in_progress = False
                         try:
@@ -344,9 +476,10 @@ class PageManager(ctk.CTk):
                         messagebox.showinfo("成功", "服务器启动成功！")
                     except Exception:
                         pass
+                    # 更新控件状态
+                    self.update_controls_state()
                 # 进程退出情况
                 if self.server_process and self.server_process.poll() is not None:
-                    # 如果正在启动且进程退出，视为启动失败，解除锁定
                     if self.start_in_progress:
                         self.start_in_progress = False
                         try:
@@ -355,11 +488,12 @@ class PageManager(ctk.CTk):
                             pass
                     self.server_running = False
                     self.status_label.configure(text="服务器状态: 已停止 ⏹", text_color="white")
-                    # 进程退出时恢复 start 按钮（以便重启）
                     try:
                         self.start_button.configure(state="normal")
                     except Exception:
                         pass
+                    # 更新控件状态
+                    self.update_controls_state()
                 # 插入 GUI
                 try:
                     self.log_text.configure(state='normal')
@@ -397,23 +531,19 @@ class PageManager(ctk.CTk):
 
     # ---------------- 启动 / 停止 / 监控 ----------------
     def start_server(self):
-        # 如果已有进程但尚未完成启动（server_running == False），先要求确认并强制关闭
         if self.server_process and self.server_process.poll() is None and not self.server_running:
             confirm = messagebox.askyesno("确认", "检测到已有未完全启动的服务器实例。是否先强制关闭该实例再启动新的服务器？")
             if confirm:
                 try:
                     self.log_insert("⚠️ 正在强制终止旧的未完成启动的服务器进程...")
-                    # 先尝试优雅关闭
                     try:
                         self.safe_write_stdin(self.server_process, "stop\n")
-                        # 等待短时
                         try:
                             self.server_process.wait(timeout=5)
                         except Exception:
                             pass
                     except Exception:
                         pass
-                    # 若仍未退出，强制 kill
                     if self.server_process.poll() is None:
                         try:
                             self.server_process.kill()
@@ -427,7 +557,6 @@ class PageManager(ctk.CTk):
                 except Exception as e:
                     self.stdout_queue.put(f"[强制终止失败] {e}")
                 finally:
-                    # 清理旧进程状态
                     try:
                         self.reader_thread_stop_event.set()
                     except Exception:
@@ -439,19 +568,15 @@ class PageManager(ctk.CTk):
                     self.server_process = None
                     self.server_running = False
             else:
-                # 用户拒绝关闭旧进程，取消启动
                 return
 
-        # 防止重复点击与启动锁定：立即禁用按钮，并设置 start_in_progress
         try:
             self.start_button.configure(state="disabled")
         except Exception:
             pass
         self.start_in_progress = True
-        # 15 秒后若仍在锁定中则自动解除（以避免永久不可用）
         self.after(START_BUTTON_BLOCK_MS, self._start_timeout_handler)
 
-        # 如果服务器已经运行（已完全启动），不重复启动
         if self.server_running:
             messagebox.showinfo("提示", "服务器已经在运行！")
             try:
@@ -528,7 +653,7 @@ class PageManager(ctk.CTk):
 
         # 启动前备份（可选）
         do_startup_backup = self.startup_backup_var.get()
-        backup_keep = int(self.backup_keep_entry.get()) if self.backup_keep_entry.get().isdigit() else 10
+        backup_keep = int(self.backup_keep_entry.get()) if hasattr(self, "backup_keep_entry") and self.backup_keep_entry.get().isdigit() else 10
         if do_startup_backup:
             self.startup_backup_done_event.clear()
             threading.Thread(target=self._startup_backup_thread, args=(jar_path, backup_keep), daemon=True).start()
@@ -544,7 +669,6 @@ class PageManager(ctk.CTk):
             if not self.startup_backup_done_event.is_set():
                 self.log_insert("⚠️ 启动前备份超时，继续启动（若想确保完整备份请手动备份）。")
 
-        # 打开日志文件
         ensure_dirs()
         log_fname = os.path.join(LOG_DIR, f"console-{_timestamp_str()}.log")
         try:
@@ -554,7 +678,6 @@ class PageManager(ctk.CTk):
             self.log_file_handle = None
             self.log_insert(f"[日志文件打开失败] {e}")
 
-        # 启动 Java 进程
         try:
             cmd = ['java', f'-Xmx{ xmx }', f'-Xms{ xms }', '-jar', jar_path, 'nogui']
             proc = subprocess.Popen(cmd, cwd=os.path.dirname(jar_path) or self.current_server_path,
@@ -590,7 +713,8 @@ class PageManager(ctk.CTk):
         monitor_thread.start()
 
         # 周期备份（若选）
-        if self.periodic_backup_var.get() or self.auto_backup_enabled.get():
+        # [修改点] 简化判断逻辑，只检查 periodic_backup_var
+        if self.periodic_backup_var.get():
             try:
                 self.periodic_backup_stop_event.set()
             except Exception:
@@ -601,7 +725,6 @@ class PageManager(ctk.CTk):
             self.log_insert("⏱️ 周期备份已启用。")
 
     def _start_timeout_handler(self):
-        # 超时解除启动锁定（若仍在启动中）
         if getattr(self, 'start_in_progress', False):
             self.start_in_progress = False
             try:
@@ -610,19 +733,6 @@ class PageManager(ctk.CTk):
                 pass
             self.stdout_queue.put(f"⏱️ 启动等待已超过 {START_BUTTON_BLOCK_MS//1000} 秒，已解除按钮锁定。")
 
-    def _enable_start_if_still_disabled(self):
-        """保持向后兼容：短时恢复（一般不再使用，因为我们使用 start_in_progress 与 _start_timeout_handler）"""
-        try:
-            if hasattr(self, 'start_button'):
-                state = self.start_button.cget("state")
-                if state == "disabled" and not self.server_running:
-                    try:
-                        self.start_button.configure(state="normal")
-                    except Exception:
-                        pass
-        except Exception:
-            pass
-
     def _monitor_process_thread(self, proc):
         try:
             returncode = proc.wait()
@@ -630,7 +740,6 @@ class PageManager(ctk.CTk):
         except Exception as e:
             self.stdout_queue.put(f"[进程监控异常] {e}")
         finally:
-            # 如果进程在启动过程中退出，确保解除 start_in_progress 并恢复按钮
             if self.start_in_progress:
                 self.start_in_progress = False
                 try:
@@ -643,7 +752,8 @@ class PageManager(ctk.CTk):
                 self.periodic_backup_stop_event.set()
             except Exception:
                 pass
-            # 在 GUI 刷新周期里会更新状态
+            # 更新控件状态
+            self.update_controls_state()
 
     def stop_server(self):
         if not self.server_process or self.server_process.poll() is not None:
@@ -696,7 +806,7 @@ class PageManager(ctk.CTk):
             messagebox.showwarning("警告", "服务器未运行，无法发送指令。")
             self.log_insert("⚠️ 服务器未运行，无法执行命令。")
 
-    # ---------------- 备份相关（仅备份 world + 选中项） ----------------
+    # ---------------- 备份相关（只备份世界，使用新的备份流程） ----------------
     def _startup_backup_thread(self, jar_path, keep):
         try:
             if not self.current_server_path:
@@ -704,7 +814,7 @@ class PageManager(ctk.CTk):
                 return
             world_folder = self.current_server_path
             note = "startup"
-            self.stdout_queue.put(f"[启动备份] 开始备份（仅 world + 选中项）: {world_folder}")
+            self.stdout_queue.put(f"[启动备份] 开始备份世界: {world_folder}")
             dest = self.backup_world(world_folder, self.backup_dir_var.get(), note=note)
             if dest:
                 self.stdout_queue.put(f"[启动备份] 完成: {dest}")
@@ -730,9 +840,6 @@ class PageManager(ctk.CTk):
                 waited += 1
             if stop_event.is_set() or proc.poll() is not None:
                 break
-            self.stdout_queue.put("[周期备份] 发送 save-all...")
-            self.safe_write_stdin(proc, "save-all\n")
-            time.sleep(1)
             try:
                 if self.current_server_path:
                     src = self.current_server_path
@@ -749,64 +856,75 @@ class PageManager(ctk.CTk):
         self.stdout_queue.put("[周期备份] 已停止。")
 
     def backup_world(self, src_dir, dest_root, note=None):
-        """
-        备份逻辑：优先备份 src_dir/world（或找不到时退回整目录）
-        另外根据用户选择复制额外路径/文件（mods/, plugins/, config/, server.properties, whitelist.json）
-        """
         try:
+            # 获取服务器文件夹名称
+            server_name = os.path.basename(src_dir)
+            
+            # 创建服务器特定的备份目录
+            server_backup_dir = os.path.join(dest_root, server_name)
+            if not os.path.exists(server_backup_dir):
+                os.makedirs(server_backup_dir)
+                self.stdout_queue.put(f"[备份] 为服务器 '{server_name}' 创建新的备份目录")
+            
             ts = _timestamp_str()
             folder_name = f"backup-{ts}"
             if note:
                 safe_note = re.sub(r'[^0-9A-Za-z._-]', '_', note)
                 folder_name += f"_{safe_note}"
-            dest = os.path.join(dest_root, folder_name)
+            dest = os.path.join(server_backup_dir, folder_name)
             os.makedirs(dest, exist_ok=True)
 
-            # 先备份 world 目录
-            world_path = os.path.join(src_dir, "world")
-            if os.path.isdir(world_path):
-                shutil.copytree(world_path, os.path.join(dest, "world"))
-            else:
-                # world 不存在：尝试检测常见 world 名称（如 world_nether 等），或作为回退复制整个目录
-                found = False
-                for name in os.listdir(src_dir):
-                    p = os.path.join(src_dir, name)
-                    if os.path.isdir(p) and os.path.exists(os.path.join(p, "region")):
-                        # 认为这是一个世界目录
-                        shutil.copytree(p, os.path.join(dest, name))
-                        found = True
-                        break
-                if not found:
-                    # 回退：复制整个 server 目录（保守行为并记录日志）
-                    shutil.copytree(src_dir, os.path.join(dest, "server_full_backup"))
-                    self.stdout_queue.put("[备份警告] 未检测到 world 目录，已回退复制整个服务器目录。")
+            # 新的备份流程
+            if self.server_process and self.server_process.poll() is None:
+                # 1. 发送 save-all 确保所有数据已保存
+                self.stdout_queue.put("[备份] 发送 save-all 命令...")
+                self.safe_write_stdin(self.server_process, "save-all\n")
+                time.sleep(3)  # 等待保存完成
+                
+                # 2. 发送 save-off 禁用自动保存
+                self.stdout_queue.put("[备份] 发送 save-off 命令...")
+                self.safe_write_stdin(self.server_process, "save-off\n")
+                time.sleep(1)  # 短暂等待确保命令生效
 
-            # 额外项：仅当存在且用户勾选时复制
-            def copy_if_exists(rel_path, dest_name=None):
-                src_p = os.path.join(src_dir, rel_path)
-                if os.path.exists(src_p):
-                    target = dest_name or os.path.basename(rel_path.rstrip("/"))
-                    dst_p = os.path.join(dest, target)
-                    if os.path.isdir(src_p):
-                        shutil.copytree(src_p, dst_p)
-                    else:
-                        shutil.copy2(src_p, dst_p)
+            try:
+                # 3. 复制世界文件夹
+                world_path = os.path.join(src_dir, "world")
+                if os.path.isdir(world_path):
+                    self.stdout_queue.put("[备份] 正在复制世界文件夹...")
+                    try:
+                        shutil.copytree(world_path, os.path.join(dest, "world"))
+                        self.stdout_queue.put("[备份] 世界文件夹复制完成")
+                    except shutil.Error as e:
+                        self.stdout_queue.put(f"[备份警告] 部分文件复制失败: {e}")
+                        # 继续，不中断备份
+                else:
+                    # 如果找不到标准的 world 文件夹，尝试查找包含 region 的文件夹
+                    found = False
+                    for name in os.listdir(src_dir):
+                        p = os.path.join(src_dir, name)
+                        if os.path.isdir(p) and os.path.exists(os.path.join(p, "region")):
+                            self.stdout_queue.put(f"[备份] 检测到世界文件夹: {name}")
+                            try:
+                                shutil.copytree(p, os.path.join(dest, name))
+                                found = True
+                                self.stdout_queue.put(f"[备份] 世界文件夹 {name} 复制完成")
+                                break
+                            except shutil.Error as e:
+                                self.stdout_queue.put(f"[备份警告] 部分文件复制失败: {e}")
+                    if not found:
+                        self.stdout_queue.put("[备份警告] 未检测到世界文件夹，跳过备份")
+                        return None
 
-            if self.include_mods.get():
-                copy_if_exists("mods", "mods")
-            if self.include_plugins.get():
-                copy_if_exists("plugins", "plugins")
-            if self.include_config.get():
-                copy_if_exists("config", "config")
-            if self.include_serverprops.get():
-                copy_if_exists("server.properties", "server.properties")
-            if self.include_whitelist.get():
-                copy_if_exists("whitelist.json", "whitelist.json")
+            finally:
+                # 4. 重新启用自动保存（无论复制是否成功）
+                if self.server_process and self.server_process.poll() is None:
+                    self.stdout_queue.put("[备份] 发送 save-on 命令...")
+                    self.safe_write_stdin(self.server_process, "save-on\n")
+                    time.sleep(1)  # 短暂等待确保命令生效
 
             return dest
         except Exception as e:
             self.stdout_queue.put(f"[备份失败] {e}")
-            # 清理已创建的部分备份以避免半完成目录（谨慎）
             try:
                 if os.path.isdir(dest):
                     shutil.rmtree(dest)
@@ -816,7 +934,16 @@ class PageManager(ctk.CTk):
 
     def prune_backups(self, dest_root, keep=10):
         try:
-            items = [os.path.join(dest_root, d) for d in os.listdir(dest_root)]
+            # 获取服务器文件夹名称
+            if not self.current_server_path:
+                return
+            server_name = os.path.basename(self.current_server_path)
+            server_backup_dir = os.path.join(dest_root, server_name)
+            
+            if not os.path.exists(server_backup_dir):
+                return
+                
+            items = [os.path.join(server_backup_dir, d) for d in os.listdir(server_backup_dir)]
             items = [p for p in items if os.path.isdir(p)]
             items.sort(key=lambda p: os.path.getmtime(p), reverse=True)
             for p in items[keep:]:
@@ -859,13 +986,86 @@ class PageManager(ctk.CTk):
         except Exception as e:
             messagebox.showerror("错误", f"无法打开目录: {e}")
 
-    def _toggle_periodic_backup(self):
-        val = self.auto_backup_enabled.get()
-        self.periodic_backup_var.set(val)
+    # ---------------- 新功能：服务器运行时锁定设置 ----------------
+    def update_controls_state(self):
+        """根据服务器运行状态更新控件状态"""
+        server_running = self.server_running or (self.server_process and self.server_process.poll() is None)
+        
+        # 内存设置相关控件
+        memory_disabled = server_running
+        self.xms_entry.configure(state="disabled" if memory_disabled else "normal")
+        self.xmx_entry.configure(state="disabled" if memory_disabled else "normal")
+        self.apply_mem_btn.configure(state="disabled" if memory_disabled else "normal")
+        
+        # 周期备份设置相关控件
+        backup_disabled = server_running
+        self.periodic_interval_entry.configure(state="disabled" if backup_disabled else "normal")
+        self.backup_keep_entry.configure(state="disabled" if backup_disabled else "normal")
+        self.apply_periodic_btn.configure(state="disabled" if backup_disabled else "normal")
+        
+        # 手动备份按钮 - 允许在运行时备份
+        self.manual_backup_btn.configure(state="normal")
+        
+        # 启动前备份复选框 - 只在服务器停止时允许修改
+        self.startup_backup_cb.configure(state="disabled" if server_running else "normal")
+        
+        # 周期备份复选框/开关 - 允许在运行时开关
+        self.periodic_backup_cb.configure(state="normal")
+        self.auto_backup_switch.configure(state="normal")
+
+    # ---------------- 新功能：应用设置按钮 ----------------
+    def apply_memory_settings(self):
+        """应用内存设置"""
+        xms_raw = self.xms_entry.get().strip() or DEFAULT_XMS
+        xmx_raw = self.xmx_entry.get().strip() or DEFAULT_XMX
+        xms = parse_memory_value(xms_raw)
+        xmx = parse_memory_value(xmx_raw)
+        
+        if not xms or not xmx:
+            messagebox.showerror("错误", "内存设置无效，请使用数字并可带后缀 G/M（例如 2G 或 1024M）。")
+            return
+        
+        def to_mb(s):
+            if s.lower().endswith('g'):
+                return int(s[:-1]) * 1024
+            if s.lower().endswith('m'):
+                return int(s[:-1])
+            return int(s)
+        
+        try:
+            if to_mb(xmx) < to_mb(xms):
+                messagebox.showerror("错误", "Xmx 必须大于或等于 Xms。")
+                return
+        except Exception:
+            messagebox.showerror("错误", "内存参数解析失败。")
+            return
+        
+        messagebox.showinfo("成功", f"内存设置已更新：\nXms: {xms}\nXmx: {xmx}")
+        self.log_insert(f"⚙️ 内存设置已更新：Xms={xms}, Xmx={xmx}")
+
+    def apply_periodic_backup_settings(self):
+        """应用周期备份设置"""
+        try:
+            interval = int(self.periodic_interval_entry.get()) if self.periodic_interval_entry.get().isdigit() else 10
+            keep = int(self.backup_keep_entry.get()) if self.backup_keep_entry.get().isdigit() else 10
+            
+            if interval <= 0:
+                messagebox.showerror("错误", "备份周期必须大于0分钟。")
+                return
+                
+            if keep <= 0:
+                messagebox.showerror("错误", "保留备份数量必须大于0。")
+                return
+                
+            messagebox.showinfo("成功", f"周期备份设置已更新：\n备份周期: {interval} 分钟\n保留备份: {keep} 个")
+            self.log_insert(f"⚙️ 周期备份设置已更新：间隔={interval}分钟, 保留={keep}个")
+            
+        except ValueError:
+            messagebox.showerror("错误", "请输入有效的数字。")
 
     # ---------------- 清理 / 退出 ----------------
     def on_closing(self):
-        if self.server_process and self.server_process.poll() is None:
+        if self.server_process and self.server_process.poll() is not None:
             if messagebox.askyesno("退出确认", "服务器似乎仍在运行，确定要退出并尝试关闭程序吗？"):
                 try:
                     self.safe_write_stdin(self.server_process, "stop\n")
@@ -886,7 +1086,7 @@ class PageManager(ctk.CTk):
                 return
         try:
             if self.log_file_handle:
-                self.log_file_handle.close()    
+                self.log_file_handle.close()
         except Exception:
             pass
         self.destroy()
@@ -896,4 +1096,3 @@ if __name__ == '__main__':
     ensure_dirs()
     app = PageManager()
     app.mainloop()
-
