@@ -1059,6 +1059,9 @@ class PageManager(ctk.CTk):
     # ---------------- 备份逻辑 (简化移植) ----------------
     def _startup_backup_thread(self, jar_path):
         folder = os.path.dirname(jar_path)
+        # --- 针对需求 2 的修改：启动前先清理旧的启动备份 ---
+        self._prune_startup_backups(folder) 
+        # ---------------------------------------------
         self.after(0, lambda: self.stdout_queue.put(f"🔄 [启动备份] 正在备份 {folder}..."))
         self.backup_world(folder, "startup")
         self.startup_backup_done_event.set()
@@ -1067,7 +1070,7 @@ class PageManager(ctk.CTk):
         try:
             iv = int(self.periodic_interval_entry.get())
         except: iv = 10
-        keep = 10
+        
         self.after(0, lambda: self.stdout_queue.put(f"⏱️ 周期备份启动，间隔 {iv} 分钟"))
         
         while not self.periodic_backup_stop_event.is_set():
@@ -1076,12 +1079,42 @@ class PageManager(ctk.CTk):
                 time.sleep(1)
             
             if self.server_running and self.current_server_path:
+                self.log_insert("⏳ [周期备份] 正在准备世界保存...")
                 self.safe_write_stdin("save-all\n")
                 time.sleep(2)
                 self.safe_write_stdin("save-off\n")
                 time.sleep(1)
                 self.backup_world(self.current_server_path, "periodic")
                 self.safe_write_stdin("save-on\n")
+                # --- 针对需求 1 的修改：周期备份后立即清理 ---
+                self.after(0, lambda folder=self.current_server_path: self.prune_backups(folder))
+                # ----------------------------------------
+                
+    def _prune_startup_backups(self, src_dir):
+        """删除旧的启动前备份，只保留最新的一个"""
+        if not src_dir: return
+        s_name = os.path.basename(src_dir)
+        dest_dir = os.path.join(self.backup_dir_var.get(), s_name)
+        if not os.path.isdir(dest_dir): return
+
+        # 查找所有 startup 备份
+        startup_backups = []
+        for item in os.listdir(dest_dir):
+            if re.match(r"backup-(\d{8})-(\d{6})_startup", item):
+                startup_backups.append(item)
+        
+        # 按时间倒序排序 (最新的在前面)
+        startup_backups.sort(reverse=True)
+        
+        # 删除除第一个 (最新的) 之外的所有备份
+        for i in startup_backups[1:]:
+            full_path = os.path.join(dest_dir, i)
+            try:
+                shutil.rmtree(full_path)
+                self.after(0, lambda name=i: self.stdout_queue.put(f"🗑️ [启动前备份] 清理旧启动备份: {name}"))
+            except Exception as e:
+                 self.after(0, lambda name=i, err=e: self.stdout_queue.put(f"❌ [启动前备份] 清理失败 {name}: {err}"))
+
 
     def backup_world(self, src_dir, note):
         if not src_dir: return
@@ -1102,23 +1135,53 @@ class PageManager(ctk.CTk):
                 shutil.copytree(src_dir, final_dest, ignore=shutil.ignore_patterns("*.jar", "backups", "logs", "servers"), dirs_exist_ok=True) 
                 self.after(0, lambda: self.stdout_queue.put(f"✅ 全量备份完成: {name}"))
 
-            self.prune_backups(dest_dir)
+            # 注释掉这里的 prune_backups，因为在 _periodic_backup_loop 中处理了
+            # self.prune_backups(dest_dir) 
             self.after(0, self._refresh_backup_list)
 
         except Exception as e:
-            self.after(0, lambda: self.stdout_queue.put(f"❌ 备份失败: {e}"))
+            # >>> 修复闭包错误: 使用默认参数捕获当前 e 的值 <<<
+            error_message = str(e)
+            self.after(0, lambda msg=error_message: self.stdout_queue.put(f"❌ 备份失败: {msg}"))
+            # >>> 修复结束 <<<
 
-    def prune_backups(self, folder):
+    def prune_backups(self, src_dir):
+        """
+        更新后的清理逻辑: 
+        1. 找出所有非 startup 的备份
+        2. 删除超出保留数量 (kp) 的旧备份
+        """
+        if not src_dir: return
         try:
             kp = int(self.backup_keep_entry.get())
         except: kp = 10
-        items = sorted([os.path.join(folder, d) for d in os.listdir(folder) if os.path.isdir(os.path.join(folder, d))], key=os.path.getmtime, reverse=True)
-        for i in items[kp:]:
+        
+        s_name = os.path.basename(src_dir)
+        folder = os.path.join(self.backup_dir_var.get(), s_name)
+        if not os.path.isdir(folder): return
+
+        # 1. 筛选出非 'startup' 的备份
+        items_to_prune = []
+        for d in os.listdir(folder):
+            if not os.path.isdir(os.path.join(folder, d)): continue
+            if not re.match(r"backup-(\d{8})-(\d{6})_startup", d):
+                items_to_prune.append(os.path.join(folder, d))
+        
+        # 2. 按修改时间倒序排序 (最新的在前面)
+        items_to_prune.sort(key=os.path.getmtime, reverse=True)
+        
+        # 3. 删除超出数量的旧备份
+        for i in items_to_prune[kp:]:
             try: 
                 shutil.rmtree(i)
-                self.after(0, lambda: self.stdout_queue.put(f"🗑️ 清理旧备份: {os.path.basename(i)}"))
-            except: 
-                pass
+                self.after(0, lambda name=os.path.basename(i): self.stdout_queue.put(f"🗑️ [周期备份清理] 清理旧备份: {name}"))
+            except Exception as e:
+                 # 修复闭包错误
+                 error_message = str(e)
+                 self.after(0, lambda name=os.path.basename(i), msg=error_message: self.stdout_queue.put(f"❌ [周期备份清理] 清理失败 {name}: {msg}"))
+        
+        self.after(0, self._refresh_backup_list)
+
 
     def _manual_backup(self):
         if not self.current_server_path:
@@ -1291,8 +1354,10 @@ class PageManager(ctk.CTk):
                 
 
         except Exception as e:
-            self.log_insert(f"❌ [还原] 还原失败: {e}")
-            self.after(0, lambda: messagebox.showerror("错误", f"还原失败: {e}"))
+            # 修复闭包错误
+            error_message = str(e)
+            self.log_insert(f"❌ [还原] 还原失败: {error_message}")
+            self.after(0, lambda msg=error_message: messagebox.showerror("错误", f"还原失败: {msg}"))
         finally:
             self.after(0, self._update_restore_button_state)
 
