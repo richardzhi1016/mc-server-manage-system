@@ -115,7 +115,7 @@ class PageManager(ctk.CTk):
         ctk.set_default_color_theme("blue")
         self.title("Minecraft Server Manager V3 (Final)")
         self.geometry("1300x850") 
-        self.minsize(1100, 750)
+        self.minsize(1024, 600)
 
         # 核心状态
         self.server_process = None
@@ -334,7 +334,7 @@ class PageManager(ctk.CTk):
 
     # ---------------- 页面 1: 启动页面 (Main) ----------------
     def _create_main_page(self):
-        page = ctk.CTkFrame(self.page_container, corner_radius=6, fg_color="transparent")
+        page = ctk.CTkScrollableFrame(self.page_container, corner_radius=6, fg_color="transparent")
         self.pages['main'] = page
         
         selection_frame = ctk.CTkFrame(page)
@@ -437,7 +437,7 @@ class PageManager(ctk.CTk):
 
     # ---------------- 页面 2: 安装部署 (Install) ----------------
     def _create_install_page(self):
-        page = ctk.CTkFrame(self.page_container, corner_radius=6, fg_color="transparent")
+        page = ctk.CTkScrollableFrame(self.page_container, corner_radius=6, fg_color="transparent")
         self.pages['install'] = page
         
         ctk.CTkLabel(page, text="快速架設 Paper 伺服器", font=("", 18, "bold")).pack(pady=15)
@@ -495,7 +495,7 @@ class PageManager(ctk.CTk):
 
     # ---------------- 页面 3: 备份设置 (Backup) ----------------
     def _create_backup_page(self):
-        page = ctk.CTkFrame(self.page_container, corner_radius=6, fg_color="transparent")
+        page = ctk.CTkScrollableFrame(self.page_container, corner_radius=6, fg_color="transparent")
         self.pages['backup'] = page
         
         ctk.CTkLabel(page, text="备份设置", font=("", 18, "bold")).pack(pady=10)
