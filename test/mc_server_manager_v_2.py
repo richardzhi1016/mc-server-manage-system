@@ -1,4 +1,4 @@
-# mc_server_manager_v3_final_fixed.py
+# mc_server_manager_v5_final.py
 import os
 import subprocess
 import threading
@@ -11,8 +11,9 @@ import zipfile
 import sys
 import webbrowser
 import json
+import uuid  # 用于生成随机UUID作为备选
 import customtkinter as ctk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, Menu
 
 # Try to import requests
 try:
@@ -29,14 +30,17 @@ except ImportError:
 DEFAULT_SERVER_JAR = "server.jar"
 READ_QUEUE_POLL_MS = 200
 STOP_WAIT_SECONDS = 12
-LOG_DIR = "logs"  # 总日志目录
-LOG_APP_DIR = os.path.join(LOG_DIR, "app")       # 程序日志目录
-LOG_SERVER_DIR = os.path.join(LOG_DIR, "server") # 服务器日志目录
-BACKUP_DIR = "backups"
+
+# 目录结构
+DATA_ROOT_DIR = "data"
+LOG_DIR = os.path.join(DATA_ROOT_DIR, "logs")
+LOG_APP_DIR = os.path.join(LOG_DIR, "app")
+LOG_SERVER_DIR = os.path.join(LOG_DIR, "server")
+BACKUP_DIR = os.path.join(DATA_ROOT_DIR, "backups")
 SERVERS_ROOT_DIR = "servers" 
+
 DEFAULT_XMS = "1G" 
 DEFAULT_XMX = "2G" 
-START_BUTTON_BLOCK_MS = 15000
 
 # 奶白色按钮配色 (UI Theme)
 MILKY_FG = "#F5F5DC"
@@ -45,11 +49,12 @@ MILKY_TEXT = "#111111"
 
 # ------------------ 工具函数 ------------------
 def ensure_dirs():
+    if not os.path.isdir(DATA_ROOT_DIR):
+        os.makedirs(DATA_ROOT_DIR, exist_ok=True)
     if not os.path.isdir(LOG_APP_DIR):
         os.makedirs(LOG_APP_DIR, exist_ok=True)
     if not os.path.isdir(LOG_SERVER_DIR):
         os.makedirs(LOG_SERVER_DIR, exist_ok=True)
-        
     if not os.path.isdir(BACKUP_DIR):
         os.makedirs(BACKUP_DIR, exist_ok=True)
     if not os.path.isdir(SERVERS_ROOT_DIR): 
@@ -57,17 +62,6 @@ def ensure_dirs():
 
 def _timestamp_str():
     return datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-
-def parse_memory_value(s):
-    if not s: return None
-    s = s.strip()
-    m = re.match(r'^(\d+)([gGmM])?$', s)
-    if not m: return None
-    num = m.group(1)
-    suf = m.group(2)
-    if not suf: return f"{num}M"
-    if suf.lower() == 'g': return f"{num}G"
-    return f"{num}M"
 
 def get_required_java_version(mc_version):
     try:
@@ -113,10 +107,8 @@ class PageManager(ctk.CTk):
         super().__init__()
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
-        self.title("Minecraft Server Manager V3 (Final)")
+        self.title("Minecraft Server Manager V3 (Final Fixed V5)")
         self.geometry("1300x850") 
-        
-        # [修改 1] 调小最小尺寸，适应笔记本小屏幕
         self.minsize(1024, 600)
 
         # 核心状态
@@ -125,17 +117,18 @@ class PageManager(ctk.CTk):
         self.stdout_queue = queue.Queue() 
         self.reader_thread = None
         self.reader_thread_stop_event = threading.Event()
-        
-        # 新增：在线玩家集合
         self.online_players = set()
         
-        # --- 日志文件句柄分离 ---
+        # UI 组件引用列表
+        self.settings_widgets = [] 
+        self.backup_lockable_widgets = [] 
+        
+        # 日志文件句柄
         self.server_log_file_handle = None 
         self.app_log_file_handle = None    
         
         ensure_dirs()
         try:
-            # App 日志保存到 logs/app/ 目录
             app_log_path = os.path.join(LOG_APP_DIR, f"app-{_timestamp_str()}.log")
             self.app_log_file_handle = open(app_log_path, 'a', encoding='utf-8')
         except: pass
@@ -153,6 +146,9 @@ class PageManager(ctk.CTk):
         self.start_in_progress = False
         self.scanned_server_map = {} 
         
+        # 缓存 UUID 字典 {name: uuid}
+        self.cached_uuids = {}
+
         # --- 内存设置选项 ---
         self.MEMORY_OPTIONS_RATIO = [
             (1, 2), (2, 4), (3, 6), (4, 8), 
@@ -162,17 +158,35 @@ class PageManager(ctk.CTk):
             f"Xms{s}G, Xmx{x}G" for s, x in self.MEMORY_OPTIONS_RATIO
         ]
         
-        # --- 主页配置变量 ---
+        # --- Server配置变量 ---
         self.online_mode_var = ctk.BooleanVar(value=True) 
         self.pvp_var = ctk.BooleanVar(value=True)
         self.max_players_var = ctk.StringVar(value="20")
+        
+        self.difficulty_var = ctk.StringVar(value="easy (简单)")
+        self.view_distance_var = ctk.StringVar(value="10")
+        self.allow_flight_var = ctk.BooleanVar(value=False)
+        self.white_list_var = ctk.BooleanVar(value=False)
+        
+        # 端口和种子
+        self.server_port_var = ctk.StringVar(value="25565")
+        self.level_seed_var = ctk.StringVar(value="") 
+        self.original_loaded_port = "25565" 
+
+        # simulation-distance 和 motd
+        self.simulation_distance_var = ctk.StringVar(value="10")
+        self.motd_var = ctk.StringVar(value="A Minecraft Server")
+        
+        # 白名单管理
+        self.whitelist_add_var = ctk.StringVar()
+
+        # 主页变量
         self.available_servers_var = ctk.StringVar(value="未检测到服务器") 
         self.selected_server_path = ctk.StringVar(value="") 
-        
         self.memory_var = ctk.StringVar(value=self.MEMORY_OPTIONS_DISPLAY[1]) 
         self.pending_memory_var = ctk.StringVar(value=self.MEMORY_OPTIONS_DISPLAY[1]) 
         
-        # --- 安装页变量 ---
+        # 安装页变量
         self.install_version_var = ctk.StringVar(value="请选择版本")
         self.install_name_var = ctk.StringVar(value="MyNewServer") 
         self.install_eula_var = ctk.BooleanVar(value=True) 
@@ -188,11 +202,8 @@ class PageManager(ctk.CTk):
         self._build_right_area()
         self.create_pages()
 
-        # 启动队列轮询
         self.after(READ_QUEUE_POLL_MS, self.poll_stdout_queue)
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
-        
-        # 启动时执行服务器扫描
         self.after(100, self._initial_scan_servers)
 
     def _build_top_bar(self):
@@ -229,10 +240,10 @@ class PageManager(ctk.CTk):
         self.nav_menu_frame.lift()
         
         menus = [
-            ("启动页面", 'main'),
-            ("安装部署", 'install'), 
-            ("备份设置", 'backup'),
-            ("扩展功能", 'extra')
+            ("启动伺服器", 'main'),
+            ("伺服器设置", 'settings'), 
+            ("备份资料", 'backup'),
+            ("伺服器部署", 'install')
         ]
         
         for text, page_id in menus:
@@ -247,43 +258,38 @@ class PageManager(ctk.CTk):
             self.nav_menu_frame = None
         self.show_page(page)
 
-    # ---------------- UI 布局 (1:2 比例) ----------------
+    # ---------------- UI 布局 ----------------
     def _build_right_area(self):
-        self.right_area.grid_rowconfigure(0, weight=1) # 上半部分
-        self.right_area.grid_rowconfigure(1, weight=2) # 下半部分 (Server Log)
+        self.right_area.grid_rowconfigure(0, weight=1) 
+        self.right_area.grid_rowconfigure(1, weight=2) 
         self.right_area.grid_columnconfigure(0, weight=1)
 
-        # === 上半部分 (Top Split Area) ===
+        # === 上半部分 ===
         self.top_split_frame = ctk.CTkFrame(self.right_area, corner_radius=6, fg_color="transparent")
         self.top_split_frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=(0, 6))
-        
-        # 上半部分左右分割 (Player:AppLog = 1:2)
-        self.top_split_frame.grid_columnconfigure(0, weight=1) # Player List
-        self.top_split_frame.grid_columnconfigure(1, weight=2) # App Log
+        self.top_split_frame.grid_columnconfigure(0, weight=1)
+        self.top_split_frame.grid_columnconfigure(1, weight=2)
         self.top_split_frame.grid_rowconfigure(0, weight=1)
 
-        # 1. 左上: 玩家列表 (Player List)
+        # 玩家列表
         self.player_list_frame = ctk.CTkFrame(self.top_split_frame, corner_radius=6, border_width=2, border_color="#555555")
         self.player_list_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 3), pady=0)
-        
         ctk.CTkLabel(self.player_list_frame, text="在线玩家列表", font=("", 12, "bold")).pack(pady=5)
         self.player_list_box = ctk.CTkTextbox(self.player_list_frame) 
         self.player_list_box.pack(fill="both", expand=True, padx=5, pady=5)
         self.player_list_box.insert("0.0", "等待服务器启动...")
         self.player_list_box.configure(state="disabled")
 
-        # 2. 右上: 程序日志 (App Log)
+        # 程序日志
         self.app_log_frame = ctk.CTkFrame(self.top_split_frame, corner_radius=6, border_width=2, border_color="#3A86FF")
         self.app_log_frame.grid(row=0, column=1, sticky="nsew", padx=(3, 0), pady=0)
-        
         ctk.CTkLabel(self.app_log_frame, text="程序运行日志 (App Log)", font=("", 12, "bold")).pack(pady=5)
         self.app_log_text = ctk.CTkTextbox(self.app_log_frame, wrap="word")
         self.app_log_text.pack(fill="both", expand=True, padx=5, pady=5)
         self.app_log_text.insert('0.0', '💡 欢迎使用 Minecraft Server Manager V3\n')
         self.app_log_text.configure(state='disabled')
 
-        # === 下半部分 (Bottom Area) ===
-        # 3. 下方: Server Log + Command
+        # === 下半部分 ===
         self.server_console_frame = ctk.CTkFrame(self.right_area, corner_radius=6, border_width=2, border_color="#2ECC71")
         self.server_console_frame.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
         self.server_console_frame.grid_rowconfigure(1, weight=1) 
@@ -295,7 +301,6 @@ class PageManager(ctk.CTk):
         self.server_log_text.grid(row=1, column=0, sticky="nsew", padx=5, pady=0)
         self.server_log_text.configure(state='disabled')
 
-        # 指令输入区
         self.command_container = ctk.CTkFrame(self.server_console_frame, fg_color="transparent")
         self.command_container.grid(row=2, column=0, sticky="ew", padx=5, pady=5)
         self.command_container.grid_columnconfigure(0, weight=1)
@@ -315,9 +320,9 @@ class PageManager(ctk.CTk):
         self.pages = {}
         
         self._create_main_page()
-        self._create_install_page() 
+        self._create_settings_page() 
         self._create_backup_page()
-        self._create_extra_page()
+        self._create_install_page() 
         
         for p in self.pages.values():
             p.place(in_=self.page_container, x=0, y=0, relwidth=1, relheight=1)
@@ -328,15 +333,15 @@ class PageManager(ctk.CTk):
         if name in self.pages:
             self.pages[name].lift()
             self.current_page = name
-            
             if name == 'main':
                 self.app_log_insert("🔄 切换到启动页面，正在重新扫描服务器文件夹...")
                 self._initial_scan_servers()
-
+            if name == 'settings':
+                # 切换到设置页时刷新白名单显示
+                self._load_whitelist_ui()
 
     # ---------------- 页面 1: 启动页面 (Main) ----------------
     def _create_main_page(self):
-        # [修改 2] 使用 CTkScrollableFrame 并应用奶白色滚动条
         page = ctk.CTkScrollableFrame(
             self.page_container, 
             corner_radius=6, 
@@ -352,10 +357,12 @@ class PageManager(ctk.CTk):
         
         ctk.CTkLabel(selection_frame, text="选择启动的服务器:", anchor="w").grid(row=0, column=0, padx=5, pady=5, sticky="w")
         
+        # [修改] 禁止输入: state="readonly"
         self.server_combo = ctk.CTkComboBox(selection_frame, 
                                             values=["未检测到服务器"], 
                                             variable=self.available_servers_var, 
-                                            command=self._on_server_select)
+                                            command=self._on_server_select,
+                                            state="readonly")
         self.server_combo.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
 
         self.folder_label = ctk.CTkLabel(page, text="当前文件夹: 未选择", anchor="w")
@@ -377,16 +384,17 @@ class PageManager(ctk.CTk):
         combo_frame.grid(row=1, column=0, padx=8, pady=4, sticky="ew")
         combo_frame.grid_columnconfigure(0, weight=1)
 
+        # [修改] 禁止输入: state="readonly"
         self.memory_combo = ctk.CTkComboBox(combo_frame, 
                                             values=self.MEMORY_OPTIONS_DISPLAY, 
                                             variable=self.pending_memory_var, 
-                                            width=250)
+                                            width=250,
+                                            state="readonly")
         self.memory_combo.grid(row=0, column=0, sticky="w")
         
         confirm_btn = ctk.CTkButton(combo_frame, text="确认", command=self.apply_memory_settings_gui,
                                       fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT, width=80)
         confirm_btn.grid(row=0, column=1, padx=(6,0), sticky="w")
-
 
         explanation_text = "💡 Xms: 初始/最小内存 (Min Memory)。Xmx: 最大内存 (Max Memory)。"
         ctk.CTkLabel(mem_card, text=explanation_text, text_color=MILKY_FG, font=("", 10)).grid(row=2, column=0, padx=8, pady=(4,8), sticky="w")
@@ -398,7 +406,7 @@ class PageManager(ctk.CTk):
         config_card.grid_columnconfigure(1, weight=1)
         config_card.grid_columnconfigure(2, weight=1)
         
-        ctk.CTkLabel(config_card, text="服务器配置 (自动读取)", font=("", 12, "bold")).grid(row=0, column=0, columnspan=3, pady=(5,5))
+        ctk.CTkLabel(config_card, text="快速配置 (与 Server 设置页同步)", font=("", 12, "bold")).grid(row=0, column=0, columnspan=3, pady=(5,5))
         
         self.online_switch = ctk.CTkSwitch(config_card, text="正版验证", variable=self.online_mode_var)
         self.online_switch.grid(row=1, column=0, padx=5, pady=5)
@@ -433,7 +441,7 @@ class PageManager(ctk.CTk):
         self.status_label = ctk.CTkLabel(page, text="服务器状态: 未运行", anchor="w")
         self.status_label.pack(fill="x", padx=20, pady=(0,8))
 
-        # 备份简略 (自动保存修改)
+        # 备份简略
         brief_frame = ctk.CTkFrame(page)
         brief_frame.pack(fill="x", padx=20, pady=(0,8))
         self.startup_backup_cb = ctk.CTkCheckBox(brief_frame, text="启动前自动备份", variable=self.startup_backup_var,
@@ -444,9 +452,381 @@ class PageManager(ctk.CTk):
                                                   command=self._save_manager_config) 
         self.periodic_backup_cb.pack(side="left", padx=10, pady=8)
 
-    # ---------------- 页面 2: 安装部署 (Install) ----------------
+    # ---------------- 页面 2: Server 设置 (Updated Layout) ----------------
+    def _create_settings_page(self):
+        page = ctk.CTkScrollableFrame(
+            self.page_container, 
+            corner_radius=6, 
+            fg_color="transparent",
+            scrollbar_button_color=MILKY_FG, 
+            scrollbar_button_hover_color=MILKY_HOVER
+        )
+        self.pages['settings'] = page
+        
+        ctk.CTkLabel(page, text="伺服器设置", font=("", 18, "bold")).pack(pady=(15, 5))
+        
+        server_name_label = ctk.CTkLabel(page, 
+                                         textvariable=self.available_servers_var, 
+                                         font=("", 15, "bold"),
+                                         text_color="#F0EBD8")
+        server_name_label.pack(pady=(0, 15))
+        
+        # --- A. server.properties 设置卡片 ---
+        settings_container = ctk.CTkScrollableFrame(
+            page, 
+            orientation="horizontal", 
+            height=450, 
+            scrollbar_button_color=MILKY_FG,       
+            scrollbar_button_hover_color=MILKY_HOVER
+        )
+        settings_container.pack(fill="x", padx=20, pady=10)
+        
+        settings_container.grid_columnconfigure(0, weight=0, minsize=200) # 标签
+        settings_container.grid_columnconfigure(1, weight=0, minsize=200) # 控件
+        settings_container.grid_columnconfigure(2, weight=1, minsize=550) # 说明
+
+        # 辅助函数
+        self._current_setting_row = 0
+        def add_setting_row(label_text, widget, help_text):
+            r = self._current_setting_row
+            lbl = ctk.CTkLabel(settings_container, text=label_text, anchor="w", font=("", 12, "bold"))
+            lbl.grid(row=r, column=0, padx=15, pady=8, sticky="w")
+            widget.grid(row=r, column=1, padx=10, pady=8, sticky="w")
+            help_lbl = ctk.CTkLabel(settings_container, text=help_text, text_color="gray", anchor="w", font=("", 11))
+            help_lbl.grid(row=r, column=2, padx=10, pady=8, sticky="w")
+            self.settings_widgets.append(widget)
+            self._current_setting_row += 1
+
+        # 设置项
+        sw_online = ctk.CTkSwitch(settings_container, text="启用/禁用", variable=self.online_mode_var)
+        add_setting_row("正版验证 (online-mode)", sw_online, "开启后仅正版玩家可加入伺服器")
+
+        sw_pvp = ctk.CTkSwitch(settings_container, text="启用/禁用", variable=self.pvp_var)
+        add_setting_row("PVP 伤害 (pvp)", sw_pvp, "玩家之间是否可以互相攻击。")
+
+        sw_flight = ctk.CTkSwitch(settings_container, text="启用/禁用", variable=self.allow_flight_var)
+        add_setting_row("允许飞行 (allow-flight)", sw_flight, "允许作弊或漏洞利用来飞行")
+
+        sw_whitelist = ctk.CTkSwitch(settings_container, text="启用/禁用", variable=self.white_list_var)
+        add_setting_row("白名单 (white-list)", sw_whitelist, "是否只允许白名单内的玩家进入服务器")
+
+        # [修改] 禁止输入: state="readonly"
+        diff_values = ["peaceful (和平)", "easy (简单)", "normal (普通)", "hard (困难)"]
+        diff_combo = ctk.CTkComboBox(settings_container, values=diff_values, variable=self.difficulty_var, width=180, state="readonly")
+        add_setting_row("游戏难度 (difficulty)", diff_combo, "设置世界的游戏难度")
+
+        view_entry = ctk.CTkEntry(settings_container, textvariable=self.view_distance_var, width=180)
+        add_setting_row("视距 (view-distance)", view_entry, "服务端加载区块的距离 (3-32)")
+
+        max_p_entry = ctk.CTkEntry(settings_container, textvariable=self.max_players_var, width=180)
+        add_setting_row("最大玩家数 (max-players)", max_p_entry, "服务器允许同时在线的最大玩家数量")
+
+        port_entry = ctk.CTkEntry(settings_container, textvariable=self.server_port_var, width=180)
+        add_setting_row("服务器端口 (server-port)", port_entry, "默认25565。服务器用于接收连接的端口")
+
+        sim_entry = ctk.CTkEntry(settings_container, textvariable=self.simulation_distance_var, width=180)
+        add_setting_row("模拟距离 (simulation-distance)", sim_entry, "实体更新的距离 (3-32)。降低此值可显著优化性能")
+
+        motd_entry = ctk.CTkEntry(settings_container, textvariable=self.motd_var, width=180)
+        add_setting_row("欢迎信息 (motd)", motd_entry, "服务器列表中显示的欢迎标语")
+
+        # [修改] 按钮尺寸: 移除 height 和 font，使其与启动按钮一致
+        self.settings_save_btn = ctk.CTkButton(page, text="保存所有设置", 
+                                               command=self.save_server_properties_gui,
+                                               fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT)
+        self.settings_save_btn.pack(pady=20, padx=40, fill="x")
+        self.settings_widgets.append(self.settings_save_btn)
+        
+        ctk.CTkLabel(page, text="注意: 修改设置后需重启服务器生效。当服务器运行时，此页面将被锁定。", text_color="gray", font=("", 11)).pack(pady=5)
+
+        # --- B. 白名单管理区域 (新增功能) ---
+        whitelist_frame = ctk.CTkFrame(page)
+        whitelist_frame.pack(fill="x", padx=20, pady=(20, 30))
+        whitelist_frame.grid_columnconfigure(0, weight=1) # Left
+        whitelist_frame.grid_columnconfigure(1, weight=1) # Right
+
+        # 左侧：白名单列表
+        left_box = ctk.CTkFrame(whitelist_frame, fg_color="transparent")
+        left_box.grid(row=0, column=0, padx=(10, 5), pady=10, sticky="nsew")
+        
+        ctk.CTkLabel(left_box, text="白名单列表 (右键移除)", font=("", 14, "bold"), anchor="w").pack(fill="x", pady=(0, 5))
+        
+        self.whitelist_listbox = ctk.CTkTextbox(left_box, height=150)
+        self.whitelist_listbox.pack(fill="both", expand=True)
+        self.whitelist_listbox.configure(state="disabled")
+        # 绑定右键菜单
+        self.whitelist_menu = Menu(self, tearoff=0)
+        self.whitelist_menu.add_command(label="从白名单移除", command=self._remove_whitelist_item)
+        self.whitelist_listbox.bind("<Button-3>", self._show_whitelist_menu) # Windows/Linux Right Click
+
+        # 右侧：添加区域
+        right_box = ctk.CTkFrame(whitelist_frame, fg_color="transparent")
+        right_box.grid(row=0, column=1, padx=(5, 10), pady=10, sticky="nsew")
+        
+        ctk.CTkLabel(right_box, text="添加白名单", font=("", 14, "bold"), anchor="w").pack(fill="x", pady=(0, 5))
+        ctk.CTkLabel(right_box, text="伺服器历史玩家:", anchor="w").pack(fill="x", pady=(5, 2))
+        
+        # 组合框：历史玩家 + 输入框 (这里不锁定，必须允许手动输入新玩家)
+        self.whitelist_combo = ctk.CTkComboBox(right_box, 
+                                               variable=self.whitelist_add_var,
+                                               values=[])
+        self.whitelist_combo.pack(fill="x", pady=(0, 10))
+        
+        add_wl_btn = ctk.CTkButton(right_box, text="添加", command=self._add_whitelist_player,
+                                   fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT, width=100)
+        add_wl_btn.pack(anchor="e")
+
+    # [新增] 加载白名单UI逻辑
+    def _load_whitelist_ui(self):
+        if not self.current_server_path:
+            return
+        
+        # 1. 读取 whitelist.json
+        wl_path = os.path.join(self.current_server_path, "whitelist.json")
+        current_wl = []
+        if os.path.exists(wl_path):
+            try:
+                with open(wl_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    current_wl = [item['name'] for item in data if 'name' in item]
+            except: pass
+        
+        self.whitelist_listbox.configure(state="normal")
+        self.whitelist_listbox.delete("0.0", "end")
+        for name in current_wl:
+            self.whitelist_listbox.insert("end", name + "\n")
+        self.whitelist_listbox.configure(state="disabled")
+
+        # 2. 读取 usercache.json (历史玩家)
+        # 修正: 同时缓存 UUID
+        uc_path = os.path.join(self.current_server_path, "usercache.json")
+        history_players = []
+        self.cached_uuids = {} # 清空旧缓存
+
+        if os.path.exists(uc_path):
+            try:
+                with open(uc_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    for item in data:
+                        if 'name' in item and 'uuid' in item:
+                            pname = item['name']
+                            puuid = item['uuid']
+                            history_players.append(pname)
+                            self.cached_uuids[pname] = puuid
+            except: pass
+        
+        # 去重并更新 Combo
+        history_players = sorted(list(set(history_players)))
+        self.whitelist_combo.configure(values=history_players)
+
+    # [新增] 添加白名单
+    def _add_whitelist_player(self):
+        name = self.whitelist_add_var.get().strip()
+        if not name: return
+        
+        # 如果服务器运行，直接发指令 (Server 会自己查缓存或联网)
+        if self.server_running:
+            self.safe_write_stdin(f"whitelist add {name}\n")
+            self.app_log_insert(f"📋 [白名单] 发送指令添加: {name}")
+            self.after(500, self._load_whitelist_ui)
+        else:
+            # 离线修改
+            # 修正: 优先使用 usercache 中的 UUID
+            known_uuid = self.cached_uuids.get(name)
+            
+            if known_uuid:
+                self._offline_add_whitelist(name, known_uuid)
+                self.app_log_insert(f"📋 [白名单] 使用缓存 UUID 添加: {name}")
+            else:
+                # 确实是新玩家，且服务器没开
+                if messagebox.askyesno("新玩家", f"玩家 {name} 不在历史缓存中。\n手动添加需要生成随机 UUID，这对于正版服务器可能无效。\n是否继续？"):
+                    random_uuid = str(uuid.uuid4())
+                    self._offline_add_whitelist(name, random_uuid)
+        
+        self.whitelist_add_var.set("") # 清空
+
+    def _offline_add_whitelist(self, name, uuid_str):
+        if not self.current_server_path: return
+        wl_path = os.path.join(self.current_server_path, "whitelist.json")
+        data = []
+        if os.path.exists(wl_path):
+            try:
+                with open(wl_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+            except: pass
+        
+        # 检查是否存在
+        for item in data:
+            if item.get('name', '').lower() == name.lower():
+                return
+        
+        # 写入
+        data.append({"uuid": uuid_str, "name": name})
+        try:
+            with open(wl_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=4)
+            self.app_log_insert(f"📋 [白名单] 离线写入成功: {name}")
+            self._load_whitelist_ui()
+        except Exception as e:
+            messagebox.showerror("错误", str(e))
+
+    # [新增] 右键菜单相关
+    def _show_whitelist_menu(self, event):
+        try:
+            index = self.whitelist_listbox.index(f"@{event.x},{event.y}")
+            line_start = f"{index.split('.')[0]}.0"
+            line_end = f"{index.split('.')[0]}.end"
+            selected_text = self.whitelist_listbox.get(line_start, line_end).strip()
+            
+            if selected_text:
+                self._selected_whitelist_player = selected_text
+                self.whitelist_menu.post(event.x_root, event.y_root)
+        except: pass
+
+    def _remove_whitelist_item(self):
+        name = getattr(self, '_selected_whitelist_player', None)
+        if not name: return
+        
+        if self.server_running:
+            self.safe_write_stdin(f"whitelist remove {name}\n")
+            self.app_log_insert(f"📋 [白名单] 发送指令移除: {name}")
+            self.after(500, self._load_whitelist_ui)
+        else:
+            if messagebox.askyesno("确认", f"确定从白名单移除 {name} 吗？"):
+                self._offline_remove_whitelist(name)
+
+    def _offline_remove_whitelist(self, name):
+        if not self.current_server_path: return
+        wl_path = os.path.join(self.current_server_path, "whitelist.json")
+        if not os.path.exists(wl_path): return
+        
+        try:
+            with open(wl_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            new_data = [d for d in data if d.get('name', '').lower() != name.lower()]
+            
+            with open(wl_path, 'w', encoding='utf-8') as f:
+                json.dump(new_data, f, indent=4)
+            self._load_whitelist_ui()
+            self.app_log_insert(f"📋 [白名单] 离线移除成功: {name}")
+        except: pass
+
+    def _copy_seed(self):
+        val = self.level_seed_var.get()
+        if not val:
+            messagebox.showinfo("提示", "当前没有设置固定种子 (随机)。")
+            return
+        self.clipboard_clear()
+        self.clipboard_append(val)
+        messagebox.showinfo("复制成功", f"种子已复制到剪贴板:\n{val}")
+
+    # ---------------- 页面 3: 备份设置 (Backup) ----------------
+    def _create_backup_page(self):
+        page = ctk.CTkScrollableFrame(
+            self.page_container, 
+            corner_radius=6, 
+            fg_color="transparent",
+            scrollbar_button_color=MILKY_FG, 
+            scrollbar_button_hover_color=MILKY_HOVER
+        )
+        self.pages['backup'] = page
+        
+        ctk.CTkLabel(page, text="备份设置", font=("", 18, "bold")).pack(pady=10)
+        
+        self.backup_server_name_label = ctk.CTkLabel(page, 
+                                                     textvariable=self.available_servers_var, 
+                                                     font=("", 15, "bold"),
+                                                     text_color="#F0EBD8")
+        self.backup_server_name_label.pack(pady=(0, 10))
+
+        # 备份目录
+        dir_frame = ctk.CTkFrame(page)
+        dir_frame.pack(fill="x", padx=20, pady=(0,12))
+        dir_frame.grid_columnconfigure(0, weight=1)
+        
+        ctk.CTkLabel(dir_frame, text="备份目录:", font=("",12,"bold")).grid(row=0, column=0, padx=12, pady=(8,0), sticky="w")
+        
+        dir_controls_frame = ctk.CTkFrame(dir_frame, fg_color="transparent")
+        dir_controls_frame.grid(row=1, column=0, padx=12, pady=(0,8), sticky="ew")
+        dir_controls_frame.grid_columnconfigure(0, weight=1)
+        
+        self.backup_dir_var = ctk.StringVar(value=os.path.abspath(BACKUP_DIR))
+        ctk.CTkLabel(dir_controls_frame, textvariable=self.backup_dir_var, anchor="w").grid(row=0, column=0, sticky="ew")
+        
+        self.del_backup_btn = ctk.CTkButton(dir_controls_frame, text="删除当前服务器备份", command=self._delete_backup_folder,
+                                            fg_color="red", hover_color="#B03A2E", text_color="white", width=140)
+        self.del_backup_btn.grid(row=0, column=1, padx=(6,0))
+        self.backup_lockable_widgets.append(self.del_backup_btn)
+
+        # 周期备份设置
+        auto_frame = ctk.CTkFrame(page)
+        auto_frame.pack(fill="x", padx=20, pady=(0,12))
+        auto_frame.grid_columnconfigure(0, weight=1)
+        auto_frame.grid_columnconfigure(1, weight=1)
+        
+        ctk.CTkLabel(auto_frame, text="周期/保留设置", font=("",12,"bold")).grid(row=0, column=0, columnspan=2, padx=12, pady=(12,8), sticky="w")
+
+        self.auto_backup_switch = ctk.CTkSwitch(auto_frame, text="启用运行中周期备份", variable=self.periodic_backup_var)
+        self.auto_backup_switch.grid(row=1, column=0, columnspan=2, padx=12, pady=(0,8), sticky="w")
+        self.backup_lockable_widgets.append(self.auto_backup_switch)
+        
+        ctk.CTkLabel(auto_frame, text="周期(分钟):").grid(row=2, column=0, padx=12, sticky="w")
+        self.periodic_interval_entry = ctk.CTkEntry(auto_frame, placeholder_text="10", width=100)
+        self.periodic_interval_entry.grid(row=3, column=0, padx=12, pady=(0,8), sticky="w")
+        self.backup_lockable_widgets.append(self.periodic_interval_entry)
+        
+        ctk.CTkLabel(auto_frame, text="保留数量:").grid(row=2, column=1, padx=12, sticky="w")
+        self.backup_keep_entry = ctk.CTkEntry(auto_frame, placeholder_text="10", width=100)
+        self.backup_keep_entry.grid(row=3, column=1, padx=12, pady=(0,8), sticky="w")
+        self.backup_lockable_widgets.append(self.backup_keep_entry)
+        
+        self.apply_backup_btn = ctk.CTkButton(auto_frame, text="应用设置", command=self.apply_periodic_backup_settings,
+                            fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT, width=120)
+        self.apply_backup_btn.grid(row=4, column=1, pady=(0,12), padx=12, sticky="e")
+        self.backup_lockable_widgets.append(self.apply_backup_btn)
+        
+        # 立即备份按钮
+        ctk.CTkButton(auto_frame, text="立即备份世界", command=self._manual_backup,
+                      fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT, width=120).grid(row=4, column=0, pady=(0,12), padx=12, sticky="w")
+
+
+        # 还原备份功能
+        restore_frame = ctk.CTkFrame(page)
+        restore_frame.pack(fill="x", padx=20, pady=(0,12))
+        restore_frame.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(restore_frame, text="还原备份世界 (要求服务器停止)", font=("",12,"bold")).grid(row=0, column=0, padx=12, pady=(12,8), sticky="w")
+
+        # [修改] 禁止输入: state="readonly"
+        self.restore_backup_var = ctk.StringVar(value="请选择一个备份")
+        self.restore_combo = ctk.CTkComboBox(restore_frame, 
+                                             values=["请选择一个备份"],
+                                             variable=self.restore_backup_var,
+                                             width=300,
+                                             state="readonly")
+        self.restore_combo.grid(row=1, column=0, padx=12, pady=4, sticky="ew")
+
+        self.restore_btn = ctk.CTkButton(restore_frame, text="还原选中备份", command=self._restore_backup_world,
+                                        fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT, width=120)
+        self.restore_btn.grid(row=2, column=0, padx=12, pady=(8,4), sticky="w")
+        
+        restore_hint_frame = ctk.CTkFrame(restore_frame, fg_color="transparent")
+        restore_hint_frame.grid(row=3, column=0, padx=12, pady=(0,8), sticky="ew")
+        
+        restore_hint = "提示: 还原备份要求服务器停止。\n备份类型中文: startup(启动前), manual(手动), periodic(周期)."
+        ctk.CTkLabel(restore_hint_frame, text=restore_hint, text_color=MILKY_FG, font=("", 10)).pack(anchor="w")
+
+        # 底部按钮
+        btn_frame = ctk.CTkFrame(page, fg_color="transparent")
+        btn_frame.pack(fill="x", padx=20)
+        ctk.CTkButton(btn_frame, text="打开备份文件夹", command=self._open_backup_folder,
+                      fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT).pack(fill="x", pady=6)
+        
+        page.bind("<Visibility>", lambda e: self._refresh_backup_list() if self.current_page == 'backup' else None)
+
+    # ---------------- 页面 4: 安装部署 ----------------
     def _create_install_page(self):
-        # [修改 3] 使用 CTkScrollableFrame 并应用奶白色滚动条
         page = ctk.CTkScrollableFrame(
             self.page_container, 
             corner_radius=6, 
@@ -461,14 +841,13 @@ class PageManager(ctk.CTk):
         form_frame = ctk.CTkFrame(page)
         form_frame.pack(fill="x", padx=20, pady=10)
         
-        # 游戏版本
         row = 0
         ctk.CTkLabel(form_frame, text="游戏版本 (Paper):").grid(row=row, column=0, sticky="w", padx=15, pady=10)
-        self.version_combo = ctk.CTkComboBox(form_frame, values=["加载中..."], variable=self.install_version_var, width=250)
+        # [修改] 禁止输入: state="readonly"
+        self.version_combo = ctk.CTkComboBox(form_frame, values=["加载中..."], variable=self.install_version_var, width=250, state="readonly")
         self.version_combo.grid(row=row, column=1, sticky="w", padx=10, pady=10)
         threading.Thread(target=self._fetch_paper_versions, daemon=True).start()
         
-        # 伺服器名称
         row += 1
         ctk.CTkLabel(form_frame, text="伺服器名称:").grid(row=row, column=0, sticky="w", padx=15, pady=10)
         name_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
@@ -480,17 +859,14 @@ class PageManager(ctk.CTk):
         ctk.CTkButton(name_frame, text="打开伺服器总目录", command=self._open_install_folder,
                       fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT).pack(side="left", padx=5) 
         
-        # 正版验证 
         row += 1
         ctk.CTkLabel(form_frame, text="正版验证:").grid(row=row, column=0, sticky="w", padx=15, pady=10)
         self.install_online_switch = ctk.CTkSwitch(form_frame, text="启用正版验证 (online-mode)", variable=self.install_online_mode_var)
         self.install_online_switch.grid(row=row, column=1, sticky="w", padx=10, pady=10)
 
-        # Java 选项 
         row += 1
         ctk.CTkCheckBox(form_frame, text="自动下载所需 Java 环境", variable=self.install_java_dl_var).grid(row=row, column=1, sticky="w", padx=10, pady=10)
 
-        # EULA 
         row += 1
         eula_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
         eula_frame.grid(row=row, column=1, sticky="w", padx=10, pady=10)
@@ -498,126 +874,16 @@ class PageManager(ctk.CTk):
         ctk.CTkLabel(eula_frame, text="(点击查看)", text_color="skyblue", cursor="hand2").pack(side="left", padx=5)
         eula_frame.bind("<Button-1>", lambda e: webbrowser.open("https://account.mojang.com/documents/minecraft_eula"))
 
-        # 部署后自动启动 
         row += 1
         ctk.CTkCheckBox(form_frame, text="部署完成后自动启动服务器", variable=self.install_auto_start_var).grid(row=row, column=1, sticky="w", padx=10, pady=10)
 
-
-        # 部署按钮
-        self.deploy_btn = ctk.CTkButton(page, text="开始部署 / 安装", height=40, font=("", 15, "bold"),
+        # [修改] 按钮尺寸: 移除 height 和 font，使其与启动按钮一致
+        self.deploy_btn = ctk.CTkButton(page, text="开始部署 / 安装", 
                                         fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT,
                                         command=self._start_deployment)
         self.deploy_btn.pack(pady=20, fill="x", padx=40)
 
-    # ---------------- 页面 3: 备份设置 (Backup) ----------------
-    def _create_backup_page(self):
-        # [修改 4] 使用 CTkScrollableFrame 并应用奶白色滚动条，解决小屏幕显示不全问题
-        page = ctk.CTkScrollableFrame(
-            self.page_container, 
-            corner_radius=6, 
-            fg_color="transparent",
-            scrollbar_button_color=MILKY_FG, 
-            scrollbar_button_hover_color=MILKY_HOVER
-        )
-        self.pages['backup'] = page
-        
-        ctk.CTkLabel(page, text="备份设置", font=("", 18, "bold")).pack(pady=10)
-        
-        # 1. 显示当前选择的服务器名字
-        self.backup_server_name_label = ctk.CTkLabel(page, 
-                                                     textvariable=self.available_servers_var, 
-                                                     font=("", 15, "bold"),
-                                                     text_color="#F0EBD8")
-        self.backup_server_name_label.pack(pady=(0, 10))
-
-        # 2. 备份目录显示与删除
-        dir_frame = ctk.CTkFrame(page)
-        dir_frame.pack(fill="x", padx=20, pady=(0,12))
-        dir_frame.grid_columnconfigure(0, weight=1)
-        
-        ctk.CTkLabel(dir_frame, text="备份目录:", font=("",12,"bold")).grid(row=0, column=0, padx=12, pady=(8,0), sticky="w")
-        
-        dir_controls_frame = ctk.CTkFrame(dir_frame, fg_color="transparent")
-        dir_controls_frame.grid(row=1, column=0, padx=12, pady=(0,8), sticky="ew")
-        dir_controls_frame.grid_columnconfigure(0, weight=1)
-        
-        self.backup_dir_var = ctk.StringVar(value=os.path.abspath(BACKUP_DIR))
-        ctk.CTkLabel(dir_controls_frame, textvariable=self.backup_dir_var, anchor="w").grid(row=0, column=0, sticky="ew")
-        
-        ctk.CTkButton(dir_controls_frame, text="删除当前服务器备份", command=self._delete_backup_folder,
-                      fg_color="red", hover_color="#B03A2E", text_color="white", width=140).grid(row=0, column=1, padx=(6,0))
-
-
-        # 3. 周期备份设置
-        auto_frame = ctk.CTkFrame(page)
-        auto_frame.pack(fill="x", padx=20, pady=(0,12))
-        auto_frame.grid_columnconfigure(0, weight=1)
-        auto_frame.grid_columnconfigure(1, weight=1)
-        
-        ctk.CTkLabel(auto_frame, text="周期/保留设置", font=("",12,"bold")).grid(row=0, column=0, columnspan=2, padx=12, pady=(12,8), sticky="w")
-
-        self.auto_backup_switch = ctk.CTkSwitch(auto_frame, text="启用运行中周期备份", variable=self.periodic_backup_var)
-        self.auto_backup_switch.grid(row=1, column=0, columnspan=2, padx=12, pady=(0,8), sticky="w")
-        
-        # 周期
-        ctk.CTkLabel(auto_frame, text="周期(分钟):").grid(row=2, column=0, padx=12, sticky="w")
-        self.periodic_interval_entry = ctk.CTkEntry(auto_frame, placeholder_text="10", width=100)
-        self.periodic_interval_entry.grid(row=3, column=0, padx=12, pady=(0,8), sticky="w")
-        
-        # 保留数量
-        ctk.CTkLabel(auto_frame, text="保留数量:").grid(row=2, column=1, padx=12, sticky="w")
-        self.backup_keep_entry = ctk.CTkEntry(auto_frame, placeholder_text="10", width=100)
-        self.backup_keep_entry.grid(row=3, column=1, padx=12, pady=(0,8), sticky="w")
-        
-        btn = ctk.CTkButton(auto_frame, text="应用设置", command=self.apply_periodic_backup_settings,
-                            fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT, width=120)
-        btn.grid(row=4, column=1, pady=(0,12), padx=12, sticky="e")
-        
-        ctk.CTkButton(auto_frame, text="立即备份世界", command=self._manual_backup,
-                      fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT, width=120).grid(row=4, column=0, pady=(0,12), padx=12, sticky="w")
-
-
-        # 4. 还原备份功能
-        restore_frame = ctk.CTkFrame(page)
-        restore_frame.pack(fill="x", padx=20, pady=(0,12))
-        restore_frame.grid_columnconfigure(0, weight=1)
-
-        ctk.CTkLabel(restore_frame, text="还原备份世界 (要求服务器停止)", font=("",12,"bold")).grid(row=0, column=0, padx=12, pady=(12,8), sticky="w")
-
-        self.restore_backup_var = ctk.StringVar(value="请选择一个备份")
-        self.restore_combo = ctk.CTkComboBox(restore_frame, 
-                                             values=["请选择一个备份"],
-                                             variable=self.restore_backup_var,
-                                             width=300)
-        self.restore_combo.grid(row=1, column=0, padx=12, pady=4, sticky="ew")
-
-        # 还原按钮配色修改为奶白色
-        self.restore_btn = ctk.CTkButton(restore_frame, text="还原选中备份", command=self._restore_backup_world,
-                                        fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT, width=120)
-        self.restore_btn.grid(row=2, column=0, padx=12, pady=(8,4), sticky="w")
-        
-        restore_hint_frame = ctk.CTkFrame(restore_frame, fg_color="transparent")
-        restore_hint_frame.grid(row=3, column=0, padx=12, pady=(0,8), sticky="ew")
-        
-        restore_hint = "提示: 还原备份要求服务器停止。\n备份类型中文: startup(启动前), manual(手动), periodic(周期)."
-        ctk.CTkLabel(restore_hint_frame, text=restore_hint, text_color=MILKY_FG, font=("", 10)).pack(anchor="w")
-
-
-        # 5. 底部按钮
-        btn_frame = ctk.CTkFrame(page, fg_color="transparent")
-        btn_frame.pack(fill="x", padx=20)
-        ctk.CTkButton(btn_frame, text="打开备份文件夹", command=self._open_backup_folder,
-                      fg_color=MILKY_FG, hover_color=MILKY_HOVER, text_color=MILKY_TEXT).pack(fill="x", pady=6)
-        
-        page.bind("<Visibility>", lambda e: self._refresh_backup_list() if self.current_page == 'backup' else None)
-
-
-    def _create_extra_page(self):
-        page = ctk.CTkFrame(self.page_container, corner_radius=6, fg_color="transparent")
-        self.pages['extra'] = page
-        ctk.CTkLabel(page, text="扩展功能 (占位)", font=("", 18, "bold")).pack(pady=20)
-
-    # ---------------- 逻辑: 安装部署 (Install Logic) ----------------
+    # ---------------- 逻辑部分 ----------------
     def _fetch_paper_versions(self):
         self.app_log_insert("🌐 正在获取 Paper 版本列表...")
         vers = get_paper_versions()
@@ -726,16 +992,14 @@ class PageManager(ctk.CTk):
             try:
                 builds_url = f"https://api.papermc.io/v2/projects/paper/versions/{version}"
                 resp = requests.get(builds_url)
-                
-                # [新增] 检查 API 是否返回了 404 (版本不存在)
                 if resp.status_code == 404:
-                    raise Exception(f"版本 {version} 在 PaperMC 中不存在！请检查是否输入了基岩版版本号？")
+                    raise Exception(f"版本 {version} 在 PaperMC 中不存在！")
                 
-                resp.raise_for_status() # 检查其他网络错误
+                resp.raise_for_status()
                 bd = resp.json()
                 
                 if "builds" not in bd:
-                    raise Exception(f"API 返回数据异常，未找到构建列表。返回内容: {bd}")
+                    raise Exception(f"API 返回数据异常，未找到构建列表。")
 
                 latest = bd["builds"][-1]
                 jar_url = f"https://api.papermc.io/v2/projects/paper/versions/{version}/builds/{latest}/downloads/paper-{version}-{latest}.jar"
@@ -750,7 +1014,7 @@ class PageManager(ctk.CTk):
                 self.app_log_insert("✅ Server JAR 下载完成。")
             except Exception as e:
                 self.app_log_insert(f"❌ Server JAR 下载失败: {e}")
-                raise e # 抛出异常以停止后续流程
+                raise e 
 
             # C. 写入文件
             self.app_log_insert("📝 生成配置文件...")
@@ -766,7 +1030,6 @@ class PageManager(ctk.CTk):
                 f.write("server-port=25565\n")
                 f.write("motd=A Minecraft Server\n")
             
-            # 始终创建 start.bat，方便用户手动启动
             bat_path = os.path.join(folder, "start.bat")
             cmd_java = java_path if java_path else "java"
             with open(bat_path, "w") as f:
@@ -787,30 +1050,20 @@ class PageManager(ctk.CTk):
     def _deployment_success_callback(self, folder):
         messagebox.showinfo("成功", "部署完成！")
         
-        # 自动启动 (修改为使用集成控制台启动)
         if self.install_auto_start_var.get():
             self.app_log_insert("🚀 准备在集成控制台自动启动服务器...")
-            
-            # 1. 刷新服务器列表并切换到主页
             self.show_page('main')
-            
-            # 2. 自动选择该服务器
             server_name = os.path.basename(folder)
             if server_name in self.scanned_server_map:
                  self.available_servers_var.set(server_name)
                  self._on_server_select(server_name)
-                 
-            # 3. 调用集成启动方法
             self.start_server()
-            
             messagebox.showinfo("自动启动", "服务器已在集成控制台启动。")
     
     def _deployment_failure_callback(self, error_message):
         self.app_log_insert(f"❌ 部署过程中止: {error_message}")
         messagebox.showerror("失败", error_message)
 
-
-    # ---------------- 逻辑: 主页文件选择与配置读取 ----------------
     def _scan_server_folders(self):
         found_servers = []
         base_dir = SERVERS_ROOT_DIR 
@@ -851,10 +1104,7 @@ class PageManager(ctk.CTk):
             self.scanned_server_map = {}
             self.server_combo.configure(values=["未检测到服务器"])
             self.available_servers_var.set("未检测到服务器")
-            if not self.server_running: 
-                pass 
     
-    # [新增] 加载管理器配置
     def _load_manager_config(self, folder):
         config_path = os.path.join(folder, "manager_config.json")
         defaults = {
@@ -873,12 +1123,9 @@ class PageManager(ctk.CTk):
                     data.update(saved)
             except: pass 
 
-        # Apply to UI
         self.pending_memory_var.set(data["memory"])
         self.memory_var.set(data["memory"])
-        
         self.startup_backup_var.set(data["startup_backup"])
-        
         self.periodic_backup_var.set(data["periodic_backup_enabled"])
         
         try:
@@ -893,7 +1140,6 @@ class PageManager(ctk.CTk):
         
         self.app_log_insert(f"🔧 已加载管理器配置: {os.path.basename(folder)}")
 
-    # [新增] 保存管理器配置
     def _save_manager_config(self):
         if not self.current_server_path: return
         
@@ -931,7 +1177,8 @@ class PageManager(ctk.CTk):
                 self.jar_entry.delete(0, 'end')
 
             self.load_server_properties_gui(folder)
-            self._load_manager_config(folder) # [修改] 调用加载
+            self._load_manager_config(folder) 
+            self._load_whitelist_ui() # Load whitelist
             
             self.after(0, self._refresh_backup_list) 
         else:
@@ -960,11 +1207,21 @@ class PageManager(ctk.CTk):
 
     def load_server_properties_gui(self, folder):
         p_path = os.path.join(folder, "server.properties")
+        
+        # 默认值重置
+        self.online_mode_var.set(True)
+        self.pvp_var.set(True)
+        self.max_players_var.set("20")
+        self.difficulty_var.set("easy (简单)")
+        self.view_distance_var.set("10")
+        self.allow_flight_var.set(False)
+        self.white_list_var.set(False)
+        self.server_port_var.set("25565")
+        self.level_seed_var.set("")
+        self.original_loaded_port = "25565"
+
         if not os.path.exists(p_path):
             self.app_log_insert("⚠️ 未找到 server.properties，使用默认值。")
-            self.online_mode_var.set(True)
-            self.pvp_var.set(True)
-            self.max_players_var.set("20")
             return
         
         try:
@@ -975,13 +1232,38 @@ class PageManager(ctk.CTk):
                         k, v = line.strip().split('=', 1)
                         props[k.strip()] = v.strip()
             
-            if 'online-mode' in props:
-                self.online_mode_var.set(props['online-mode'].lower() == 'true')
-            if 'pvp' in props:
-                self.pvp_var.set(props['pvp'].lower() == 'true')
-            if 'max-players' in props:
-                self.max_players_var.set(props['max-players'])
+            if 'online-mode' in props: self.online_mode_var.set(props['online-mode'].lower() == 'true')
+            if 'pvp' in props: self.pvp_var.set(props['pvp'].lower() == 'true')
+            if 'max-players' in props: self.max_players_var.set(props['max-players'])
             
+            # 难度映射 (Load)
+            diff_map = {
+                "peaceful": "peaceful (和平)",
+                "easy": "easy (简单)",
+                "normal": "normal (普通)",
+                "hard": "hard (困难)"
+            }
+            if 'difficulty' in props:
+                raw_diff = props['difficulty']
+                self.difficulty_var.set(diff_map.get(raw_diff, raw_diff))
+
+            if 'view-distance' in props: self.view_distance_var.set(props['view-distance'])
+            if 'allow-flight' in props: self.allow_flight_var.set(props['allow-flight'].lower() == 'true')
+            if 'white-list' in props: self.white_list_var.set(props['white-list'].lower() == 'true')
+            
+            if 'server-port' in props:
+                self.server_port_var.set(props['server-port'])
+                self.original_loaded_port = props['server-port']
+                
+            if 'level-seed' in props:
+                self.level_seed_var.set(props['level-seed'])
+            
+            # 读取 simulation-distance 和 motd
+            if 'simulation-distance' in props:
+                self.simulation_distance_var.set(props['simulation-distance'])
+            if 'motd' in props:
+                self.motd_var.set(props['motd'])
+
             self.app_log_insert("✅ 已读取 server.properties 配置。")
         except Exception as e:
             self.app_log_insert(f"❌ 读取配置失败: {e}")
@@ -990,6 +1272,12 @@ class PageManager(ctk.CTk):
         if not self.current_server_path:
             messagebox.showwarning("提示", "未选择服务器文件夹")
             return
+            
+        # 端口修改检查
+        new_port = self.server_port_var.get().strip()
+        if new_port != self.original_loaded_port:
+            if not messagebox.askyesno("端口修改确认", f"您正在将服务器端口从 {self.original_loaded_port} 修改为 {new_port}。\n\n这可能导致未开放该端口防火墙的玩家无法连接。\n\n确定要修改吗？"):
+                return
         
         p_path = os.path.join(self.current_server_path, "server.properties")
         
@@ -997,13 +1285,23 @@ class PageManager(ctk.CTk):
         if os.path.exists(p_path):
             with open(p_path, 'r', encoding='utf-8', errors='ignore') as f:
                 lines = f.readlines()
-        else:
-            lines = [] 
+        
+        # 处理难度 (Save: 取出第一个空格前的单词)
+        raw_diff_str = self.difficulty_var.get()
+        final_diff = raw_diff_str.split(' ')[0]
 
         new_props = {
             'online-mode': 'true' if self.online_mode_var.get() else 'false',
             'pvp': 'true' if self.pvp_var.get() else 'false',
-            'max-players': self.max_players_var.get()
+            'max-players': self.max_players_var.get(),
+            'difficulty': final_diff,
+            'view-distance': self.view_distance_var.get(),
+            'allow-flight': 'true' if self.allow_flight_var.get() else 'false',
+            'white-list': 'true' if self.white_list_var.get() else 'false',
+            'server-port': new_port,
+            'level-seed': self.level_seed_var.get(),
+            'simulation-distance': self.simulation_distance_var.get(),
+            'motd': self.motd_var.get()
         }
 
         updated_keys = set()
@@ -1029,8 +1327,9 @@ class PageManager(ctk.CTk):
         try:
             with open(p_path, 'w', encoding='utf-8') as f:
                 f.writelines(final_lines)
+            self.original_loaded_port = new_port # 更新基准端口
             self.app_log_insert("💾 server.properties 保存成功！")
-            messagebox.showinfo("成功", "配置已保存。")
+            messagebox.showinfo("成功", "配置已保存 (重启后生效)。")
         except Exception as e:
             self.app_log_insert(f"❌ 保存失败: {e}")
             messagebox.showerror("错误", str(e))
@@ -1038,7 +1337,7 @@ class PageManager(ctk.CTk):
     def apply_memory_settings_gui(self):
         selected_value = self.pending_memory_var.get()
         self.memory_var.set(selected_value)
-        self._save_manager_config() # [修改] 确认内存时保存
+        self._save_manager_config() 
         
         try:
             match = re.search(r"Xms(\d+[GM])", selected_value)
@@ -1052,28 +1351,21 @@ class PageManager(ctk.CTk):
         self.app_log_insert(f"✅ 内存设置已更新为: {selected_value}")
 
     # ---------------- 逻辑: 启动 / 停止 / 线程 ----------------
-    
     def update_player_list_ui(self):
-        """刷新界面上的玩家列表"""
         self.player_list_box.configure(state="normal")
         self.player_list_box.delete("0.0", "end")
         
         if not self.online_players:
             self.player_list_box.insert("0.0", "当前无玩家在线")
         else:
-            # 排序并逐行显示
             content = "\n".join(sorted(self.online_players))
             self.player_list_box.insert("0.0", content)
             
         self.player_list_box.configure(state="disabled")
 
     def _parse_log_line_for_players(self, line):
-        """核心逻辑：分析日志行，提取玩家动态 (加强版)"""
-        
-        # 0. 预处理：去除 ANSI 颜色代码
         clean_line = re.sub(r'\x1b\[[0-9;]*m', '', line)
         
-        # 1. 玩家加入
         join_match = re.search(r"\b(\w+)\s+joined the game", clean_line)
         if join_match:
             player_name = join_match.group(1)
@@ -1082,7 +1374,6 @@ class PageManager(ctk.CTk):
                 self.update_player_list_ui()
             return
 
-        # 2. 玩家退出
         leave_match = re.search(r"\b(\w+)\s+left the game", clean_line)
         if leave_match:
             player_name = leave_match.group(1)
@@ -1091,7 +1382,6 @@ class PageManager(ctk.CTk):
                 self.update_player_list_ui()
             return
 
-        # 3. 捕捉 /list 命令的回显
         if "players online:" in clean_line:
             list_match = re.search(r"players online:\s+(.*)", clean_line)
             if list_match:
@@ -1121,8 +1411,6 @@ class PageManager(ctk.CTk):
 
         server_dir = os.path.dirname(jar_path)
         self.current_server_path = server_dir
-        
-        # [新增] 启动前保存当前配置，确保下次启动时一致
         self._save_manager_config()
 
         self.start_in_progress = True
@@ -1138,21 +1426,16 @@ class PageManager(ctk.CTk):
             if xms_match and xmx_match:
                 xms = xms_match.group(1)
                 xmx = xmx_match.group(1)
-            else:
-                self.app_log_insert(f"⚠️ 内存选择格式解析不完全 ({selected_mem})，使用默认值 {DEFAULT_XMS}/{DEFAULT_XMX}")
         except Exception as e:
-            self.app_log_insert(f"⚠️ 内存解析错误: {e}，使用默认值 {DEFAULT_XMS}/{DEFAULT_XMX}")
-
+            self.app_log_insert(f"⚠️ 内存解析错误: {e}")
 
         if self.startup_backup_var.get():
             self.startup_backup_done_event.clear()
             threading.Thread(target=self._startup_backup_thread, args=(jar_path,), daemon=True).start()
 
         ensure_dirs()
-        # 修改：Server Log 保存到 logs/server/ 目录
         log_f = os.path.join(LOG_SERVER_DIR, f"console-{_timestamp_str()}.log")
         try:
-            # Server Log 文件
             self.server_log_file_handle = open(log_f, 'a', encoding='utf-8')
         except: pass
 
@@ -1197,21 +1480,17 @@ class PageManager(ctk.CTk):
                 self.start_in_progress = False
                 self.start_button.configure(state="normal")
                 self.status_label.configure(text="服务器状态: 运行中 ✅", text_color="lightgreen")
-                self.update_controls_state()
-                
-                # 服务器启动完成后，清空列表
+                self.update_controls_state() # 触发 UI 锁定
                 self.online_players.clear()
                 self.update_player_list_ui()
             
             self._parse_log_line_for_players(line)
 
-            # 写入下方的 Server Log 区域
             self.server_log_text.configure(state='normal')
             self.server_log_text.insert('end', line + '\n')
             self.server_log_text.see('end')
             self.server_log_text.configure(state='disabled')
             
-            # 写入 Server Log 文件
             if self.server_log_file_handle: self.server_log_file_handle.write(line+'\n')
         
         self.after(READ_QUEUE_POLL_MS, self.poll_stdout_queue)
@@ -1223,6 +1502,7 @@ class PageManager(ctk.CTk):
         self.after(0, lambda: self.stdout_queue.put("🔴 服务器进程已退出。"))
         self.reader_thread_stop_event.set()
         self.periodic_backup_stop_event.set()
+        
         self.after(0, self.update_controls_state)
         self.after(0, self._update_restore_button_state)
         self.online_players.clear()
@@ -1247,22 +1527,32 @@ class PageManager(ctk.CTk):
         cmd = self.input_entry.get().strip()
         if cmd:
             self.safe_write_stdin(cmd + "\n")
-            # 命令回显到 Server Log
             self.stdout_queue.put(f"> {cmd}")
             self.input_entry.delete(0, 'end')
 
     def update_controls_state(self):
         running = self.server_running
-        try:
-            state = "disabled" if running else "normal"
-            self.memory_combo.configure(state=state)
-            
-            self.start_button.configure(state=state)
-            self.status_label.configure(text="服务器状态: 运行中 ✅" if running else "服务器状态: 已停止", 
-                                        text_color="lightgreen" if running else "white")
-        except: pass
+        
+        # 1. 基础启动页状态
+        state_start = "disabled" if running else "normal"
+        self.memory_combo.configure(state=state_start)
+        self.start_button.configure(state=state_start)
+        self.status_label.configure(text="服务器状态: 运行中 ✅" if running else "服务器状态: 已停止", 
+                                    text_color="lightgreen" if running else "white")
+        
+        # 2. 锁定“Server 设置”页面组件 (注意：白名单区域不锁定，允许热操作)
+        for widget in self.settings_widgets:
+            try:
+                widget.configure(state=state_start) 
+            except: pass
 
-    # ---------------- 备份逻辑 (核心修复) ----------------
+        # 3. 锁定“备份设置”页面部分组件
+        for widget in self.backup_lockable_widgets:
+            try:
+                widget.configure(state=state_start)
+            except: pass
+
+    # ---------------- 备份逻辑 ----------------
     def _startup_backup_thread(self, jar_path):
         folder = os.path.dirname(jar_path)
         self._prune_startup_backups(folder) 
@@ -1313,7 +1603,6 @@ class PageManager(ctk.CTk):
             except Exception as e:
                  self.after(0, lambda name=i, err=e: self.app_log_insert(f"❌ [启动前备份] 清理失败 {name}: {err}"))
 
-    # === 修复重点：多世界备份逻辑 (Fix Multi-World Backup) ===
     def backup_world(self, src_dir, note):
         if not src_dir: return
         try:
@@ -1324,8 +1613,7 @@ class PageManager(ctk.CTk):
             name = f"backup-{_timestamp_str()}_{note}"
             final_dest = os.path.join(dest_dir, name)
             
-            # 1. 获取世界名 (level-name)
-            level_name = "world" # 默认值
+            level_name = "world" 
             p_path = os.path.join(src_dir, "server.properties")
             if os.path.exists(p_path):
                 try:
@@ -1337,7 +1625,6 @@ class PageManager(ctk.CTk):
                                 break
                 except: pass
 
-            # 2. 定义候选目标
             candidates = set()
             candidates.add(level_name)
             candidates.add(f"{level_name}_nether")
@@ -1347,7 +1634,6 @@ class PageManager(ctk.CTk):
 
             backed_up_count = 0
             
-            # 3. 遍历并备份存在的文件夹
             for target in candidates:
                 target_path = os.path.join(src_dir, target)
                 if os.path.exists(target_path) and os.path.isdir(target_path):
@@ -1357,7 +1643,6 @@ class PageManager(ctk.CTk):
                     self.after(0, lambda t=target: self.app_log_insert(f"   - 已备份世界目录: {t}"))
                     backed_up_count += 1
             
-            # 4. 如果没找到任何 Paper 样式的文件夹
             if backed_up_count == 0:
                 target_path = os.path.join(src_dir, level_name)
                 if os.path.exists(target_path) and os.path.isdir(target_path):
@@ -1464,7 +1749,6 @@ class PageManager(ctk.CTk):
                     self.app_log_insert(f"❌ 删除备份失败: {e}")
                     messagebox.showerror("错误", f"删除失败: {e}")
                 
-    # ---------------- 还原逻辑 (同步修复) ----------------
     def _get_backup_list(self, server_name):
         if not server_name or server_name == "未检测到服务器":
             return []
@@ -1551,16 +1835,13 @@ class PageManager(ctk.CTk):
             return
             
         self.restore_btn.configure(state="disabled", text="还原中...")
-        
         threading.Thread(target=self._restore_worker, args=(server_path, backup_path, selected_display_name), daemon=True).start()
 
     def _restore_worker(self, server_path, backup_path, display_name):
         self.app_log_insert(f"🔁 [还原] 开始将服务器 {os.path.basename(server_path)} 还原到 {display_name}...")
         
         try:
-            # 1. 获取所有备份中的子文件夹
             backup_subdirs = [d for d in os.listdir(backup_path) if os.path.isdir(os.path.join(backup_path, d))]
-            
             restored_any = False
             
             for subdir in backup_subdirs:
@@ -1607,10 +1888,8 @@ class PageManager(ctk.CTk):
         finally:
             self.after(0, self._update_restore_button_state)
 
-    # ---------------- 杂项 ----------------
-
     def apply_periodic_backup_settings(self):
-        self._save_manager_config() # [修改] 保存设置
+        self._save_manager_config() 
         messagebox.showinfo("OK", "周期备份设置已更新并保存")
 
     def app_log_insert(self, text):
@@ -1643,7 +1922,6 @@ class PageManager(ctk.CTk):
         
         if self.app_log_file_handle: self.app_log_file_handle.close()
         if self.server_log_file_handle: self.server_log_file_handle.close()
-        
         self.destroy()
 
 if __name__ == '__main__':
