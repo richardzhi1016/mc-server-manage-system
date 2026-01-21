@@ -85,3 +85,10 @@ coverage.xml
 # Build outputs
 *.pyc
 *.pyo
+
+.claude/
+.opencode/
+.ruff_cache/
+openspec/
+AGENTS.md
+UPLOAD_README.md
