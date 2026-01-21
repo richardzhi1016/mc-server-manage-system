@@ -92,3 +92,5 @@ coverage.xml
 openspec/
 AGENTS.md
 UPLOAD_README.md
+
+app/servers/
