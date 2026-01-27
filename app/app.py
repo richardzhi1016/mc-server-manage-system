@@ -13,6 +13,7 @@ from flask_limiter.util import get_remote_address
 import py7zr
 from werkzeug.utils import secure_filename
 import logging
+import sqlite3
 
 app = Flask(__name__)
 
@@ -45,6 +46,12 @@ running_servers = {}
 # Store log file watchers
 log_watchers = {}
 
+# Database configuration
+DATABASE_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "data", "database"
+)
+DATABASE_PATH = os.path.join(DATABASE_DIR, "database.db")
+
 # Log level patterns in Minecraft logs
 LOG_LEVEL_PATTERNS = {
     "ERROR": r"\[.*ERROR.*\]",
@@ -60,6 +67,20 @@ def parse_log_level(line: str) -> str:
         if re.search(pattern, line):
             return level
     return "INFO"
+
+
+def get_db_connection():
+    """Get a database connection."""
+    conn = sqlite3.connect(DATABASE_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def row_to_dict(row):
+    """Convert a sqlite3.Row to a dictionary."""
+    if row is None:
+        return None
+    return dict(row)
 
 
 class LogWatcher:
@@ -1173,6 +1194,54 @@ def list_servers():
             )
 
     return jsonify({"servers": servers}), 200
+
+
+@app.route("/api/servers", methods=["POST"])
+def create_server_instance():
+    """Create a new server instance in the database."""
+    data = request.get_json()
+
+    if not data or "name" not in data:
+        return jsonify({"error": "Missing 'name' parameter"}), 400
+
+    id = str(uuid.uuid4())
+    name = data["name"]
+    type = data.get("type")
+    version = data.get("version")
+    port = data.get("port")
+
+    # server_dir = os.path.join(app.config["UPLOAD_FOLDER"], server_name)
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            INSERT INTO server_instance (id, name, server_type, version, port)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (id, name, type, version, port),
+        )
+
+        conn.commit()
+
+        cursor.execute("SELECT * FROM server_instance WHERE id = ?", (id,))
+        server = row_to_dict(cursor.fetchone())
+
+        conn.close()
+
+        return jsonify(
+            {
+                "message": f"Server instance '{name}' created successfully",
+                "server": server,
+            }
+        ), 201
+
+    except sqlite3.IntegrityError:
+        return jsonify({"error": f"Server '{name}' already exists"}), 409
+    except Exception as e:
+        return jsonify({"error": f"Failed to create server: {str(e)}"}), 500
 
 
 @app.route("/api/servers/create", methods=["POST"])
