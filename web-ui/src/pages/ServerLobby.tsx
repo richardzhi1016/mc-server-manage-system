@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Server as ServerIcon, MoreVertical, X, Box, Layers, Code, ScrollText, ArrowLeft, ChevronRight, Check, Moon, Sun } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Server as ServerIcon, MoreVertical, X, Box, Layers, Code, ScrollText, ArrowLeft, ChevronRight, Check, Moon, Sun, ChevronDown, Search } from 'lucide-react';
 
 // --- Types ---
 type ServerType = 'Vanilla' | 'Forge' | 'Fabric' | 'Paper';
@@ -22,9 +22,7 @@ const initialServers: Server[] = [
   { id: '4', name: 'Creative Plot', version: '1.20.4', type: 'Paper', status: 'offline', port: 25568 },
 ];
 
-const MC_VERSIONS = ['1.20.4', '1.20.2', '1.20.1', '1.19.4', '1.19.2', '1.18.2', '1.16.5'];
-
-// --- Components ---
+// --- Mock Data ---
 
 const StatusBadge = ({ status }: { status: Server['status'] }) => {
   const styles = {
@@ -107,24 +105,107 @@ const AddServerCard = ({ onClick }: { onClick: () => void }) => {
   );
 };
 
+// --- Custom Dropdown Component ---
+interface CustomSelectProps {
+  options: string[];
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
+}
+
+const CustomSelect = ({ options, value, onChange, label }: CustomSelectProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+      <div className="space-y-2 relative" ref={dropdownRef}>
+        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">{label}</label>
+
+        {/* Trigger Button */}
+        <button
+            onClick={() => setIsOpen(!isOpen)}
+            className={`w-full px-4 py-3 rounded-lg border bg-white dark:bg-slate-900 flex items-center justify-between outline-none transition-all text-slate-800 dark:text-slate-100 font-medium ${
+                isOpen
+                    ? 'border-blue-500 ring-2 ring-blue-200 dark:ring-blue-900'
+                    : 'border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'
+            }`}
+        >
+          <span>{value}</span>
+          <ChevronDown
+              size={16}
+              className={`text-slate-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          />
+        </button>
+
+        {/* Dropdown Menu */}
+        {isOpen && (
+            <div className="
+          absolute z-20 w-full mt-1
+          bg-white dark:bg-slate-900
+          border border-slate-200 dark:border-slate-600
+          rounded-xl shadow-xl
+          animate-in fade-in zoom-in-95 duration-100
+          max-h-40 overflow-y-auto p-1
+          [&::-webkit-scrollbar]:w-1.5
+          [&::-webkit-scrollbar-track]:bg-transparent
+          [&::-webkit-scrollbar-thumb]:bg-slate-200
+          [&::-webkit-scrollbar-thumb]:dark:bg-slate-700
+          [&::-webkit-scrollbar-thumb]:rounded-full
+        ">
+              {options.map((option) => (
+                  <button
+                      key={option}
+                      onClick={() => {
+                        onChange(option);
+                        setIsOpen(false);
+                      }}
+                      className={`w-full px-3 py-2 text-left text-sm font-medium transition-colors flex items-center justify-between rounded-lg mb-0.5 last:mb-0
+                ${option === value
+                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                      }`}
+                  >
+                    {option}
+                    {option === value && <Check size={14} />}
+                  </button>
+              ))}
+            </div>
+        )}
+      </div>
+  );
+};
+
 // --- Create Server Modal ---
 interface CreateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreateServer: (data: { type: ServerType; name: string; version: string }) => void;
+  versions: string[];
+  latestRelease: string;
 }
 
-const CreateModal = ({ isOpen, onClose, onCreateServer }: CreateModalProps) => {
+const CreateModal = ({ isOpen, onClose, onCreateServer, versions, latestRelease }: CreateModalProps) => {
   const [step, setStep] = useState<'category' | 'type' | 'details'>('category');
   const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(null);
   const [selectedType, setSelectedType] = useState<ServerType | null>(null);
 
   // Step 3 Form State
   const [serverName, setServerName] = useState('');
-  const [selectedVersion, setSelectedVersion] = useState('1.20.4');
+  const [selectedVersion, setSelectedVersion] = useState(latestRelease);
   const [eulaAgreed, setEulaAgreed] = useState(false);
 
-  // Reset state when modal opens/closes
+  // Update default version when latestRelease changes or modal opens
   useEffect(() => {
     if (isOpen) {
       setStep('category');
@@ -132,9 +213,9 @@ const CreateModal = ({ isOpen, onClose, onCreateServer }: CreateModalProps) => {
       setSelectedType(null);
       setServerName('');
       setEulaAgreed(false);
-      setSelectedVersion('1.20.4');
+      setSelectedVersion(latestRelease);
     }
-  }, [isOpen]);
+  }, [isOpen, latestRelease]);
 
   if (!isOpen) return null;
 
@@ -176,7 +257,6 @@ const CreateModal = ({ isOpen, onClose, onCreateServer }: CreateModalProps) => {
     ]
   };
 
-  // Handlers
   const handleCategorySelect = (category: CategoryType) => {
     setSelectedCategory(category);
     setStep('type');
@@ -184,7 +264,7 @@ const CreateModal = ({ isOpen, onClose, onCreateServer }: CreateModalProps) => {
 
   const handleTypeSelect = (type: ServerType) => {
     setSelectedType(type);
-    setServerName(`My ${type} Server`); // Set default name based on type
+    setServerName(`My ${type} Server`);
     setStep('details');
   };
 
@@ -210,13 +290,14 @@ const CreateModal = ({ isOpen, onClose, onCreateServer }: CreateModalProps) => {
 
   return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        {/* Backdrop */}
         <div className="absolute inset-0 bg-slate-900/40 dark:bg-slate-950/60 backdrop-blur-sm" onClick={onClose} />
 
-        {/* Modal Content */}
-        <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col border border-transparent dark:border-slate-700">
+        {/* Change Log:
+         - Added `h-[550px]` to enforce a consistent height across all steps.
+         - Kept `max-h-[90vh]` for responsiveness on small screens.
+      */}
+        <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200 h-[500px] max-h-[90vh] flex flex-col border border-transparent dark:border-slate-700">
 
-          {/* Header */}
           <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-800 z-10 transition-colors">
             <div className="flex items-center gap-3">
               {step !== 'category' && (
@@ -240,12 +321,15 @@ const CreateModal = ({ isOpen, onClose, onCreateServer }: CreateModalProps) => {
             </button>
           </div>
 
-          {/* Body Content */}
-          <div className="p-6 overflow-y-auto">
+          {/* Change Log:
+           - Changed `min-h-[350px]` to `flex-1` so it fills the fixed parent height.
+           - Removed the transition on height since the parent height is now fixed.
+        */}
+          <div className={`p-6 flex-1 ${step === 'details' ? 'overflow-visible' : 'overflow-y-auto'}`}>
 
             {/* STEP 1: Categories */}
             {step === 'category' && (
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 gap-6">
                   {categories.map((cat) => (
                       <button
                           key={cat.id}
@@ -290,7 +374,6 @@ const CreateModal = ({ isOpen, onClose, onCreateServer }: CreateModalProps) => {
             {step === 'details' && selectedType && (
                 <div className="space-y-6 animate-in slide-in-from-right-4 duration-200">
 
-                  {/* Server Name Input */}
                   <div className="space-y-2">
                     <label htmlFor="serverName" className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Server Name</label>
                     <input
@@ -303,26 +386,13 @@ const CreateModal = ({ isOpen, onClose, onCreateServer }: CreateModalProps) => {
                     />
                   </div>
 
-                  {/* Version Select */}
-                  <div className="space-y-2">
-                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Minecraft Version</label>
-                    <div className="relative">
-                      <select
-                          value={selectedVersion}
-                          onChange={(e) => setSelectedVersion(e.target.value)}
-                          className="w-full px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900 outline-none appearance-none cursor-pointer text-slate-800 dark:text-slate-100 font-medium"
-                      >
-                        {MC_VERSIONS.map(v => (
-                            <option key={v} value={v}>{v}</option>
-                        ))}
-                      </select>
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 dark:text-slate-400">
-                        <ChevronRight size={16} className="rotate-90" />
-                      </div>
-                    </div>
-                  </div>
+                  <CustomSelect
+                      label="Minecraft Version"
+                      options={versions}
+                      value={selectedVersion}
+                      onChange={setSelectedVersion}
+                  />
 
-                  {/* EULA Agreement */}
                   <div className="pt-4 border-t border-slate-100 dark:border-slate-700">
                     <label className="flex items-start gap-3 cursor-pointer group">
                       <div className="relative flex items-center mt-0.5">
@@ -342,7 +412,6 @@ const CreateModal = ({ isOpen, onClose, onCreateServer }: CreateModalProps) => {
                     </label>
                   </div>
 
-                  {/* Action Button */}
                   <button
                       onClick={handleFinalCreate}
                       disabled={!serverName || !eulaAgreed}
@@ -364,15 +433,32 @@ export default function App() {
   const [servers, setServers] = useState<Server[]>(initialServers);
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [mcVersions, setMcVersions] = useState<string[]>([]);
+  const [latestRelease, setLatestRelease] = useState('1.20.4');
 
-  // Initialize Dark Mode based on system preference
+  useEffect(() => {
+    const fetchVersions = async () => {
+      try {
+        const response = await fetch('https://piston-meta.mojang.com/mc/game/version_manifest.json');
+        const data = await response.json();
+        const versions = data.versions.map((v: { id: string }) => v.id);
+        setMcVersions(versions);
+        if (data.latest?.release) {
+          setLatestRelease(data.latest.release);
+        }
+      } catch (error) {
+        console.error('Failed to fetch Minecraft versions:', error);
+      }
+    };
+    fetchVersions();
+  }, []);
+
   useEffect(() => {
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
       setIsDarkMode(true);
     }
   }, []);
 
-  // Update HTML class when dark mode changes
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
@@ -381,12 +467,10 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  // 打开弹窗
   const handleOpenCreateModal = () => {
     setCreateModalOpen(true);
   };
 
-  // 最终创建服务器的逻辑
   const handleCreateServer = (data: { type: ServerType; name: string; version: string }) => {
     const newId = (Math.max(...servers.map(s => parseInt(s.id))) + 1).toString();
     const newServer: Server = {
@@ -399,21 +483,18 @@ export default function App() {
     };
 
     setServers([...servers, newServer]);
-    setCreateModalOpen(false); // 关闭弹窗
+    setCreateModalOpen(false);
   };
 
   return (
       <div className={`min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans p-6 md:p-10 relative transition-colors duration-300`}>
         <div className="max-w-7xl mx-auto">
-
-          {/* Header Section */}
           <div className="flex justify-between items-end mb-8">
             <div>
               <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight transition-colors">Dashboard</h1>
               <p className="text-slate-500 dark:text-slate-400 mt-1 transition-colors">Manage your Minecraft server instances</p>
             </div>
             <div className="hidden sm:flex items-center gap-4">
-              {/* Dark Mode Toggle */}
               <button
                   onClick={() => setIsDarkMode(!isDarkMode)}
                   className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all shadow-sm"
@@ -429,25 +510,14 @@ export default function App() {
             </div>
           </div>
 
-          {/* Server Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {servers.map((server) => (
-                <ServerCard
-                    key={server.id}
-                    server={server}
-                />
+                <ServerCard key={server.id} server={server} />
             ))}
-
             <AddServerCard onClick={handleOpenCreateModal} />
           </div>
         </div>
-
-        {/* Modal - Rendered conditionally */}
-        <CreateModal
-            isOpen={isCreateModalOpen}
-            onClose={() => setCreateModalOpen(false)}
-            onCreateServer={handleCreateServer}
-        />
+        <CreateModal isOpen={isCreateModalOpen} onClose={() => setCreateModalOpen(false)} onCreateServer={handleCreateServer} versions={mcVersions} latestRelease={latestRelease} />
       </div>
   );
 }
