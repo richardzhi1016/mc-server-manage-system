@@ -5,14 +5,13 @@ import threading
 import time
 import re
 from datetime import datetime
-from flask import Flask, request, jsonify, g
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import py7zr
 from werkzeug.utils import secure_filename
-from auth import require_auth, require_admin
 import logging
 
 app = Flask(__name__)
@@ -30,342 +29,6 @@ limiter = Limiter(
 
 # Initialize SocketIO with async mode
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
-
-ADMIN_API_KEY = os.environ.get("MC_ADMIN_API_KEY") or os.environ.get("ADMIN_API_KEY")
-
-
-def init_default_admin():
-    """Initialize default admin account if no users exist."""
-    import json
-    import sqlite3
-    from models.user import UserStorage
-
-    storage = UserStorage()
-
-    old_users_file = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "users.json"
-    )
-
-    if os.path.exists(old_users_file):
-        try:
-            with open(old_users_file, "r") as f:
-                old_users = json.load(f)
-
-            conn = sqlite3.connect(storage.db_path)
-            cursor = conn.cursor()
-            for user_data in old_users:
-                cursor.execute(
-                    """
-                    INSERT OR IGNORE INTO users (id, username, password_hash, role, created_at)
-                    VALUES (?, ?, ?, ?, ?)
-                """,
-                    (
-                        user_data["id"],
-                        user_data["username"],
-                        user_data["password_hash"],
-                        user_data["role"],
-                        user_data["created_at"],
-                    ),
-                )
-            conn.commit()
-            conn.close()
-
-            os.rename(old_users_file, old_users_file + ".backup")
-            print(f"Migrated {len(old_users)} users from JSON to SQLite")
-        except Exception as e:
-            print(f"Failed to migrate users: {e}")
-
-    if storage.count_users() == 0:
-        admin_password = os.environ.get("ADMIN_PASSWORD") or "admin123"
-        admin_user = storage.create_user("admin", admin_password, "admin")
-        if admin_user:
-            print(
-                f"Default admin account created. Username: admin, Password: {admin_password}"
-            )
-        else:
-            print("Failed to create default admin account")
-
-
-@app.before_request
-def require_api_key():
-    if request.path.startswith("/api/auth/"):
-        return
-    if not request.path.startswith("/api"):
-        return
-
-    key = request.headers.get("X-API-Key")
-    if not key:
-        key = request.args.get("api_key")
-
-    if ADMIN_API_KEY:
-        if not key or key != ADMIN_API_KEY:
-            return jsonify({"error": "Unauthorized"}), 401
-        return
-
-    from auth import get_token_from_header, decode_token
-
-    token = get_token_from_header()
-    if token:
-        payload = decode_token(token)
-        if payload:
-            g.auth_user = {
-                "user_id": payload.get("sub"),
-                "username": payload.get("username"),
-                "role": payload.get("role"),
-            }
-            return
-
-
-@app.route("/api/auth/login", methods=["POST"])
-@limiter.limit("5 per minute")
-def login():
-    """Authenticate user and return JWT token."""
-    from models.user import UserStorage
-    from auth import verify_password, generate_token
-
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-
-    username = data.get("username")
-    password = data.get("password")
-
-    if not username or not password:
-        return jsonify({"error": "Username and password are required"}), 400
-
-    storage = UserStorage()
-    user = storage.get_user_by_username(username)
-
-    if not user or not verify_password(password, user.password_hash):
-        return jsonify({"error": "Invalid username or password"}), 401
-
-    token = generate_token(user.id, user.username, user.role)
-
-    return jsonify(
-        {
-            "message": "Login successful",
-            "token": token,
-            "user": user.to_response(),
-        }
-    ), 200
-
-
-@app.route("/api/auth/logout", methods=["POST"])
-def logout():
-    """Logout user (client-side token deletion)."""
-    return jsonify({"message": "Logged out successfully"}), 200
-
-
-@app.route("/api/auth/register", methods=["POST"])
-@limiter.limit("5 per minute")
-def register():
-    """Register a new user account."""
-    from models.user import UserStorage
-
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-
-    username = data.get("username")
-    password = data.get("password")
-    confirm_password = data.get("confirm_password")
-
-    if not username or not password or not confirm_password:
-        return jsonify(
-            {"error": "Username, password, and confirm_password are required"}
-        ), 400
-
-    import re
-
-    username_pattern = r"^[a-zA-Z0-9_]{3,20}$"
-    if not re.match(username_pattern, username):
-        return jsonify(
-            {
-                "error": "Username must be 3-20 characters and contain only letters, numbers, and underscores"
-            }
-        ), 400
-
-    if len(password) < 8:
-        return jsonify({"error": "Password must be at least 8 characters"}), 400
-
-    if password != confirm_password:
-        return jsonify({"error": "Passwords do not match"}), 400
-
-    storage = UserStorage()
-    existing_user = storage.get_user_by_username(username)
-    if existing_user:
-        return jsonify({"error": "Username already exists"}), 409
-
-    user = storage.create_user(username, password, "user")
-    if not user:
-        return jsonify({"error": "Failed to create user"}), 500
-
-    return jsonify(
-        {"message": "User registered successfully", "user": user.to_response()}
-    ), 201
-
-
-@app.route("/api/auth/request-password-reset", methods=["POST"])
-def request_password_reset():
-    """Request a password reset (Phase 1: admin contact instructions)."""
-    from models.user import UserStorage
-
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-
-    username = data.get("username")
-    if not username:
-        return jsonify({"error": "Username is required"}), 400
-
-    storage = UserStorage()
-    storage.get_user_by_username(username)
-
-    contact_info = os.environ.get("PASSWORD_RESET_CONTACT", "admin@example.com")
-
-    return jsonify(
-        {
-            "message": "Please contact an administrator to reset your password",
-            "contact_info": contact_info,
-        }
-    ), 200
-
-
-@app.route("/api/auth/me", methods=["GET"])
-def get_current_user():
-    """Get current authenticated user information."""
-    from auth import get_token_from_header, decode_token
-
-    token = get_token_from_header()
-    if not token:
-        return jsonify({"error": "Missing authentication token"}), 401
-
-    payload = decode_token(token)
-    if not payload:
-        return jsonify({"error": "Invalid or expired token"}), 401
-
-    return jsonify(
-        {
-            "user_id": payload.get("sub"),
-            "username": payload.get("username"),
-            "role": payload.get("role"),
-        }
-    ), 200
-
-
-@app.route("/api/users", methods=["GET"])
-@require_admin
-def list_users():
-    """List all users (admin only)."""
-    from models.user import UserStorage
-
-    storage = UserStorage()
-    users = storage.get_all_users()
-    return jsonify({"users": [u.to_response() for u in users]}), 200
-
-
-@app.route("/api/users", methods=["POST"])
-@require_admin
-def create_user():
-    """Create a new user (admin only)."""
-    from models.user import UserStorage
-
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-
-    username = data.get("username")
-    password = data.get("password")
-    role = data.get("role", "user")
-
-    if not username or not password:
-        return jsonify({"error": "Username and password are required"}), 400
-
-    if len(password) < 8:
-        return jsonify({"error": "Password must be at least 8 characters"}), 400
-
-    if role not in ["admin", "user"]:
-        return jsonify({"error": "Invalid role. Must be 'admin' or 'user'"}), 400
-
-    storage = UserStorage()
-    user = storage.create_user(username, password, role)
-
-    if not user:
-        return jsonify({"error": "Username already exists"}), 409
-
-    return jsonify(
-        {"message": "User created successfully", "user": user.to_response()}
-    ), 201
-
-
-@app.route("/api/users/<user_id>", methods=["PUT"])
-@require_admin
-def update_user(user_id):
-    """Update a user (admin only)."""
-    from models.user import UserStorage
-
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-
-    storage = UserStorage()
-
-    user = storage.get_user_by_id(user_id)
-    if not user:
-        return jsonify({"error": "User not found"}), 404
-
-    updates = {}
-
-    reset_by_admin = data.get("reset_by_admin", False)
-
-    if "new_password" in data and reset_by_admin:
-        if len(data["new_password"]) < 8:
-            return jsonify({"error": "Password must be at least 8 characters"}), 400
-        updates["password"] = data["new_password"]
-        logging.info(
-            f"Admin {g.auth_user['username']} reset password for user {user.username}"
-        )
-    elif "password" in data:
-        if len(data["password"]) < 8:
-            return jsonify({"error": "Password must be at least 8 characters"}), 400
-        updates["password"] = data["password"]
-
-    if "role" in data:
-        if data["role"] not in ["admin", "user"]:
-            return jsonify({"error": "Invalid role. Must be 'admin' or 'user'"}), 400
-        updates["role"] = data["role"]
-
-    updated_user = storage.update_user(user_id, updates)
-    if not updated_user:
-        return jsonify({"error": "Failed to update user"}), 500
-    return jsonify(
-        {"message": "User updated successfully", "user": updated_user.to_response()}
-    ), 200
-
-
-@app.route("/api/users/<user_id>", methods=["DELETE"])
-@require_admin
-def delete_user(user_id):
-    """Delete a user (admin only)."""
-    from models.user import UserStorage
-    from flask import g
-
-    storage = UserStorage()
-
-    user = storage.get_user_by_id(user_id)
-    if not user:
-        return jsonify({"error": "User not found"}), 404
-
-    if user_id == g.auth_user["user_id"]:
-        return jsonify({"error": "You cannot delete your own account"}), 400
-
-    if user.role == "admin" and storage.count_admins() <= 1:
-        return jsonify({"error": "Cannot delete the last admin account"}), 400
-
-    if storage.delete_user(user_id):
-        return jsonify({"message": "User deleted successfully"}), 200
-
-    return jsonify({"error": "Failed to delete user"}), 500
 
 
 # Configuration
@@ -599,7 +262,6 @@ def extract_7z_file(file_path, extract_to):
 
 
 @app.route("/api/upload-package", methods=["POST"])
-@require_auth
 def upload_package():
     """API endpoint to receive and extract 7z/7zip packages"""
 
@@ -726,7 +388,6 @@ def find_server_jar(server_dir):
 
 
 @app.route("/api/start-server", methods=["POST"])
-@require_auth
 def start_server():
     """API endpoint to start a Minecraft Fabric server"""
     data = request.get_json()
@@ -802,7 +463,6 @@ def start_server():
 
 
 @app.route("/api/stop-server", methods=["POST"])
-@require_auth
 def stop_server():
     """API endpoint to stop a Minecraft Fabric server"""
     data = request.get_json()
@@ -857,7 +517,6 @@ def stop_server():
 
 
 @app.route("/api/server-status", methods=["GET"])
-@require_auth
 def server_status():
     """API endpoint to get status of all running servers"""
     status = {}
@@ -872,7 +531,6 @@ def server_status():
 
 
 @app.route("/api/server-metrics", methods=["GET"])
-@require_auth
 def get_server_metrics():
     """API endpoint to get server metrics"""
     server_name = request.args.get("server_name")
@@ -925,7 +583,6 @@ def get_server_metrics():
 
 
 @app.route("/api/server-logs/<server_name>", methods=["GET"])
-@require_auth
 def get_server_logs(server_name: str):
     """API endpoint to get recent log lines for a server"""
     server_dir = os.path.join(app.config["UPLOAD_FOLDER"], server_name)
@@ -975,7 +632,6 @@ def send_command_to_server(server_name: str, command: str) -> tuple[bool, str]:
 
 
 @app.route("/api/players/online", methods=["GET"])
-@require_auth
 def get_online_players():
     """API endpoint to get list of online players"""
     server_name = request.args.get("server_name")
@@ -993,7 +649,6 @@ def get_online_players():
 
 
 @app.route("/api/players/kick", methods=["POST"])
-@require_auth
 def kick_player():
     """API endpoint to kick a player from the server"""
     data = request.get_json()
@@ -1026,7 +681,6 @@ def kick_player():
 
 
 @app.route("/api/players/ban", methods=["POST"])
-@require_auth
 def ban_player():
     """API endpoint to ban a player from the server"""
     data = request.get_json()
@@ -1056,7 +710,6 @@ def ban_player():
 
 
 @app.route("/api/players/unban", methods=["POST"])
-@require_auth
 def unban_player():
     """API endpoint to unban a player"""
     data = request.get_json()
@@ -1085,7 +738,6 @@ def unban_player():
 
 
 @app.route("/api/players/op", methods=["POST"])
-@require_auth
 def op_player():
     """API endpoint to grant operator status to a player"""
     data = request.get_json()
@@ -1114,7 +766,6 @@ def op_player():
 
 
 @app.route("/api/players/deop", methods=["POST"])
-@require_auth
 def deop_player():
     """API endpoint to remove operator status from a player"""
     data = request.get_json()
@@ -1143,7 +794,6 @@ def deop_player():
 
 
 @app.route("/api/players/teleport", methods=["POST"])
-@require_auth
 def teleport_player():
     """API endpoint to teleport a player to another player"""
     data = request.get_json()
@@ -1175,7 +825,6 @@ def teleport_player():
 
 
 @app.route("/api/whitelist", methods=["GET"])
-@require_auth
 def get_whitelist():
     """API endpoint to get whitelist status"""
     server_name = request.args.get("server_name")
@@ -1191,7 +840,6 @@ def get_whitelist():
 
 
 @app.route("/api/whitelist/add", methods=["POST"])
-@require_auth
 def add_to_whitelist():
     """API endpoint to add a player to the whitelist"""
     data = request.get_json()
@@ -1220,7 +868,6 @@ def add_to_whitelist():
 
 
 @app.route("/api/whitelist/remove", methods=["POST"])
-@require_auth
 def remove_from_whitelist():
     """API endpoint to remove a player from the whitelist"""
     data = request.get_json()
@@ -1296,7 +943,6 @@ def get_file_info(file_path: str) -> dict:
 
 
 @app.route("/api/servers/<server_name>/files", methods=["GET"])
-@require_auth
 def list_server_files(server_name: str):
     """List directory contents for a server"""
     path = request.args.get("path", "")
@@ -1325,7 +971,6 @@ def list_server_files(server_name: str):
 
 
 @app.route("/api/servers/<server_name>/files/*path", methods=["GET"])
-@require_auth
 def read_server_file(server_name: str, path: str):
     """Read file contents from a server"""
     is_valid, error, abs_path = validate_server_path(server_name, path)
@@ -1350,7 +995,6 @@ def read_server_file(server_name: str, path: str):
 
 
 @app.route("/api/servers/<server_name>/files/*path", methods=["PUT"])
-@require_auth
 def write_server_file(server_name: str, path: str):
     """Write file contents to a server"""
     is_valid, error, abs_path = validate_server_path(server_name, path)
@@ -1373,7 +1017,6 @@ def write_server_file(server_name: str, path: str):
 
 
 @app.route("/api/servers/<server_name>/files/*path", methods=["POST"])
-@require_auth
 def create_server_folder(server_name: str, path: str):
     """Create a folder in a server directory"""
     is_valid, error, abs_path = validate_server_path(server_name, path)
@@ -1390,7 +1033,6 @@ def create_server_folder(server_name: str, path: str):
 
 
 @app.route("/api/servers/<server_name>/files/*path", methods=["DELETE"])
-@require_auth
 def delete_server_file(server_name: str, path: str):
     """Delete a file or folder from a server"""
     is_valid, error, abs_path = validate_server_path(server_name, path)
@@ -1415,7 +1057,6 @@ def delete_server_file(server_name: str, path: str):
 
 
 @app.route("/api/servers/<server_name>/rename", methods=["POST"])
-@require_auth
 def rename_server_file(server_name: str):
     """Rename a file or folder in a server"""
     data = request.get_json()
@@ -1451,7 +1092,6 @@ def rename_server_file(server_name: str):
 
 
 @app.route("/api/servers/<server_name>/upload", methods=["POST"])
-@require_auth
 def upload_server_file(server_name: str):
     """Upload a file to a server"""
     path = request.form.get("path", "")
@@ -1482,7 +1122,6 @@ def upload_server_file(server_name: str):
 
 
 @app.route("/api/servers/<server_name>/download/*path", methods=["GET"])
-@require_auth
 def download_server_file(server_name: str, path: str):
     """Download a file from a server"""
     is_valid, error, abs_path = validate_server_path(server_name, path)
@@ -1513,7 +1152,6 @@ def hello_world():
 
 
 @app.route("/api/servers", methods=["GET"])
-@require_auth
 def list_servers():
     """List all available servers."""
     servers_dir = app.config["UPLOAD_FOLDER"]
@@ -1538,7 +1176,6 @@ def list_servers():
 
 
 @app.route("/api/servers/create", methods=["POST"])
-@require_auth
 def create_server():
     """Create a new Minecraft server automatically by downloading the server jar."""
     data = request.get_json()
@@ -1597,60 +1234,70 @@ def create_server():
         with urllib.request.urlopen(server_download_url) as response:
             with open(jar_path, "wb") as f:
                 f.write(response.read())
+        print(f"Downloaded {jar_filename}")
 
-        # Accept EULA
+        # Generate eula.txt
         eula_path = os.path.join(server_dir, "eula.txt")
         with open(eula_path, "w") as f:
+            f.write(
+                "# By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula).\n"
+            )
+            f.write(
+                "# You acknowledge that not doing so is an infringement of Mojang's intellectual property rights.\n"
+            )
+            f.write(
+                f"# Generated by mc-server-manage-system on {datetime.now().isoformat()}\n"
+            )
             f.write("eula=true\n")
+        print(f"Generated {eula_path}")
 
-        # Create default server.properties
-        properties = f"""#Minecraft server properties
-#Generated by MC Server Manager
-spawn-protection=16
-max-tick-time=60000
-query.port={port}
-generator-settings={{}}
-force-gamemode=false
-allow-nether=true
-enforce-whitelist=false
-gamemode=survival
-broadcast-console-to-ops=true
-enable-query=false
-player-idle-timeout=0
-difficulty={difficulty}
-spawn-monsters=true
-op-permission-level=4
-resource-pack-hash=
-announce-player-achievements=true
-pvp=true
-snooper-enabled=true
-level-type=DEFAULT
-hardcore=false
-enable-command-block=false
-max-players={max_players}
-network-compression-threshold=256
-max-world-size=29999984
-server-port={port}
-server-ip=
-spawn-npcs=true
-allow-flight=false
-level-name=world
-view-distance=10
-resource-pack=
-spawn-animals=true
-white-list=false
-generate-structures=true
-online-mode=true
-max-build-height=256
-level-seed=
-use-native-transport=true
-motd={motd}
-enable-rcon=false
-"""
+        # Generate server.properties
+        server_properties_path = os.path.join(server_dir, "server.properties")
+        with open(server_properties_path, "w") as f:
+            f.write(f"# Minecraft server properties\n")
+            f.write(
+                f"# Generated by mc-server-manage-system on {datetime.now().isoformat()}\n"
+            )
+            f.write(f"server-name={server_name}\n")
+            f.write(f"server-port={port}\n")
+            f.write(f"motd={motd}\n")
+            f.write(f"hardcore=false\n")
+            f.write(f"allow-nether=true\n")
+            f.write(f"level-name=world\n")
+            f.write(f"enable-query=false\n")
+            f.write(f"allow-flight=false\n")
+            f.write(f"announce-player-achievements=true\n")
+            f.write(f"spawn-npcs=true\n")
+            f.write(f"white-list=false\n")
+            f.write(f"spawn-animals=true\n")
+            f.write(f"snooper-enabled=true\n")
+            f.write(f"mode=survival\n")
+            f.write(f"player-idle-timeout=0\n")
+            f.write(f"difficulty={difficulty}\n")
+            f.write(f"spawn-monsters=true\n")
+            f.write(f"generate-structures=true\n")
+            f.write(f"max-build-height=256\n")
+            f.write(f"spawn-protection=16\n")
+            f.write(f"max-players={max_players}\n")
+            f.write(f"view-distance=10\n")
+            f.write(f"allow-end=true\n")
+            f.write(f"server-ip=\n")
+        print(f"Generated {server_properties_path}")
 
-        properties_path = os.path.join(server_dir, "server.properties")
-        with open(properties_path, "w") as f:
-            f.write(properties)
+        # Generate startup script
+        startup_script_path = os.path.join(
+            server_dir, "start.sh" if os.name != "nt" else "start.bat"
+        )
+        with open(startup_script_path, "w") as f:
+            if os.name != "nt":
+                f.write("#!/bin/bash\n")
+                f.write(f'java -Xmx1024M -Xms512M -jar "{jar_filename}" nogui\n')
+                os.chmod(startup_script_path, 0o755)
+            else:
+                f.write("@echo off\n")
+                f.write(f'java -Xmx1024M -Xms512M -jar "{jar_filename}" nogui\n')
+                f.write("pause\n")
+        print(f"Generated {startup_script_path}")
 
         return jsonify(
             {
@@ -1660,7 +1307,7 @@ enable-rcon=false
                 "jar_file": jar_filename,
                 "server_dir": server_dir,
             }
-        ), 201
+        ), 200
 
     except Exception as e:
         # Clean up on failure
@@ -1671,267 +1318,28 @@ enable-rcon=false
         return jsonify({"error": f"Failed to create server: {str(e)}"}), 500
 
 
-@app.route("/api/settings/startup", methods=["GET"])
-@require_auth
-def get_startup_settings():
-    """Get startup parameters for a server."""
-    server_name = request.args.get("server_name")
-    if not server_name:
-        return jsonify({"error": "Missing server_name parameter"}), 400
+@app.route("/api/servers/<server_name>/delete", methods=["DELETE"])
+def delete_server(server_name: str):
+    """Delete a server directory and all its contents."""
+    server_dir = os.path.join(app.config["UPLOAD_FOLDER"], server_name)
 
-    from config import read_startup_conf
+    if not os.path.exists(server_dir):
+        return jsonify({"error": f"Server '{server_name}' not found"}), 404
 
-    config = read_startup_conf(server_name)
-    return jsonify(config), 200
-
-
-@app.route("/api/settings/startup", methods=["POST"])
-@require_auth
-def update_startup_settings():
-    """Update startup parameters for a server."""
-    data = request.get_json()
-    if not data or "server_name" not in data:
-        return jsonify({"error": "Missing server_name parameter"}), 400
-
-    server_name = data["server_name"]
-    from config import write_startup_conf
-
-    config = {
-        "min_memory": data.get("min_memory", 1024),
-        "max_memory": data.get("max_memory", 2048),
-        "jvm_flags": data.get("jvm_flags", ["-nogui"]),
-    }
-
-    if write_startup_conf(server_name, config):
-        return jsonify({"message": "Startup settings saved successfully"}), 200
-    else:
-        return jsonify({"error": "Failed to save startup settings"}), 500
-
-
-@app.route("/api/settings/server-properties", methods=["GET"])
-@require_auth
-def get_server_properties():
-    """Get server.properties for a server."""
-    server_name = request.args.get("server_name")
-    if not server_name:
-        return jsonify({"error": "Missing server_name parameter"}), 400
-
-    from config import read_server_properties, SERVER_PROPERTIES_SCHEMA
-
-    properties = read_server_properties(server_name)
-    schema = SERVER_PROPERTIES_SCHEMA
-
-    result = {
-        "properties": properties,
-        "schema": schema,
-    }
-    return jsonify(result), 200
-
-
-@app.route("/api/settings/server-properties", methods=["POST"])
-@require_auth
-def update_server_properties():
-    """Update server.properties for a server."""
-    data = request.get_json()
-    if not data or "server_name" not in data:
-        return jsonify({"error": "Missing server_name parameter"}), 400
-
-    server_name = data["server_name"]
-    properties = data.get("properties", {})
-    from config import write_server_properties
-
-    if write_server_properties(server_name, properties):
-        return jsonify({"message": "Server properties saved successfully"}), 200
-    else:
-        return jsonify({"error": "Failed to save server properties"}), 500
-
-
-@app.route("/api/settings/theme", methods=["POST"])
-@require_auth
-def save_theme():
-    """Save user theme preference."""
-    data = request.get_json()
-    if not data or "theme" not in data:
-        return jsonify({"error": "Missing theme parameter"}), 400
-
-    theme = data["theme"]
-    if theme not in ["light", "dark"]:
-        return jsonify({"error": "Invalid theme value"}), 400
-
-    return jsonify({"message": "Theme saved successfully"}), 200
-
-
-@app.route("/api/backups", methods=["GET"])
-@require_auth
-def list_backups():
-    """List available backups."""
-    server_name = request.args.get("server_name")
-    from backup import list_backups as lb
-
-    backups = lb(server_name)
-    return jsonify({"backups": backups}), 200
-
-
-@app.route("/api/backups", methods=["POST"])
-@require_auth
-def create_backup():
-    """Create a new backup."""
-    data = request.get_json()
-    if not data or "server_name" not in data:
-        return jsonify({"error": "Missing server_name parameter"}), 400
-
-    server_name = data["server_name"]
-    from backup import create_backup as cb
-
-    backup = cb(server_name)
-    if backup:
+    if server_name in running_servers:
         return jsonify(
-            {"message": "Backup created successfully", "backup": backup}
-        ), 201
-    else:
-        return jsonify({"error": "Failed to create backup"}), 500
-
-
-@app.route("/api/backups/restore", methods=["POST"])
-@require_auth
-def restore_backup():
-    """Restore a server from a backup."""
-    data = request.get_json()
-    if not data or "server_name" not in data or "backup_id" not in data:
-        return jsonify({"error": "Missing server_name or backup_id parameter"}), 400
-
-    server_name = data["server_name"]
-    backup_id = data["backup_id"]
-    from backup import restore_backup as rb
-
-    if rb(server_name, backup_id):
-        return jsonify({"message": "Backup restored successfully"}), 200
-    else:
-        return jsonify({"error": "Failed to restore backup"}), 500
-
-
-@app.route("/api/backups/<backup_id>", methods=["DELETE"])
-@require_auth
-def delete_backup(backup_id):
-    """Delete a backup."""
-    data = request.get_json()
-    if not data or "server_name" not in data:
-        return jsonify({"error": "Missing server_name parameter"}), 400
-
-    server_name = data["server_name"]
-    from backup import delete_backup as db
-
-    if db(server_name, backup_id):
-        return jsonify({"message": "Backup deleted successfully"}), 200
-    else:
-        return jsonify({"error": "Failed to delete backup"}), 500
-
-
-@app.route("/api/backups/<server_name>/<backup_id>/download", methods=["GET"])
-@require_auth
-def download_backup(server_name, backup_id):
-    """Download a backup file."""
-    from backup import get_backup_path
-    from flask import send_file
-
-    backup_path = get_backup_path(server_name, backup_id)
-    if not os.path.exists(backup_path):
-        return jsonify({"error": "Backup not found"}), 404
+            {"error": f"Server '{server_name}' is still running. Stop it first."}
+        ), 400
 
     try:
-        return send_file(
-            backup_path,
-            as_attachment=True,
-            download_name=f"{server_name}_{backup_id}.tar.gz",
-        )
+        import shutil
+
+        shutil.rmtree(server_dir)
+        return jsonify({"message": f"Server '{server_name}' deleted successfully"}), 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/api/scheduled-tasks", methods=["GET"])
-@require_auth
-def list_scheduled_tasks():
-    """List scheduled tasks."""
-    from backup import load_scheduled_tasks, get_next_run_time
-
-    tasks = load_scheduled_tasks()
-    for task in tasks:
-        task["next_run"] = get_next_run_time(task)
-
-    return jsonify({"tasks": tasks}), 200
-
-
-@app.route("/api/scheduled-tasks", methods=["POST"])
-@require_auth
-def create_scheduled_task():
-    """Create a new scheduled task."""
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-
-    required = ["type", "schedule"]
-    for field in required:
-        if field not in data:
-            return jsonify({"error": f"Missing {field} parameter"}), 400
-
-    from backup import add_scheduled_task
-
-    task = add_scheduled_task(data)
-    return jsonify({"message": "Task created successfully", "task": task}), 201
-
-
-@app.route("/api/scheduled-tasks/<task_id>", methods=["DELETE"])
-@require_auth
-def delete_scheduled_task(task_id):
-    """Delete a scheduled task."""
-    from backup import delete_scheduled_task as dt
-
-    if dt(task_id):
-        return jsonify({"message": "Task deleted successfully"}), 200
-    else:
-        return jsonify({"error": "Task not found"}), 404
-
-
-@app.route("/api/scheduled-tasks/<task_id>", methods=["PUT"])
-@require_auth
-def update_scheduled_task(task_id):
-    """Update a scheduled task."""
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-
-    from backup import update_scheduled_task as ut
-
-    if ut(task_id, data):
-        return jsonify({"message": "Task updated successfully"}), 200
-    else:
-        return jsonify({"error": "Task not found"}), 404
-
-
-@app.route("/api/scheduler/status", methods=["GET"])
-@require_auth
-def scheduler_status():
-    """Get scheduler status."""
-    from backup import load_scheduled_tasks, get_next_run_time
-
-    tasks = load_scheduled_tasks()
-    enabled_tasks = [t for t in tasks if t.get("enabled", True)]
-
-    return jsonify(
-        {
-            "running": True,
-            "task_count": len(enabled_tasks),
-            "next_tasks": sorted(
-                [
-                    {"id": t["id"], "type": t["type"], "next_run": get_next_run_time(t)}
-                    for t in enabled_tasks
-                ],
-                key=lambda x: x["next_run"] or "",
-            )[:5],
-        }
-    ), 200
+        return jsonify({"error": f"Failed to delete server: {str(e)}"}), 500
 
 
 if __name__ == "__main__":
-    init_default_admin()
-    socketio.run(app, host="::", port=5000, debug=False)
+    print("Starting Flask app...")
+    socketio.run(app, host="0.0.0.0", port=5000, debug=False)
