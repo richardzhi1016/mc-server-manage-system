@@ -1,0 +1,151 @@
+import re
+from typing import Any
+from app.config import config
+
+
+def parse_log_level(line: str) -> str:
+    """Extract log level from a log line"""
+    for level, pattern in config.log_level_patterns.items():
+        if re.search(pattern, line):
+            return level
+    return "INFO"
+
+
+def validate_server_structure(server_dir: str) -> tuple[bool, dict[str, Any]]:
+    """Validate if the extracted files contain a valid Minecraft server structure."""
+    import os
+
+    root_items = os.listdir(server_dir)
+    jar_files = [f for f in root_items if f.endswith(".jar")]
+    has_jar = len(jar_files) > 0
+
+    if has_jar:
+        structure_info = f"[OK] JAR files found: {', '.join(jar_files)}"
+    else:
+        structure_info = "[MISSING] No JAR files in root directory"
+
+    return has_jar, {
+        "jar_files": jar_files,
+        "jar_count": len(jar_files),
+        "structure_info": structure_info,
+    }
+
+
+def find_server_jar(server_dir: str) -> str | None:
+    """Find the server JAR file in the server directory."""
+    import os
+
+    if not os.path.exists(server_dir):
+        return None
+    for file in os.listdir(server_dir):
+        if file.endswith(".jar"):
+            return file
+    return None
+
+
+class ServerOperationError(Exception):
+    """Custom exception for server operations."""
+
+    def __init__(self, message: str, status_code: int = 500):
+        self.message = message
+        self.status_code = status_code
+        super().__init__(message)
+
+
+class ServerManager:
+    """Service class for managing Minecraft server operations."""
+
+    def __init__(self):
+        self.running_servers: dict[str, Any] = {}
+        self.log_watchers: dict[str, Any] = {}
+
+    def is_server_running(self, server_name: str) -> bool:
+        """Check if a server is currently running."""
+        if server_name not in self.running_servers:
+            return False
+        process = self.running_servers[server_name]
+        return process.poll() is None
+
+    def get_running_servers(self) -> dict[str, dict[str, Any]]:
+        """Get status of all running servers."""
+        status = {}
+        for server_name, process in list(self.running_servers.items()):
+            if process.poll() is None:
+                status[server_name] = {"running": True, "pid": process.pid}
+            else:
+                status[server_name] = {
+                    "running": False,
+                    "exit_code": process.returncode,
+                }
+                del self.running_servers[server_name]
+        return status
+
+    def validate_server_path(
+        self, server_name: str, path: str
+    ) -> tuple[bool, str, str]:
+        """Validate and sanitize a file path for a server."""
+        import os
+
+        server_dir = str(config.get_server_dir(server_name))
+
+        if not os.path.exists(server_dir):
+            return False, f"Server '{server_name}' not found", ""
+
+        if ".." in path or path.startswith("/") or path.startswith("\\"):
+            return False, "Invalid path: directory traversal not allowed", ""
+
+        safe_path = path.lstrip("/\\")
+        if safe_path:
+            abs_path = os.path.abspath(os.path.join(server_dir, safe_path))
+        else:
+            abs_path = server_dir
+
+        if not abs_path.startswith(server_dir):
+            return False, "Access denied: path outside server directory", ""
+
+        return True, "", abs_path
+
+    def get_file_info(self, file_path: str) -> dict[str, Any]:
+        """Get file information for the API response."""
+        import os
+
+        is_dir = os.path.isdir(file_path)
+        stat = os.stat(file_path)
+        return {
+            "name": os.path.basename(file_path),
+            "path": os.path.relpath(
+                file_path, os.path.dirname(os.path.dirname(file_path))
+            ),
+            "is_directory": is_dir,
+            "size": stat.st_size if not is_dir else 0,
+            "modified": stat.st_mtime,
+        }
+
+    def list_server_files(
+        self, server_name: str, path: str = ""
+    ) -> tuple[bool, str, list[dict[str, Any]]]:
+        """List directory contents for a server."""
+        import os
+
+        is_valid, error, abs_path = self.validate_server_path(server_name, path)
+        if not is_valid:
+            return False, error, []
+
+        if not os.path.exists(abs_path):
+            return False, "Path not found", []
+
+        if not os.path.isdir(abs_path):
+            return False, "Path is not a directory", []
+
+        try:
+            items = []
+            for item in os.listdir(abs_path):
+                item_path = os.path.join(abs_path, item)
+                items.append(self.get_file_info(item_path))
+            items.sort(key=lambda x: (not x["is_directory"], x["name"].lower()))
+            return True, "", items
+        except PermissionError:
+            return False, "Permission denied", []
+
+
+server_manager = ServerManager()
