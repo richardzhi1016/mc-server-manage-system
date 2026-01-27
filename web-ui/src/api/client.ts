@@ -38,10 +38,17 @@ import type {
   CreateScheduledTaskRequest,
   UpdateScheduledTaskRequest,
   SchedulerStatusResponse,
+  CreateServerRequest,
+  CreateServerResponse,
 } from "@/types/api"
 
 export async function getServers(): Promise<ServerListResponse> {
   const response = await apiClient.get<ServerListResponse>("/api/servers")
+  return response.data
+}
+
+export async function createServer(data: CreateServerRequest): Promise<CreateServerResponse> {
+  const response = await apiClient.post<CreateServerResponse>("/api/servers", data)
   return response.data
 }
 
