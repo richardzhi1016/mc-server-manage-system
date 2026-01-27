@@ -8,8 +8,6 @@ export interface FileItem {
   modified: number;
 }
 
-// Explicit named export to ensure it's available
-export { FileItem };
 
 export interface FileListResponse {
   path: string;
