@@ -1,16 +1,12 @@
-import { LayoutDashboard, Server, Play, Upload, Settings, Users, Terminal, Folder, UserCog } from 'lucide-react'
+import { LayoutDashboard, Server, Play, Upload, Settings, Users, Terminal, Folder } from 'lucide-react'
 import { SidebarItem } from './SidebarItem'
 import { cn } from '@/lib/utils'
-import { useAuth } from '@/context/AuthContext'
 
 interface SidebarProps {
   collapsed?: boolean
 }
 
 export function Sidebar({ collapsed = false }: SidebarProps) {
-  const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
-
   return (
     <aside
       className={cn(
@@ -77,14 +73,6 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
           label="设置"
           collapsed={collapsed}
         />
-        {isAdmin && (
-          <SidebarItem
-            to="/panel/users"
-            icon={<UserCog className="w-5 h-5" />}
-            label="用户管理"
-            collapsed={collapsed}
-          />
-        )}
       </nav>
 
       <div className={cn('px-2 py-4 border-t border-gray-200 dark:border-gray-800', collapsed && 'text-center')}>
