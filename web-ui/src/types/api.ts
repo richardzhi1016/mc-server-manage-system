@@ -273,3 +273,17 @@ export interface SchedulerStatusResponse {
     next_run: string
   }>
 }
+
+export interface CreateServerRequest {
+  server_name: string
+  server_type?: string
+  version: string
+  port?: number
+  // min_memory?: number
+  // max_memory?: number
+}
+
+export interface CreateServerResponse {
+  message: string
+  server: Server
+}

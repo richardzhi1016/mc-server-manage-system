@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Server as ServerIcon, MoreVertical, X, Box, Layers, Code, ScrollText, ArrowLeft, ChevronRight, Check, Moon, Sun, ChevronDown, Search } from 'lucide-react';
+import { Plus, Server as ServerIcon, MoreVertical, X, Box, Layers, Code, ScrollText, ArrowLeft, ChevronRight, Check, Moon, Sun, ChevronDown } from 'lucide-react';
+import { createServer } from '@/api/client';
 
 // --- Types ---
 type ServerType = 'Vanilla' | 'Forge' | 'Fabric' | 'Paper';
@@ -471,19 +472,28 @@ export default function App() {
     setCreateModalOpen(true);
   };
 
-  const handleCreateServer = (data: { type: ServerType; name: string; version: string }) => {
-    const newId = (Math.max(...servers.map(s => parseInt(s.id))) + 1).toString();
-    const newServer: Server = {
-      id: newId,
-      name: data.name,
-      version: data.version,
-      type: data.type,
-      status: 'offline',
-      port: 25500 + parseInt(newId)
-    };
-
-    setServers([...servers, newServer]);
-    setCreateModalOpen(false);
+  const handleCreateServer = async (data: { type: ServerType; name: string; version: string }) => {
+    try {
+      const response = await createServer({
+        server_name: data.name,
+        server_type: data.type.toLowerCase(),
+        version: data.version,
+        port: 25565
+      });
+      const newServer: Server = {
+        id: response.server.id,
+        name: response.server.name,
+        version: data.version,
+        type: data.type,
+        status: 'offline',
+        port: 25565
+      };
+      setServers([...servers, newServer]);
+      setCreateModalOpen(false);
+    } catch (error) {
+      console.error('Failed to create server:', error);
+      alert('Failed to create server. Please try again.');
+    }
   };
 
   return (
