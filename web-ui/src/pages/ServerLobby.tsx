@@ -475,8 +475,8 @@ export default function App() {
   const handleCreateServer = async (data: { type: ServerType; name: string; version: string }) => {
     try {
       const response = await createServer({
-        server_name: data.name,
-        server_type: data.type.toLowerCase(),
+        name: data.name,
+        type: data.type.toLowerCase(),
         version: data.version,
         port: 25565
       });

@@ -275,8 +275,8 @@ export interface SchedulerStatusResponse {
 }
 
 export interface CreateServerRequest {
-  server_name: string
-  server_type?: string
+  name: string
+  type?: string
   version: string
   port?: number
   // min_memory?: number
