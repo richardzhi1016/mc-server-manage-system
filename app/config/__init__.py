@@ -22,12 +22,12 @@ class Config:
         """Load configuration from environment and defaults."""
         base_dir = Path(__file__).parent.parent
         self._config = {
-            "servers_dir": base_dir / "app" / "servers",
+            "servers_dir": base_dir / "data" / "servers",
             "backups_dir": base_dir / "backups",
-            "database_dir": base_dir / "app" / "data" / "database",
-            "database_path": base_dir / "app" / "data" / "database" / "database.db",
+            "database_dir": base_dir / "data" / "database",
+            "database_path": base_dir / "data" / "database" / "database.db",
             "allowed_extensions": {"7z", "7zip"},
-            "upload_folder": base_dir / "app" / "servers",
+            "upload_folder": base_dir / "data" / "servers",
             "default_max_memory": 2048,
             "default_min_memory": 1024,
             "log_level_patterns": {

@@ -24,7 +24,7 @@ export default function ServerLobby() {
   const [isDarkMode, setIsDarkMode] = useState(false)
 
   // Use custom hook for Minecraft versions
-  const { versions: mcVersions, latestRelease } = useMinecraftVersions()
+  const { versions: mcVersions, versionsMap, latestRelease } = useMinecraftVersions()
 
   // Detect system dark mode preference on initial load
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -51,12 +51,13 @@ export default function ServerLobby() {
     setCreateModalOpen(false)
   }, [])
 
-  const handleCreateServer = useCallback(async (data: { type: ServerType; name: string; version: string }) => {
+  const handleCreateServer = useCallback(async (data: { type: ServerType; name: string; version: string; version_url?: string }) => {
     try {
       const response = await createServer({
         name: data.name,
         type: data.type.toLowerCase(),
         version: data.version,
+        version_url: data.version_url,
         port: 25565
       })
       const newServer: LobbyServer = {
@@ -116,6 +117,7 @@ export default function ServerLobby() {
         onClose={handleCloseCreateModal}
         onCreateServer={handleCreateServer}
         versions={mcVersions}
+        versionsMap={versionsMap}
         latestRelease={latestRelease}
       />
     </div>

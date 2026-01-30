@@ -4,9 +4,10 @@ import sqlite3
 import sys
 from pathlib import Path
 
-APP_DIR = str(Path(__file__).parent)
-if APP_DIR not in sys.path:
-    sys.path.insert(0, APP_DIR)
+# Add the parent directory of 'app' to sys.path so 'from app.xxx import' works
+PROJECT_ROOT = str(Path(__file__).parent.parent)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 from flask import Flask
 from flask_cors import CORS

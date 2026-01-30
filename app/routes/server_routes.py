@@ -344,34 +344,89 @@ def list_servers():
 
 @servers_bp.route("/servers", methods=["POST"])
 def create_server_instance():
-    """Create a new server instance in the database."""
+    """Create a new server instance with folder and server.jar download."""
     import sqlite3
+    import shutil
 
     data = request.get_json()
     if not data or "name" not in data:
         return jsonify({"error": "Missing 'name' parameter"}), 400
 
-    id = str(uuid.uuid4())
+    server_id = str(uuid.uuid4())
     name = data["name"]
     server_type = data.get("type")
     version = data.get("version")
+    version_url = data.get("version_url")
     port = data.get("port")
 
+    # Create server directory
+    server_dir = config.get_server_dir(name)
+    if os.path.exists(server_dir):
+        return jsonify({"error": f"Server directory '{name}' already exists"}), 409
+
     try:
+        os.makedirs(server_dir, exist_ok=True)
+
+        # Download server.jar if version_url is provided (Vanilla only for now)
+        if version_url and server_type == "vanilla":
+            # Fetch version metadata
+            try:
+                with urllib.request.urlopen(version_url, timeout=30) as response:
+                    version_meta = json.loads(response.read().decode("utf-8"))
+            except Exception as e:
+                shutil.rmtree(server_dir)
+                return jsonify({"error": f"Failed to fetch version metadata: {str(e)}"}), 500
+
+            # Get server download URL
+            server_download = version_meta.get("downloads", {}).get("server")
+            if not server_download:
+                shutil.rmtree(server_dir)
+                return jsonify({"error": "No server download available for this version"}), 400
+
+            server_jar_url = server_download.get("url")
+            if not server_jar_url:
+                shutil.rmtree(server_dir)
+                return jsonify({"error": "No server JAR URL found in version metadata"}), 400
+
+            # Download server.jar
+            jar_path = os.path.join(str(server_dir), "server.jar")
+            try:
+                urllib.request.urlretrieve(server_jar_url, jar_path)
+            except Exception as e:
+                shutil.rmtree(server_dir)
+                return jsonify({"error": f"Failed to download server.jar: {str(e)}"}), 500
+
+        # Create eula.txt
+        eula_path = os.path.join(str(server_dir), "eula.txt")
+        with open(eula_path, "w", encoding="utf-8") as f:
+            f.write("eula=true\n")
+
+        # Save to database
         conn = sqlite3.connect(str(config.database_path))
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute(
             "INSERT INTO server_instance (id, name, server_type, version, port) VALUES (?, ?, ?, ?, ?)",
-            (id, name, server_type, version, port),
+            (server_id, name, server_type, version, port),
         )
         conn.commit()
-        cursor.execute("SELECT * FROM server_instance WHERE id = ?", (id,))
-        server = dict(cursor.fetchone()) if cursor.fetchone() else None
+        cursor.execute("SELECT * FROM server_instance WHERE id = ?", (server_id,))
+        row = cursor.fetchone()
+        server = dict(row) if row else {"id": server_id, "name": name, "server_type": server_type, "version": version, "port": port}
         conn.close()
-        return jsonify({"message": f"Server '{name}' created", "server": server}), 201
+
+        return jsonify({
+            "message": f"Server '{name}' created successfully",
+            "server": server
+        }), 201
+
     except sqlite3.IntegrityError:
-        return jsonify({"error": f"Server '{name}' already exists"}), 409
+        if os.path.exists(server_dir):
+            shutil.rmtree(server_dir)
+        return jsonify({"error": f"Server '{name}' already exists in database"}), 409
     except Exception as e:
+        if os.path.exists(server_dir):
+            shutil.rmtree(server_dir)
         return jsonify({"error": str(e)}), 500
 
 

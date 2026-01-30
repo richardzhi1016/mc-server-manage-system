@@ -278,6 +278,7 @@ export interface CreateServerRequest {
   name: string
   type?: string
   version: string
+  version_url?: string  // URL to version metadata JSON
   port?: number
   // min_memory?: number
   // max_memory?: number

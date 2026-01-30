@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 
 interface MinecraftVersionsResult {
     versions: string[]
+    versionsMap: Map<string, string>  // Maps version ID to metadata URL
     latestRelease: string
     isLoading: boolean
     error: Error | null
@@ -26,10 +27,12 @@ interface VersionManifest {
 
 // Cache for version data to avoid refetching
 let cachedVersions: string[] | null = null
+let cachedVersionsMap: Map<string, string> | null = null
 let cachedLatestRelease: string | null = null
 
 export function useMinecraftVersions(): MinecraftVersionsResult {
     const [versions, setVersions] = useState<string[]>(cachedVersions || [])
+    const [versionsMap, setVersionsMap] = useState<Map<string, string>>(cachedVersionsMap || new Map())
     const [latestRelease, setLatestRelease] = useState<string>(cachedLatestRelease || '1.20.4')
     const [isLoading, setIsLoading] = useState(!cachedVersions)
     const [error, setError] = useState<Error | null>(null)
@@ -49,11 +52,19 @@ export function useMinecraftVersions(): MinecraftVersionsResult {
             // Extract version IDs
             const versionIds = data.versions.map((v) => v.id)
 
+            // Build version ID to URL map
+            const versionUrlMap = new Map<string, string>()
+            for (const v of data.versions) {
+                versionUrlMap.set(v.id, v.url)
+            }
+
             // Cache the results
             cachedVersions = versionIds
+            cachedVersionsMap = versionUrlMap
             cachedLatestRelease = data.latest?.release || '1.20.4'
 
             setVersions(versionIds)
+            setVersionsMap(versionUrlMap)
             setLatestRelease(cachedLatestRelease)
         } catch (err) {
             const error = err instanceof Error ? err : new Error('Failed to fetch Minecraft versions')
@@ -74,15 +85,18 @@ export function useMinecraftVersions(): MinecraftVersionsResult {
     const refetch = useCallback(() => {
         // Clear cache and refetch
         cachedVersions = null
+        cachedVersionsMap = null
         cachedLatestRelease = null
         fetchVersions()
     }, [fetchVersions])
 
     return {
         versions,
+        versionsMap,
         latestRelease,
         isLoading,
         error,
         refetch,
     }
 }
+

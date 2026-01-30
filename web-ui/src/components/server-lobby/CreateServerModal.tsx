@@ -9,8 +9,9 @@ type StepType = 'category' | 'type' | 'details'
 interface CreateServerModalProps {
     isOpen: boolean
     onClose: () => void
-    onCreateServer: (data: { type: ServerType; name: string; version: string }) => void
+    onCreateServer: (data: { type: ServerType; name: string; version: string; version_url?: string }) => void
     versions: string[]
+    versionsMap: Map<string, string>  // Maps version ID to metadata URL
     latestRelease: string
 }
 
@@ -71,6 +72,7 @@ export const CreateServerModal = React.memo(function CreateServerModal({
     onClose,
     onCreateServer,
     versions,
+    versionsMap,
     latestRelease
 }: CreateServerModalProps) {
     const [step, setStep] = useState<StepType>('category')
@@ -121,10 +123,11 @@ export const CreateServerModal = React.memo(function CreateServerModal({
             onCreateServer({
                 type: selectedType,
                 name: serverName,
-                version: selectedVersion
+                version: selectedVersion,
+                version_url: versionsMap.get(selectedVersion)
             })
         }
-    }, [selectedType, serverName, eulaAgreed, selectedVersion, onCreateServer])
+    }, [selectedType, serverName, eulaAgreed, selectedVersion, versionsMap, onCreateServer])
 
     const handleVersionChange = useCallback((version: string) => {
         setSelectedVersion(version)
