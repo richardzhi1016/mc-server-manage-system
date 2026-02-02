@@ -93,3 +93,4 @@ AGENTS.md
 UPLOAD_README.md
 
 app/servers/
+.agent/
