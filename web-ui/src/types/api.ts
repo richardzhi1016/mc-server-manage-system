@@ -1,10 +1,10 @@
 export interface Server {
   id: string
   name: string
-  status: "running" | "stopped" | "starting" | "stopping" | "error"
-  port?: number
-  path: string
-  created_at: string
+  server_type: string | null
+  version: string | null
+  port: number | null
+  status: "running" | "stopped"
 }
 
 export interface ServerListResponse {

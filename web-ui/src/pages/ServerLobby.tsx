@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Moon, Sun } from 'lucide-react'
-import { createServer } from '@/api/client'
+import { getServers, createServer } from '@/api/client'
 import {
   LobbyServerCard,
   AddServerCard,
@@ -10,21 +10,41 @@ import {
 } from '@/components/server-lobby'
 import { useMinecraftVersions } from '@/hooks/useMinecraftVersions'
 
-// --- Mock Data ---
-const initialServers: LobbyServer[] = [
-  { id: '1', name: 'Survival World', version: '1.20.4', type: 'Vanilla', status: 'online', port: 25565 },
-  { id: '2', name: 'Tech Modpack', version: '1.19.2', type: 'Forge', status: 'offline', port: 25566 },
-  { id: '3', name: 'Friends SMP', version: '1.20.1', type: 'Fabric', status: 'online', port: 25567 },
-  { id: '4', name: 'Creative Plot', version: '1.20.4', type: 'Paper', status: 'offline', port: 25568 },
-]
-
 export default function ServerLobby() {
-  const [servers, setServers] = useState<LobbyServer[]>(initialServers)
+  const [servers, setServers] = useState<LobbyServer[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [isCreateModalOpen, setCreateModalOpen] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(false)
 
   // Use custom hook for Minecraft versions
   const { versions: mcVersions, versionsMap, latestRelease } = useMinecraftVersions()
+
+  // Fetch servers from backend on mount
+  useEffect(() => {
+    async function fetchServers() {
+      try {
+        setIsLoading(true)
+        const response = await getServers()
+        const lobbyServers: LobbyServer[] = response.servers.map(server => ({
+          id: server.id,
+          name: server.name,
+          version: server.version || 'Unknown',
+          type: (server.server_type ? server.server_type.charAt(0).toUpperCase() + server.server_type.slice(1) : 'Vanilla') as ServerType,
+          status: server.status === 'running' ? 'online' : 'offline',
+          port: server.port || 25565,
+        }))
+        setServers(lobbyServers)
+        setError(null)
+      } catch (err) {
+        console.error('Failed to fetch servers:', err)
+        setError('Failed to load servers')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchServers()
+  }, [])
 
   // Detect system dark mode preference on initial load
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -105,10 +125,37 @@ export default function ServerLobby() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {servers.map((server) => (
-            <LobbyServerCard key={server.id} server={server} />
-          ))}
-          <AddServerCard onClick={handleOpenCreateModal} />
+          {isLoading ? (
+            // Loading skeleton
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 h-52 animate-pulse">
+                <div className="h-2 w-full bg-slate-200 dark:bg-slate-700" />
+                <div className="p-5">
+                  <div className="w-10 h-10 rounded-lg bg-slate-200 dark:bg-slate-700 mb-3" />
+                  <div className="h-5 w-32 bg-slate-200 dark:bg-slate-700 rounded mb-2" />
+                  <div className="h-4 w-16 bg-slate-200 dark:bg-slate-700 rounded" />
+                </div>
+              </div>
+            ))
+          ) : error ? (
+            // Error state
+            <div className="col-span-full text-center py-12">
+              <p className="text-red-500 dark:text-red-400 mb-4">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          ) : (
+            <>
+              {servers.map((server) => (
+                <LobbyServerCard key={server.id} server={server} />
+              ))}
+              <AddServerCard onClick={handleOpenCreateModal} />
+            </>
+          )}
         </div>
       </div>
 

@@ -322,23 +322,33 @@ def send_command_to_server(server_name: str, command: str) -> tuple[bool, str]:
 
 @servers_bp.route("/servers", methods=["GET"])
 def list_servers():
-    servers_dir = str(config.upload_folder)
-    if not os.path.exists(servers_dir):
-        return jsonify({"servers": []}), 200
+    """List all server instances from database."""
+    import sqlite3
+
+    conn = sqlite3.connect(str(config.database_path))
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM server_instance")
+    rows = cursor.fetchall()
+    conn.close()
+
     servers = []
-    for name in os.listdir(servers_dir):
-        server_dir = os.path.join(servers_dir, name)
-        if os.path.isdir(server_dir):
-            jar = find_server_jar(server_dir)
-            servers.append(
-                {
-                    "name": name,
-                    "status": "running"
-                    if server_manager.is_server_running(name)
-                    else "stopped",
-                    "jar_file": jar,
-                }
-            )
+    for row in rows:
+        server_name = row["name"]
+        servers.append(
+            {
+                "id": row["id"],
+                "name": server_name,
+                "server_type": row["server_type"],
+                "version": row["version"],
+                "port": row["port"],
+                "status": "running"
+                if server_manager.is_server_running(server_name)
+                else "stopped",
+            }
+        )
+
     return jsonify({"servers": servers}), 200
 
 
