@@ -1,5 +1,5 @@
 import { X } from 'lucide-react'
-import { LayoutDashboard, Server, Play, Upload, Users, Settings } from 'lucide-react'
+import { LayoutDashboard, Server, Users, Settings } from 'lucide-react'
 import { SidebarItem } from './SidebarItem'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
@@ -51,18 +51,6 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
             to="/servers"
             icon={<Server className="w-5 h-5" />}
             label="服务器"
-            onClick={onClose}
-          />
-          <SidebarItem
-            to="/launch"
-            icon={<Play className="w-5 h-5" />}
-            label="启动"
-            onClick={onClose}
-          />
-          <SidebarItem
-            to="/upload"
-            icon={<Upload className="w-5 h-5" />}
-            label="上传"
             onClick={onClose}
           />
           <SidebarItem
