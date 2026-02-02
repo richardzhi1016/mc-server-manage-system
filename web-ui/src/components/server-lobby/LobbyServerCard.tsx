@@ -1,4 +1,5 @@
-import React from 'react'
+import React, { useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Server as ServerIcon, MoreVertical } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import { TypeBadge, type ServerType } from './TypeBadge'
@@ -17,8 +18,16 @@ interface LobbyServerCardProps {
 }
 
 export const LobbyServerCard = React.memo(function LobbyServerCard({ server }: LobbyServerCardProps) {
+    const navigate = useNavigate()
+
+    const handleCardClick = useCallback(() => {
+        navigate(`/panel?server=${encodeURIComponent(server.name)}`)
+    }, [navigate, server.name])
+
     return (
-        <div className="group relative bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col h-52">
+        <div
+            onClick={handleCardClick}
+            className="cursor-pointer group relative bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col h-52">
             <div className={`h-2 w-full transition-colors duration-500 ${server.status === 'online' ? 'bg-gradient-to-r from-green-400 to-emerald-500' : 'bg-slate-200 dark:bg-slate-700'}`} />
 
             <div className="p-5 flex flex-col flex-1">
