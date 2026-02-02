@@ -52,7 +52,7 @@ class BackupService:
         backups.sort(key=lambda x: x.get("created_at", ""), reverse=True)
         return backups
 
-    def create_backup(self, server_name: str) -> dict[str, Any] | None:
+    def create_backup(self, server_name: str, backup_type: str = "manual") -> dict[str, Any] | None:
         """Create a backup of a server."""
         import os
         import shutil
@@ -64,9 +64,20 @@ class BackupService:
         if not os.path.exists(server_dir):
             return None
 
+        # Filename format: servername_YYYYMMDD_HHMMSS_type.tar.gz
         backup_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_path = get_backup_path(server_name, backup_id)
-        info_path = get_backup_info_path(server_name, backup_id)
+        backup_filename_base = f"{server_name}_{backup_id}_{backup_type}"
+        
+        # Override get_backup_path logic locally or update helper? 
+        # For now, let's construct path manually here to include type in filename
+        # Ideally we update helpers but let's stick to local change for now to see
+        # actually, listing relies on filename pattern? 
+        # The existing list_backups relies on .json files.
+        # Let's keep backup_id simple for the ID itself, but filename can differ.
+        
+        # Let's stick to the current ID format but append type to filename
+        backup_path = str(config.get_backup_dir() / f"{backup_filename_base}.tar.gz")
+        info_path = str(config.get_backup_dir() / f"{backup_filename_base}.json")
 
         try:
             props_src = os.path.join(server_dir, "server.properties")
@@ -80,11 +91,12 @@ class BackupService:
             file_size = os.path.getsize(backup_path)
 
             info = {
-                "id": backup_id,
+                "id": backup_id, 
                 "server_name": server_name,
                 "created_at": datetime.now().isoformat(),
                 "size": file_size,
                 "filename": os.path.basename(backup_path),
+                "type": backup_type
             }
 
             with open(info_path, "w", encoding="utf-8") as f:
@@ -156,18 +168,135 @@ class BackupService:
             return False
 
     def _enforce_retention_policy(self, server_name: str | None = None) -> int:
-        """Delete old backups exceeding retention limit."""
+        """Delete old backups based on smart retention policy (Ported from openmc.py)."""
         if server_name:
             backups = self.list_backups(server_name)
         else:
             backups = self.list_backups()
 
-        deleted = 0
-        for backup in backups[self.BACKUP_RETENTION :]:
-            if self.delete_backup(backup["server_name"], backup["id"]):
-                deleted += 1
+        # Validate retention count
+        keep_count = self.BACKUP_RETENTION
+        if keep_count < 5:
+            # Fallback to safe minimum if configured too low (though currently hardcoded)
+            keep_count = 5
 
-        return deleted
+        total_backups = len(backups)
+        if total_backups <= keep_count:
+            return 0
+
+        # Smart pruning settings
+        min_per_type = max(0, (keep_count - 1) // 4)
+        deleted_count = 0
+
+        # Backups are sorted by created_at desc (newest first)
+        # So backups[0] is the latest one.
+        latest_backup = backups[0]
+        latest_type = latest_backup.get('type', 'manual')
+
+        # While loop to delete unnecessary backups
+        while len(backups) > keep_count:
+            # Categorize remaining backups (excluding the absolute latest which is safe)
+            candidates = backups[1:] # All except the newest
+            
+            startup_backups = [b for b in candidates if b.get('type') == 'startup']
+            manual_backups = [b for b in candidates if b.get('type', 'manual') == 'manual']
+            periodic_backups = [b for b in candidates if b.get('type') == 'periodic']
+
+            counts = {
+                'startup': len(startup_backups),
+                'manual': len(manual_backups),
+                'periodic': len(periodic_backups)
+            }
+
+            # Find types that exceed minimum requirement
+            deletable_types = [(t, c) for t, c in counts.items() if c > min_per_type]
+            
+            if not deletable_types:
+                # Should not happen given logic, but safety break
+                break
+
+            # 1. Find max count
+            max_count = max(c for t, c in deletable_types)
+            max_types = [t for t, c in deletable_types if c == max_count]
+            
+            target_type = None
+            to_delete = None
+
+            # 2. Tie-breaking logic (Exact match of openmc.py)
+            if len(max_types) == 1:
+                # Case 1: Single type has max count
+                target_type = max_types[0]
+                # Delete oldest of this type
+                if target_type == 'startup': to_delete = startup_backups[-1]
+                elif target_type == 'manual': to_delete = manual_backups[-1]
+                else: to_delete = periodic_backups[-1]
+
+            elif len(max_types) == 2:
+                # Case 2: Two-way tie
+                if latest_type in max_types:
+                    # Latest type is in tie -> pick that type to create churn
+                    target_type = latest_type
+                    if target_type == 'startup': to_delete = startup_backups[-1]
+                    elif target_type == 'manual': to_delete = manual_backups[-1]
+                    else: to_delete = periodic_backups[-1]
+                else:
+                    # Latest type NOT in tie -> Delete absolute oldest among the two types
+                    candidates_in_tie = []
+                    if 'startup' in max_types: candidates_in_tie.extend(startup_backups)
+                    if 'manual' in max_types: candidates_in_tie.extend(manual_backups)
+                    if 'periodic' in max_types: candidates_in_tie.extend(periodic_backups)
+                    
+                    # Sort by created_at desc (newest first), so last is oldest
+                    # Verify sort order: list_backups returns desc
+                    # We need the OLDEST, so we pick the last one.
+                    # Wait, we need to sort candidates_in_tie correctly if we merged them.
+                    # Since individual lists are sorted desc, merging them needs re-sort.
+                    candidates_in_tie.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+                    if candidates_in_tie:
+                        to_delete = candidates_in_tie[-1]
+
+            elif len(max_types) == 3:
+                # Case 3: Three-way tie -> Pick latest backup type
+                target_type = latest_type
+                if target_type == 'startup': to_delete = startup_backups[-1]
+                elif target_type == 'manual': to_delete = manual_backups[-1]
+                else: to_delete = periodic_backups[-1]
+
+            # Execute deletion
+            if to_delete and self.delete_backup_by_info(to_delete):
+                deleted_count += 1
+                backups.remove(to_delete)
+            else:
+                # If deletion fails, break loop to avoid infinite loop
+                break
+
+        return deleted_count
+
+    def delete_backup_by_info(self, info: dict[str, Any]) -> bool:
+        """Helper to delete backup using info dict."""
+        # Use filename from info if available, else standard construction might fail if type is missing
+        # Standard delete_backup uses standard path construction which might miss the localized filename
+        # So we should implement a robust deletion here.
+        import os
+        
+        backups_dir = get_backups_dir()
+        filename = info.get("filename")
+        if not filename:
+             return self.delete_backup(info.get("server_name"), info.get("id"))
+
+        backup_path = os.path.join(backups_dir, filename)
+        # Assuming json config file has same basename but .json
+        info_path_name = os.path.splitext(filename)[0] + ".json"
+        info_path = os.path.join(backups_dir, info_path_name)
+
+        try:
+            if os.path.exists(backup_path):
+                os.remove(backup_path)
+            if os.path.exists(info_path):
+                os.remove(info_path)
+            return True
+        except Exception:
+            return False
 
     def get_backup_info(
         self, server_name: str, backup_id: str
