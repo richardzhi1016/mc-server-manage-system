@@ -398,10 +398,20 @@ def create_server_instance():
                 shutil.rmtree(server_dir)
                 return jsonify({"error": "No server JAR URL found in version metadata"}), 400
 
-            # Download server.jar
+            # Download server.jar with progress reporting
             jar_path = os.path.join(str(server_dir), "server.jar")
             try:
-                urllib.request.urlretrieve(server_jar_url, jar_path)
+                def report_progress(block_num, block_size, total_size):
+                    if total_size > 0 and socketio:
+                        progress = min(100, int(block_num * block_size * 100 / total_size))
+                        socketio.emit("download_progress", {
+                            "server_name": name,
+                            "progress": progress,
+                            "downloaded": min(block_num * block_size, total_size),
+                            "total": total_size
+                        })
+                
+                urllib.request.urlretrieve(server_jar_url, jar_path, report_progress)
             except Exception as e:
                 shutil.rmtree(server_dir)
                 return jsonify({"error": f"Failed to download server.jar: {str(e)}"}), 500

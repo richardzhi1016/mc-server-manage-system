@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Plus, X, ArrowLeft, ChevronRight, Check, Box, Layers, Code, ScrollText } from 'lucide-react'
+import { io, Socket } from 'socket.io-client'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import type { ServerType } from './TypeBadge'
 
@@ -83,6 +84,10 @@ export const CreateServerModal = React.memo(function CreateServerModal({
     const [serverName, setServerName] = useState('')
     const [selectedVersion, setSelectedVersion] = useState(latestRelease)
     const [eulaAgreed, setEulaAgreed] = useState(false)
+    const [isCreating, setIsCreating] = useState(false)
+    const [downloadProgress, setDownloadProgress] = useState(0)
+    const socketRef = useRef<Socket | null>(null)
+    const pendingServerNameRef = useRef<string | null>(null)
 
     // Reset state when modal opens - this is intentional for modal reset pattern
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -93,9 +98,21 @@ export const CreateServerModal = React.memo(function CreateServerModal({
             setSelectedType(null)
             setServerName('')
             setEulaAgreed(false)
+            setIsCreating(false)
+            setDownloadProgress(0)
             setSelectedVersion(latestRelease)
         }
     }, [isOpen, latestRelease])
+
+    // Cleanup socket on unmount
+    useEffect(() => {
+        return () => {
+            if (socketRef.current) {
+                socketRef.current.disconnect()
+                socketRef.current = null
+            }
+        }
+    }, [])
 
     const handleCategorySelect = useCallback((category: CategoryType) => {
         setSelectedCategory(category)
@@ -118,16 +135,45 @@ export const CreateServerModal = React.memo(function CreateServerModal({
         }
     }, [step])
 
-    const handleFinalCreate = useCallback(() => {
-        if (selectedType && serverName && eulaAgreed) {
-            onCreateServer({
-                type: selectedType,
-                name: serverName,
-                version: selectedVersion,
-                version_url: versionsMap.get(selectedVersion)
-            })
+    const handleFinalCreate = useCallback(async () => {
+        if (selectedType && serverName && eulaAgreed && !isCreating) {
+            setIsCreating(true)
+            setDownloadProgress(0)
+            pendingServerNameRef.current = serverName
+
+            // Connect to WebSocket for progress updates
+            if (!socketRef.current) {
+                const socket = io('http://localhost:5000', {
+                    transports: ['websocket', 'polling'],
+                })
+                socketRef.current = socket
+
+                socket.on('download_progress', (data: { server_name: string; progress: number }) => {
+                    if (data.server_name === pendingServerNameRef.current) {
+                        setDownloadProgress(data.progress)
+                    }
+                })
+            }
+
+            try {
+                await onCreateServer({
+                    type: selectedType,
+                    name: serverName,
+                    version: selectedVersion,
+                    version_url: versionsMap.get(selectedVersion)
+                })
+                // Download complete - close modal
+                if (socketRef.current) {
+                    socketRef.current.disconnect()
+                    socketRef.current = null
+                }
+            } catch (error) {
+                console.error('Failed to create server:', error)
+                setIsCreating(false)
+                setDownloadProgress(0)
+            }
         }
-    }, [selectedType, serverName, eulaAgreed, selectedVersion, versionsMap, onCreateServer])
+    }, [selectedType, serverName, eulaAgreed, isCreating, selectedVersion, versionsMap, onCreateServer])
 
     const handleVersionChange = useCallback((version: string) => {
         setSelectedVersion(version)
@@ -263,11 +309,25 @@ export const CreateServerModal = React.memo(function CreateServerModal({
 
                             <button
                                 onClick={handleFinalCreate}
-                                disabled={!serverName || !eulaAgreed}
-                                className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-blue-200 dark:shadow-none disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2 mt-4"
+                                disabled={!serverName || !eulaAgreed || isCreating}
+                                className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-blue-200 dark:shadow-none disabled:shadow-none transition-all duration-200 mt-4 relative overflow-hidden"
                             >
-                                <Plus size={20} strokeWidth={3} />
-                                Create Server
+                                {isCreating ? (
+                                    <div className="flex flex-col items-center gap-1">
+                                        <span className="text-sm">Downloading... {downloadProgress}%</span>
+                                        <div className="w-full h-2 bg-blue-400/30 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-white rounded-full transition-all duration-300 ease-out"
+                                                style={{ width: `${downloadProgress}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center justify-center gap-2">
+                                        <Plus size={20} strokeWidth={3} />
+                                        Create Server
+                                    </div>
+                                )}
                             </button>
 
                         </div>

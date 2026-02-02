@@ -37,7 +37,7 @@ limiter = Limiter(
     storage_uri="memory://",
 )
 
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+socketio = SocketIO(app, cors_allowed_origins="*")
 set_socketio(socketio)
 
 app.config["UPLOAD_FOLDER"] = str(config.upload_folder)

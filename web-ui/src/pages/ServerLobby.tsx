@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Moon, Sun } from 'lucide-react'
+import { io, Socket } from 'socket.io-client'
 import { getServers, createServer } from '@/api/client'
 import {
   LobbyServerCard,
@@ -9,6 +10,7 @@ import {
   type LobbyServer,
 } from '@/components/server-lobby'
 import { useMinecraftVersions } from '@/hooks/useMinecraftVersions'
+import { useToast } from '@/components/ui/Toast'
 
 export default function ServerLobby() {
   const [servers, setServers] = useState<LobbyServer[]>([])
@@ -16,9 +18,23 @@ export default function ServerLobby() {
   const [error, setError] = useState<string | null>(null)
   const [isCreateModalOpen, setCreateModalOpen] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(false)
+  const socketRef = useRef<Socket | null>(null)
+  const { showToast } = useToast()
 
   // Use custom hook for Minecraft versions
   const { versions: mcVersions, versionsMap, latestRelease } = useMinecraftVersions()
+
+  // Connect to WebSocket for server events
+  useEffect(() => {
+    const socket = io('http://localhost:5000', {
+      transports: ['websocket', 'polling'],
+    })
+    socketRef.current = socket
+
+    return () => {
+      socket.disconnect()
+    }
+  }, [])
 
   // Fetch servers from backend on mount
   useEffect(() => {
@@ -90,11 +106,13 @@ export default function ServerLobby() {
       }
       setServers(prev => [...prev, newServer])
       setCreateModalOpen(false)
+      showToast('success', `Server "${data.name}" created successfully!`)
     } catch (error) {
       console.error('Failed to create server:', error)
-      alert('Failed to create server. Please try again.')
+      showToast('error', 'Failed to create server. Please try again.')
+      throw error // Re-throw to let modal know creation failed
     }
-  }, [])
+  }, [showToast])
 
   const toggleDarkMode = useCallback(() => {
     setIsDarkMode(prev => !prev)
