@@ -76,6 +76,41 @@ def upload_server_file(server_name: str):
         return jsonify({"message": "File uploaded", "filename": filename}), 201
     except Exception as e: return jsonify({"error": str(e)}), 500
 
+@files_bp.route("/<server_name>/rename", methods=["POST"])
+def rename_server_file(server_name: str):
+    """Rename a file or folder."""
+    import os
+    data = request.get_json()
+    if not data or "path" not in data or "new_name" not in data:
+        return jsonify({"error": "Missing path or new_name"}), 400
+
+    path = data["path"]
+    new_name = data["new_name"]
+
+    is_valid, error, abs_path = server_manager.validate_server_path(server_name, path)
+    if not is_valid:
+        return jsonify({"error": error}), 403
+
+    if not os.path.exists(abs_path):
+        return jsonify({"error": "File not found"}), 404
+
+    # Sanitize new name and build new path
+    safe_name = secure_filename(new_name) if new_name else ""
+    if not safe_name:
+        return jsonify({"error": "Invalid file name"}), 400
+
+    new_path = os.path.join(os.path.dirname(abs_path), safe_name)
+
+    if os.path.exists(new_path):
+        return jsonify({"error": "A file with that name already exists"}), 409
+
+    try:
+        os.rename(abs_path, new_path)
+        return jsonify({"message": "Renamed successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @files_bp.route("/<server_name>/download/*path", methods=["GET"])
 def download_server_file(server_name: str, path: str):
     import os

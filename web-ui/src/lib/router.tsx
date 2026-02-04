@@ -7,8 +7,6 @@ import { LoadingFallback } from "@/components/LoadingFallback"
 const Dashboard = lazy(() => import("@/pages/Dashboard"))
 const ServerLobby = lazy(() => import("@/pages/ServerLobby"))
 const ServerCreate = lazy(() => import("@/pages/ServerCreate"))
-const UploadPage = lazy(() => import("@/pages/UploadPage"))
-const ServerLaunch = lazy(() => import("@/pages/ServerLaunch"))
 const Console = lazy(() => import("@/pages/Console"))
 const Players = lazy(() => import("@/pages/Players"))
 const FileManager = lazy(() => import("@/pages/FileManager"))
@@ -53,22 +51,6 @@ export function createAppRouter() {
           element: (
             <Suspense fallback={<LoadingFallback />}>
               <Dashboard />
-            </Suspense>
-          ),
-        },
-        {
-          path: "upload",
-          element: (
-            <Suspense fallback={<LoadingFallback />}>
-              <UploadPage />
-            </Suspense>
-          ),
-        },
-        {
-          path: "launch",
-          element: (
-            <Suspense fallback={<LoadingFallback />}>
-              <ServerLaunch />
             </Suspense>
           ),
         },

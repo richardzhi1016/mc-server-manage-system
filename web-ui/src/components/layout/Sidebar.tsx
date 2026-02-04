@@ -1,4 +1,4 @@
-import { LayoutDashboard, Server, Play, Upload, Settings, Users, Terminal, Folder } from 'lucide-react'
+import { LayoutDashboard, Server, Settings, Users, Terminal, Folder, ArrowLeftCircle } from 'lucide-react'
 import { SidebarItem } from './SidebarItem'
 import { cn } from '@/lib/utils'
 
@@ -32,43 +32,31 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
           collapsed={collapsed}
         />
         <SidebarItem
-          to="/launch"
-          icon={<Server className="w-5 h-5" />}
-          label="服务器"
+          to="/servers"
+          icon={<ArrowLeftCircle className="w-5 h-5" />}
+          label="返回大厅"
           collapsed={collapsed}
         />
         <SidebarItem
-          to="/panel/launch"
-          icon={<Play className="w-5 h-5" />}
-          label="启动"
-          collapsed={collapsed}
-        />
-        <SidebarItem
-          to="/panel/upload"
-          icon={<Upload className="w-5 h-5" />}
-          label="上传"
-          collapsed={collapsed}
-        />
-        <SidebarItem
-          to="/console/myserver"
+          to="/panel/console/My Vanilla Server"
           icon={<Terminal className="w-5 h-5" />}
           label="控制台"
           collapsed={collapsed}
         />
         <SidebarItem
-          to="/players"
+          to="/panel/players"
           icon={<Users className="w-5 h-5" />}
           label="玩家"
           collapsed={collapsed}
         />
         <SidebarItem
-          to="/files/myserver"
+          to="/panel/files/My Vanilla Server"
           icon={<Folder className="w-5 h-5" />}
           label="文件"
           collapsed={collapsed}
         />
         <SidebarItem
-          to="/settings"
+          to="/panel/settings"
           icon={<Settings className="w-5 h-5" />}
           label="设置"
           collapsed={collapsed}
