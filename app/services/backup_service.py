@@ -274,7 +274,12 @@ class BackupService:
 
         backup_path = os.path.join(backups_dir, filename)
         # Assuming json config file has same basename but .json
-        info_path_name = os.path.splitext(filename)[0] + ".json"
+        # Handle .tar.gz specifically because splitext only removes .gz
+        if filename.endswith(".tar.gz"):
+            info_path_name = filename[:-7] + ".json"
+        else:
+            info_path_name = os.path.splitext(filename)[0] + ".json"
+            
         info_path = os.path.join(backups_dir, info_path_name)
 
         try:
