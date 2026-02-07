@@ -7,11 +7,14 @@ interface SidebarItemProps {
   label: string
   collapsed?: boolean
   onClick?: () => void
+  end?: boolean
 }
 
-export function SidebarItem({ to, icon, label, collapsed, onClick }: SidebarItemProps) {
+export function SidebarItem({ to, icon, label, collapsed, onClick, end }: SidebarItemProps) {
   const location = useLocation()
-  const isActive = location.pathname === to || (to !== '/' && location.pathname.startsWith(to))
+  const isActive = end
+    ? location.pathname === to
+    : location.pathname === to || (to !== '/' && location.pathname.startsWith(to))
 
   return (
     <Link

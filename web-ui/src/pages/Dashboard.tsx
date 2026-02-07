@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { CpuStatusCard, MemoryStatusCard, PlayersStatusCard, DiskStatusCard, ResourceChart, QuickActions } from '@/components/dashboard'
 import { useServerMetrics } from '@/hooks/useServerMetrics'
 import { useDashboardStore } from '@/store/useServerStore'
@@ -7,11 +7,11 @@ import { Card, CardContent } from '@/components/ui/Card'
 import { RefreshCw, AlertCircle, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const [selectedServerName] = useState<string>('myserver')
+  const { serverName: selectedServerName } = useParams<{ serverName: string }>()
   const { metrics, history, isLoading, error, lastUpdated, refresh } = useServerMetrics(selectedServerName)
   const { selectedTimeRange, setSelectedTimeRange } = useDashboardStore()
   const { servers, selectedServerId, setSelectedServer } = useServerStore()
@@ -127,7 +127,7 @@ export default function Dashboard() {
 
         <div>
           <QuickActions
-            serverName={selectedServerName}
+            serverName={selectedServerName || ''}
             serverStatus={serverStatus}
           />
         </div>

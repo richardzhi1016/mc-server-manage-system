@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
+import { useParams } from "react-router-dom"
 import { Users, RefreshCw, UserPlus, Ban } from "lucide-react"
 import { PlayerCard } from "@/components/players/PlayerCard"
 import { BanReasonModal } from "@/components/players/BanReasonModal"
@@ -27,12 +28,13 @@ import type { Player } from "@/types/api"
 type TabType = "online" | "whitelist" | "bans"
 
 export default function PlayersPage() {
+  const { serverName } = useParams<{ serverName: string }>()
   const { onlinePlayers, setOnlinePlayers, whitelist, setWhitelist, bans, setBans, setError } =
     usePlayerStore()
   const { addToast } = useUIStore()
 
   const [activeTab, setActiveTab] = useState<TabType>("online")
-  const [selectedServer] = useState<string | null>(null)
+  const selectedServer = serverName || ""
   const [loading, setLoading] = useState(false)
 
   const [banModalOpen, setBanModalOpen] = useState(false)
@@ -64,6 +66,7 @@ export default function PlayersPage() {
       setLoading(false)
     }
   }, [selectedServer, setOnlinePlayers, setWhitelist, setBans, setError])
+
 
   useEffect(() => {
     fetchData()

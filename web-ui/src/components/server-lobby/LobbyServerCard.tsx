@@ -21,7 +21,7 @@ export const LobbyServerCard = React.memo(function LobbyServerCard({ server }: L
     const navigate = useNavigate()
 
     const handleCardClick = useCallback(() => {
-        navigate(`/panel?server=${encodeURIComponent(server.name)}`)
+        navigate(`/${encodeURIComponent(server.name)}/panel`)
     }, [navigate, server.name])
 
     return (

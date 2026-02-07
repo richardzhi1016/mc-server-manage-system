@@ -1,6 +1,5 @@
 import { LayoutDashboard, Server, Settings, Users, Terminal, Folder, ArrowLeftCircle } from 'lucide-react'
-import { useParams, useSearchParams } from 'react-router-dom'
-import { useServerStore } from '@/store/useServerStore'
+import { useParams } from 'react-router-dom'
 import { SidebarItem } from './SidebarItem'
 import { cn } from '@/lib/utils'
 
@@ -10,14 +9,8 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed = false }: SidebarProps) {
   const { serverName } = useParams()
-  const [searchParams] = useSearchParams()
-  const { servers, selectedServerId } = useServerStore()
 
-  const queryServerName = searchParams.get('server')
-  const storeServer = servers.find(s => s.id === selectedServerId)
-
-  // Determine the active server context
-  const activeServerName = serverName || queryServerName || storeServer?.name || (servers.length > 0 ? servers[0].name : '')
+  const basePath = serverName ? `/${encodeURIComponent(serverName)}/panel` : '/servers'
 
   return (
     <aside
@@ -38,10 +31,11 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
 
       <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
         <SidebarItem
-          to={activeServerName ? `/panel?server=${activeServerName}` : '/panel'}
+          to={basePath}
           icon={<LayoutDashboard className="w-5 h-5" />}
           label="仪表盘"
           collapsed={collapsed}
+          end
         />
         <SidebarItem
           to="/servers"
@@ -50,25 +44,25 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
           collapsed={collapsed}
         />
         <SidebarItem
-          to={`/panel/console/${activeServerName}`}
+          to={`${basePath}/console`}
           icon={<Terminal className="w-5 h-5" />}
           label="控制台"
           collapsed={collapsed}
         />
         <SidebarItem
-          to="/panel/players"
+          to={`${basePath}/players`}
           icon={<Users className="w-5 h-5" />}
           label="玩家"
           collapsed={collapsed}
         />
         <SidebarItem
-          to={`/panel/files/${activeServerName}`}
+          to={`${basePath}/files`}
           icon={<Folder className="w-5 h-5" />}
           label="文件"
           collapsed={collapsed}
         />
         <SidebarItem
-          to="/panel/settings"
+          to={`${basePath}/settings`}
           icon={<Settings className="w-5 h-5" />}
           label="设置"
           collapsed={collapsed}

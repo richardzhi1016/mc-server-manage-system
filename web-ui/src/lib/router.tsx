@@ -38,7 +38,7 @@ export const appRouter = createBrowserRouter([
       ),
     },
     {
-      path: "/panel",
+      path: "/:serverName/panel",
       element: (
         <Suspense fallback={<LoadingFallback />}>
           <Layout />
@@ -54,7 +54,7 @@ export const appRouter = createBrowserRouter([
           ),
         },
         {
-          path: "console/:serverName",
+          path: "console",
           element: (
             <Suspense fallback={<LoadingFallback />}>
               <Console />
@@ -70,7 +70,7 @@ export const appRouter = createBrowserRouter([
           ),
         },
         {
-          path: "files/:serverName",
+          path: "files",
           element: (
             <Suspense fallback={<LoadingFallback />}>
               <FileManager />
