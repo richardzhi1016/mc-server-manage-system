@@ -94,3 +94,5 @@ UPLOAD_README.md
 
 app/servers/
 .agent/
+.claude/
+CLAUDE.md
