@@ -12,8 +12,7 @@ const Players = lazy(() => import("@/pages/Players"))
 const FileManager = lazy(() => import("@/pages/FileManager"))
 const Settings = lazy(() => import("@/pages/Settings"))
 
-export function createAppRouter() {
-  return createBrowserRouter([
+export const appRouter = createBrowserRouter([
     {
       path: "/",
       element: (
@@ -92,5 +91,4 @@ export function createAppRouter() {
       path: "*",
       element: <NotFound />,
     },
-  ])
-}
+])

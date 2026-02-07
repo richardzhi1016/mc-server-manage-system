@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { Moon, Sun } from 'lucide-react'
 import { io, Socket } from 'socket.io-client'
 import { getServers, createServer } from '@/api/client'
+import { API_BASE_URL } from '@/lib/api'
 import {
   LobbyServerCard,
   AddServerCard,
@@ -26,7 +27,7 @@ export default function ServerLobby() {
 
   // Connect to WebSocket for server events
   useEffect(() => {
-    const socket = io('http://localhost:5000', {
+    const socket = io(API_BASE_URL, {
       transports: ['websocket', 'polling'],
     })
     socketRef.current = socket

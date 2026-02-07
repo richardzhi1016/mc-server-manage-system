@@ -1,10 +1,11 @@
+import os
 import re
 from typing import Any
 from app.config import config
 
 
 def parse_log_level(line: str) -> str:
-    """Extract log level from a log line"""
+    """Extract log level from a log line."""
     for level, pattern in config.log_level_patterns.items():
         if re.search(pattern, line):
             return level
@@ -13,8 +14,6 @@ def parse_log_level(line: str) -> str:
 
 def validate_server_structure(server_dir: str) -> tuple[bool, dict[str, Any]]:
     """Validate if the extracted files contain a valid Minecraft server structure."""
-    import os
-
     root_items = os.listdir(server_dir)
     jar_files = [f for f in root_items if f.endswith(".jar")]
     has_jar = len(jar_files) > 0
@@ -33,8 +32,6 @@ def validate_server_structure(server_dir: str) -> tuple[bool, dict[str, Any]]:
 
 def find_server_jar(server_dir: str) -> str | None:
     """Find the server JAR file in the server directory."""
-    import os
-
     if not os.path.exists(server_dir):
         return None
     for file in os.listdir(server_dir):
@@ -43,40 +40,26 @@ def find_server_jar(server_dir: str) -> str | None:
     return None
 
 
-class ServerOperationError(Exception):
-    """Custom exception for server operations."""
-
-    def __init__(self, message: str, status_code: int = 500):
-        self.message = message
-        self.status_code = status_code
-        super().__init__(message)
-
-
 class ServerManager:
     """Service class for managing Minecraft server operations."""
 
     def __init__(self):
         self.running_servers: dict[str, Any] = {}
-        self.log_watchers: dict[str, Any] = {}
 
     def is_server_running(self, server_name: str) -> bool:
         """Check if a server is currently running."""
         if server_name not in self.running_servers:
             return False
-        process = self.running_servers[server_name]
-        return process.poll() is None
+        return self.running_servers[server_name].is_alive()
 
     def get_running_servers(self) -> dict[str, dict[str, Any]]:
         """Get status of all running servers."""
         status = {}
-        for server_name, process in list(self.running_servers.items()):
-            if process.poll() is None:
-                status[server_name] = {"running": True, "pid": process.pid}
+        for server_name, watcher in list(self.running_servers.items()):
+            if watcher.is_alive():
+                status[server_name] = {"running": True, "pid": watcher.pid}
             else:
-                status[server_name] = {
-                    "running": False,
-                    "exit_code": process.returncode,
-                }
+                status[server_name] = {"running": False, "exit_code": None}
                 del self.running_servers[server_name]
         return status
 
@@ -84,31 +67,30 @@ class ServerManager:
         self, server_name: str, path: str
     ) -> tuple[bool, str, str]:
         """Validate and sanitize a file path for a server."""
-        import os
-
-        server_dir = str(config.get_server_dir(server_name))
+        server_dir = os.path.realpath(str(config.get_server_dir(server_name)))
 
         if not os.path.exists(server_dir):
             return False, f"Server '{server_name}' not found", ""
 
-        if ".." in path or path.startswith("/") or path.startswith("\\"):
+        safe_path = os.path.normpath(path) if path else ""
+
+        # Reject any path component that navigates upward
+        if ".." in safe_path.split(os.sep):
             return False, "Invalid path: directory traversal not allowed", ""
 
-        safe_path = path.lstrip("/\\")
-        if safe_path:
-            abs_path = os.path.abspath(os.path.join(server_dir, safe_path))
+        if safe_path and safe_path != ".":
+            abs_path = os.path.realpath(os.path.join(server_dir, safe_path))
         else:
             abs_path = server_dir
 
-        if not abs_path.startswith(server_dir):
+        # Ensure resolved path is within server_dir (with separator boundary)
+        if not (abs_path == server_dir or abs_path.startswith(server_dir + os.sep)):
             return False, "Access denied: path outside server directory", ""
 
         return True, "", abs_path
 
     def get_file_info(self, file_path: str) -> dict[str, Any]:
         """Get file information for the API response."""
-        import os
-
         is_dir = os.path.isdir(file_path)
         stat = os.stat(file_path)
         return {
@@ -125,8 +107,6 @@ class ServerManager:
         self, server_name: str, path: str = ""
     ) -> tuple[bool, str, list[dict[str, Any]]]:
         """List directory contents for a server."""
-        import os
-
         is_valid, error, abs_path = self.validate_server_path(server_name, path)
         if not is_valid:
             return False, error, []

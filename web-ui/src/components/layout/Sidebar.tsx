@@ -1,4 +1,6 @@
 import { LayoutDashboard, Server, Settings, Users, Terminal, Folder, ArrowLeftCircle } from 'lucide-react'
+import { useParams, useSearchParams } from 'react-router-dom'
+import { useServerStore } from '@/store/useServerStore'
 import { SidebarItem } from './SidebarItem'
 import { cn } from '@/lib/utils'
 
@@ -7,6 +9,16 @@ interface SidebarProps {
 }
 
 export function Sidebar({ collapsed = false }: SidebarProps) {
+  const { serverName } = useParams()
+  const [searchParams] = useSearchParams()
+  const { servers, selectedServerId } = useServerStore()
+
+  const queryServerName = searchParams.get('server')
+  const storeServer = servers.find(s => s.id === selectedServerId)
+
+  // Determine the active server context
+  const activeServerName = serverName || queryServerName || storeServer?.name || (servers.length > 0 ? servers[0].name : '')
+
   return (
     <aside
       className={cn(
@@ -26,7 +38,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
 
       <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
         <SidebarItem
-          to="/panel"
+          to={activeServerName ? `/panel?server=${activeServerName}` : '/panel'}
           icon={<LayoutDashboard className="w-5 h-5" />}
           label="仪表盘"
           collapsed={collapsed}
@@ -38,7 +50,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
           collapsed={collapsed}
         />
         <SidebarItem
-          to="/panel/console/My Vanilla Server"
+          to={`/panel/console/${activeServerName}`}
           icon={<Terminal className="w-5 h-5" />}
           label="控制台"
           collapsed={collapsed}
@@ -50,7 +62,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
           collapsed={collapsed}
         />
         <SidebarItem
-          to="/panel/files/My Vanilla Server"
+          to={`/panel/files/${activeServerName}`}
           icon={<Folder className="w-5 h-5" />}
           label="文件"
           collapsed={collapsed}

@@ -1,12 +1,14 @@
 import { create } from "zustand"
 import type { ConsoleState, ConsoleActions } from "@/types/store"
 
+import type { LogMessage } from "@/types/console"
+
 const MAX_LOGS = 10000
 
 function applyFilters(
-  logs: Array<{ level: string }>,
+  logs: LogMessage[],
   selectedLevels: string[]
-): Array<{ level: string }> {
+): LogMessage[] {
   if (selectedLevels.includes("ALL") || selectedLevels.length === 0) {
     return logs
   }
@@ -22,6 +24,7 @@ export const useConsoleStore = create<ConsoleState & ConsoleActions>()((set) => 
   commandHistory: [],
   historyIndex: -1,
   autoScroll: true,
+  serverRunning: false,
 
   setIsConnected: (isConnected) => set({ isConnected }),
 
@@ -72,6 +75,8 @@ export const useConsoleStore = create<ConsoleState & ConsoleActions>()((set) => 
   toggleAutoScroll: () => set((state) => ({ ...state, autoScroll: !state.autoScroll })),
 
   setAutoScroll: (autoScroll) => set((state) => ({ ...state, autoScroll })),
+
+  setServerRunning: (serverRunning) => set((state) => ({ ...state, serverRunning })),
 
   clearLogs: () => set((state) => ({ ...state, logs: [], filteredLogs: [] })),
 }))

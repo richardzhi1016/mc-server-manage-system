@@ -95,6 +95,7 @@ export interface ConsoleState {
   commandHistory: string[]
   historyIndex: number
   autoScroll: boolean
+  serverRunning: boolean
 }
 
 export interface ConsoleActions {
@@ -107,5 +108,6 @@ export interface ConsoleActions {
   navigateHistory: (direction: "up" | "down") => void
   toggleAutoScroll: () => void
   setAutoScroll: (value: boolean) => void
+  setServerRunning: (running: boolean) => void
   clearLogs: () => void
 }

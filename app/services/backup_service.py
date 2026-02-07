@@ -26,12 +26,9 @@ class BackupService:
     """Service class for managing server backups."""
 
     BACKUP_RETENTION = 10
-    SCHEDULER_FILE = "scheduler.json"
 
     def list_backups(self, server_name: str | None = None) -> list[dict[str, Any]]:
         """List all backups, optionally filtered by server name."""
-        import os
-
         backups_dir = get_backups_dir()
 
         if not os.path.exists(backups_dir):
@@ -54,9 +51,6 @@ class BackupService:
 
     def create_backup(self, server_name: str, backup_type: str = "manual") -> dict[str, Any] | None:
         """Create a backup of a server."""
-        import os
-        import shutil
-
         backups_dir = get_backups_dir()
         os.makedirs(backups_dir, exist_ok=True)
 
@@ -110,8 +104,6 @@ class BackupService:
 
     def restore_backup(self, server_name: str, backup_id: str) -> bool:
         """Restore a server from a backup."""
-        import os
-
         os.makedirs(str(config.get_server_dir(server_name)), exist_ok=True)
 
         backup_path = get_backup_path(server_name, backup_id)
@@ -153,8 +145,6 @@ class BackupService:
 
     def delete_backup(self, server_name: str, backup_id: str) -> bool:
         """Delete a backup."""
-        import os
-
         backup_path = get_backup_path(server_name, backup_id)
         info_path = get_backup_info_path(server_name, backup_id)
 
@@ -277,8 +267,6 @@ class BackupService:
         # Use filename from info if available, else standard construction might fail if type is missing
         # Standard delete_backup uses standard path construction which might miss the localized filename
         # So we should implement a robust deletion here.
-        import os
-        
         backups_dir = get_backups_dir()
         filename = info.get("filename")
         if not filename:

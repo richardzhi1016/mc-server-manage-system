@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { FormInput } from '@/components/ui/FormInput'
 import { ArrowLeft, Server, Upload, Settings, CheckCircle, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { API_BASE_URL } from '@/lib/api'
 
 interface ServerConfig {
   name: string
@@ -91,7 +92,7 @@ export default function ServerCreate() {
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await fetch('http://localhost:5000/api/upload-package', {
+      const response = await fetch(`${API_BASE_URL}/api/upload-package`, {
         method: 'POST',
         body: formData,
       })
@@ -168,7 +169,7 @@ export default function ServerCreate() {
     try {
       if (creationMethod === 'upload') {
         // Server package already uploaded, just update server properties
-        const propertiesResponse = await fetch('http://localhost:5000/api/settings/server-properties', {
+        const propertiesResponse = await fetch(`${API_BASE_URL}/api/settings/server-properties`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -191,7 +192,7 @@ export default function ServerCreate() {
 
       } else if (creationMethod === 'auto') {
         // Auto-create server
-        const createResponse = await fetch('http://localhost:5000/api/servers/create', {
+        const createResponse = await fetch(`${API_BASE_URL}/api/servers/create`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

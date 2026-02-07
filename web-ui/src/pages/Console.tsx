@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { TerminalLogDisplay, CommandInput, LogFilter } from "../components/console";
 import { useConsoleSocket } from "../hooks/useConsoleSocket";
+import { startServer, stopServer } from "@/api/client";
 import type { LogLevel } from "../types/console";
 import { Button } from "../components/ui/Button";
-import { Trash2, Circle } from "lucide-react";
+import { Trash2, Circle, Play, Square } from "lucide-react";
 import { clsx } from "clsx";
 
 export default function Console() {
@@ -29,6 +30,36 @@ export default function Console() {
 
   const handleLevelChange = (levels: LogLevel[]) => {
     actions.setFilterLevels(levels);
+  };
+
+  const handleStart = async () => {
+    if (!serverName) return;
+    try {
+      await startServer({ server_name: serverName });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      actions.addLog({
+        timestamp: new Date().toISOString(),
+        level: "ERROR",
+        message: `Failed to start server: ${message}`,
+        server: serverName,
+      });
+    }
+  };
+
+  const handleStop = async () => {
+    if (!serverName) return;
+    try {
+      await stopServer({ server_name: serverName });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      actions.addLog({
+        timestamp: new Date().toISOString(),
+        level: "ERROR",
+        message: `Failed to stop server: ${message}`,
+        server: serverName,
+      });
+    }
   };
 
   const connectionStatusColors = {
@@ -63,6 +94,28 @@ export default function Console() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {!state.serverRunning ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleStart}
+              className="flex items-center gap-2 text-green-400 border-green-400 hover:bg-green-400/10"
+            >
+              <Play className="w-4 h-4" />
+              Start Server
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleStop}
+              className="flex items-center gap-2 text-red-400 border-red-400 hover:bg-red-400/10"
+            >
+              <Square className="w-4 h-4" />
+              Stop Server
+            </Button>
+          )}
+          <div className="w-px h-6 bg-gray-700 mx-2" />
           <LogFilter
             selectedLevels={state.selectedLevels}
             onLevelChange={handleLevelChange}
@@ -78,13 +131,12 @@ export default function Console() {
         </div>
       </div>
 
-      <div style={{ height: containerHeight - 120 }}>
-        <TerminalLogDisplay
-          logs={state.filteredLogs}
-          autoScroll={state.autoScroll}
-          onScroll={actions.setAutoScroll}
-        />
-      </div>
+      <TerminalLogDisplay
+        logs={state.filteredLogs}
+        autoScroll={state.autoScroll}
+        onScroll={actions.setAutoScroll}
+        height={containerHeight - 120}
+      />
 
       <CommandInput
         onSendCommand={actions.sendCommand}
@@ -93,6 +145,6 @@ export default function Console() {
         historyIndex={state.historyIndex}
         disabled={!state.isConnected}
       />
-    </div>
+    </div >
   );
 }

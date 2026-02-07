@@ -1,5 +1,7 @@
 import { X } from 'lucide-react'
-import { LayoutDashboard, Server, Users, Settings } from 'lucide-react'
+import { LayoutDashboard, Server, Users, Settings, Terminal, Folder } from 'lucide-react'
+import { useParams, useSearchParams } from 'react-router-dom'
+import { useServerStore } from '@/store/useServerStore'
 import { SidebarItem } from './SidebarItem'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
@@ -10,6 +12,15 @@ interface MobileNavProps {
 }
 
 export function MobileNav({ open, onClose }: MobileNavProps) {
+  const { serverName } = useParams()
+  const [searchParams] = useSearchParams()
+  const { servers, selectedServerId } = useServerStore()
+
+  const queryServerName = searchParams.get('server')
+  const storeServer = servers.find(s => s.id === selectedServerId)
+
+  // Determine the active server context
+  const activeServerName = serverName || queryServerName || storeServer?.name || (servers.length > 0 ? servers[0].name : '')
   return (
     <>
       {open && (
@@ -42,7 +53,7 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
 
         <nav className="px-2 py-4 space-y-1">
           <SidebarItem
-            to="/"
+            to={activeServerName ? `/panel?server=${activeServerName}` : '/panel'}
             icon={<LayoutDashboard className="w-5 h-5" />}
             label="仪表盘"
             onClick={onClose}
@@ -54,13 +65,25 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
             onClick={onClose}
           />
           <SidebarItem
-            to="/players"
+            to={`/panel/console/${activeServerName}`}
+            icon={<Terminal className="w-5 h-5" />}
+            label="控制台"
+            onClick={onClose}
+          />
+          <SidebarItem
+            to="/panel/players"
             icon={<Users className="w-5 h-5" />}
             label="玩家"
             onClick={onClose}
           />
           <SidebarItem
-            to="/settings"
+            to={`/panel/files/${activeServerName}`}
+            icon={<Folder className="w-5 h-5" />}
+            label="文件"
+            onClick={onClose}
+          />
+          <SidebarItem
+            to="/panel/settings"
             icon={<Settings className="w-5 h-5" />}
             label="设置"
             onClick={onClose}

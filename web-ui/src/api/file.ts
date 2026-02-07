@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:5000';
+import { API_BASE_URL } from '@/lib/api';
 
 export interface FileItem {
   name: string;

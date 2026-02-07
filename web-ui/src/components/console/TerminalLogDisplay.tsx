@@ -8,35 +8,35 @@ interface TerminalLogDisplayProps {
   logs: LogMessage[];
   autoScroll: boolean;
   onScroll: (autoScroll: boolean) => void;
+  height?: number;
 }
+
+const levelColors: Record<string, string> = {
+  INFO: "text-green-400",
+  WARN: "text-yellow-400",
+  ERROR: "text-red-400",
+  DEBUG: "text-blue-400",
+};
 
 function LogLine({ index, style, data }: ListChildComponentProps<{ logs: LogMessage[] }>) {
   const log = data.logs[index];
-  const rowRef = useRef<HTMLDivElement>(null);
-
-  const levelColors = {
-    INFO: "text-gray-300",
-    WARN: "text-yellow-400",
-    ERROR: "text-red-400",
-    DEBUG: "text-gray-500",
-  };
 
   return (
     <div style={style} className="px-2 py-0.5 hover:bg-gray-800/30">
-      <div ref={rowRef} className="flex items-start gap-2 font-mono text-xs leading-5">
-        <span className="text-gray-500 shrink-0 select-none">
+      <div className="flex items-start gap-2 font-mono text-xs leading-5">
+        <span className="text-green-400 shrink-0 select-none">
           [{log.timestamp.split("T")[1].split(".")[0]}]
         </span>
-        <span className={clsx("shrink-0 w-12 font-semibold", levelColors[log.level])}>
+        <span className={clsx("shrink-0 w-12 font-semibold", levelColors[log.level] || "text-gray-300")}>
           {log.level}
         </span>
-        <span className="text-gray-200 break-all whitespace-pre-wrap">{log.message}</span>
+        <span className="text-green-400 break-all whitespace-pre-wrap">{log.message}</span>
       </div>
     </div>
   );
 }
 
-export function TerminalLogDisplay({ logs, autoScroll, onScroll }: TerminalLogDisplayProps) {
+export function TerminalLogDisplay({ logs, autoScroll, onScroll, height = 500 }: TerminalLogDisplayProps) {
   const listRef = useRef<List>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -50,14 +50,18 @@ export function TerminalLogDisplay({ logs, autoScroll, onScroll }: TerminalLogDi
           const totalContentHeight = logs.length * itemSize;
           const maxScroll = totalContentHeight - totalHeight;
 
+          // If scrolled up more than 50px from bottom, disable auto-scroll
           if (maxScroll > 0) {
             const isAtBottom = scrollOffset >= maxScroll - 50;
-            onScroll(isAtBottom);
+            // Only toggle if status changes to avoid loops
+            if (isAtBottom !== autoScroll) {
+              onScroll(isAtBottom);
+            }
           }
         }
       }
     },
-    [logs.length, onScroll]
+    [logs.length, onScroll, autoScroll]
   );
 
   useEffect(() => {
@@ -69,7 +73,6 @@ export function TerminalLogDisplay({ logs, autoScroll, onScroll }: TerminalLogDi
   const itemData = useMemo(() => ({ logs }), [logs]);
   const itemCount = logs.length;
   const itemSize = 28;
-  const height = 500;
   const width = "100%";
 
   const scrollToBottom = useCallback(() => {

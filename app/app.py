@@ -28,7 +28,12 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-CORS(app)
+ALLOWED_ORIGINS = os.environ.get(
+    "CORS_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5000,http://127.0.0.1:5000",
+).split(",")
+
+CORS(app, origins=ALLOWED_ORIGINS)
 
 limiter = Limiter(
     app=app,
@@ -37,7 +42,7 @@ limiter = Limiter(
     storage_uri="memory://",
 )
 
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins=ALLOWED_ORIGINS, async_mode='threading')
 set_socketio(socketio)
 
 app.config["UPLOAD_FOLDER"] = str(config.upload_folder)
@@ -103,7 +108,11 @@ def handle_join_console(data):
         join_room(server_name)
         emit(
             "console_joined",
-            {"server_name": server_name, "status": "joined"},
+            {
+                "server_name": server_name, 
+                "status": "joined", 
+                "is_running": server_manager.is_server_running(server_name)
+            },
         )
 
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Plus, X, ArrowLeft, ChevronRight, Check, Box, Layers, Code, ScrollText } from 'lucide-react'
 import { io, Socket } from 'socket.io-client'
+import { API_BASE_URL } from '@/lib/api'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import type { ServerType } from './TypeBadge'
 
@@ -143,7 +144,7 @@ export const CreateServerModal = React.memo(function CreateServerModal({
 
             // Connect to WebSocket for progress updates
             if (!socketRef.current) {
-                const socket = io('http://localhost:5000', {
+                const socket = io(API_BASE_URL, {
                     transports: ['websocket', 'polling'],
                 })
                 socketRef.current = socket

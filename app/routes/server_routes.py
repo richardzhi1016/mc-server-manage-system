@@ -1,12 +1,17 @@
+import json
+import logging
 import os
-import uuid
+import re
+import shutil
+import sqlite3
 import subprocess
 import threading
 import time
-import py7zr
-import psutil
+import uuid
 import urllib.request
-import json
+
+import psutil
+import py7zr
 from datetime import datetime
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
@@ -20,6 +25,10 @@ from app.services.server_manager import (
     parse_log_level,
 )
 
+logger = logging.getLogger(__name__)
+
+ANSI_ESCAPE = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+
 servers_bp = Blueprint("servers", __name__, url_prefix="/api")
 socketio: SocketIO | None = None
 
@@ -29,76 +38,212 @@ def set_socketio(sio: SocketIO) -> None:
     socketio = sio
 
 
-class LogWatcher:
+class PTYProcessWatcher:
+    """Uses pseudo-terminal (PTY) to run Java process with line buffering.
+
+    Solves the Java stdout block buffering issue by using a PTY, which makes
+    Java think it's writing to a terminal, forcing line buffering.
+    """
+
     def __init__(
-        self, server_name: str, log_file_path: str, socketio_instance: SocketIO
+        self, server_name: str, command: list[str], cwd: str, socketio_instance: SocketIO
     ):
         self.server_name = server_name
-        self.log_file_path = log_file_path
+        self.command = command
+        self.cwd = cwd
         self.socketio = socketio_instance
         self.running = False
+        self.pid = None
         self.thread = None
-        self.file_position = 0
         self._stop_event = threading.Event()
-
-    def _read_last_lines(self, num_lines: int = 1000) -> list[str]:
-        try:
-            if not os.path.exists(self.log_file_path):
-                return []
-            with open(self.log_file_path, "r", encoding="utf-8", errors="replace") as f:
-                lines = f.readlines()
-                return lines[-num_lines:] if len(lines) > num_lines else lines
-        except Exception:
-            return []
+        self.pty_process = None
 
     def _emit_log_line(self, line: str) -> None:
         timestamp = datetime.now().isoformat()
-        level = parse_log_level(line)
-        clean_line = line.strip()
-        self.socketio.emit(
-            "log_message",
-            {
-                "timestamp": timestamp,
-                "level": level,
-                "message": clean_line,
-                "server": self.server_name,
-            },
-            to=self.server_name,
-        )
+        clean_line = ANSI_ESCAPE.sub('', line).strip()
+        if clean_line:
+            level = parse_log_level(clean_line)
+            self.socketio.emit(
+                "log_message",
+                {
+                    "timestamp": timestamp,
+                    "level": level,
+                    "message": clean_line,
+                    "server": self.server_name,
+                },
+                room=self.server_name,
+                namespace="/",
+            )
 
-    def start(self) -> None:
+    def start(self) -> tuple[bool, int | None, str]:
+        """Start the PTY process and return (success, pid, error_message)."""
         if self.running:
-            return
+            return False, None, "Already running"
+
+        try:
+            if os.name == 'nt':
+                return self._start_windows()
+            else:
+                return self._start_unix()
+        except Exception as e:
+            logger.error("PTY start error: %s", e)
+            return False, None, str(e)
+
+    def _start_windows(self) -> tuple[bool, int | None, str]:
+        import winpty
+
+        cmd_str = subprocess.list2cmdline(self.command)
+        self.pty_process = winpty.PTY(80, 24)
+        self.pty_process.spawn(cmd_str, cwd=self.cwd)
+
+        self.pid = self.pty_process.pid
+        logger.info("PTY process started with PID %d", self.pid)
+
         self.running = True
         self._stop_event.clear()
-        self.thread = threading.Thread(target=self._watch_loop, daemon=True)
+        self.thread = threading.Thread(target=self._watch_loop_windows, daemon=True)
         self.thread.start()
 
+        return True, self.pid, ""
+
+    def _start_unix(self) -> tuple[bool, int | None, str]:
+        import pty
+
+        master_fd, slave_fd = pty.openpty()
+
+        self.pty_process = subprocess.Popen(
+            self.command,
+            cwd=self.cwd,
+            stdin=slave_fd,
+            stdout=slave_fd,
+            stderr=slave_fd,
+            close_fds=True,
+        )
+        os.close(slave_fd)
+
+        self.master_fd = master_fd
+        self.pid = self.pty_process.pid
+
+        self.running = True
+        self._stop_event.clear()
+        self.thread = threading.Thread(target=self._watch_loop_unix, daemon=True)
+        self.thread.start()
+
+        return True, self.pid, ""
+
     def stop(self) -> None:
+        """Stop the PTY process. Does NOT send 'stop' command -- caller should do that."""
         self.running = False
         self._stop_event.set()
+
+        try:
+            if os.name != 'nt' and self.pty_process:
+                self.pty_process.terminate()
+                try:
+                    self.pty_process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    self.pty_process.kill()
+        except Exception as e:
+            logger.error("PTY stop error: %s", e)
+
         if self.thread:
             self.thread.join(timeout=2)
 
-    def _watch_loop(self) -> None:
-        initial_lines = self._read_last_lines(1000)
-        for line in initial_lines:
-            if line.strip():
-                self._emit_log_line(line)
+    def write_input(self, data: str) -> bool:
+        """Write data to the PTY stdin."""
         try:
-            with open(self.log_file_path, "r", encoding="utf-8", errors="replace") as f:
-                f.seek(0, os.SEEK_END)
-                self.file_position = f.tell()
-                while not self._stop_event.is_set():
-                    line = f.readline()
-                    if line:
-                        self._emit_log_line(line)
-                    else:
-                        time.sleep(0.1)
-        except FileNotFoundError:
-            pass
+            if os.name == 'nt' and self.pty_process:
+                self.pty_process.write(data)
+                return True
+            elif hasattr(self, 'master_fd'):
+                os.write(self.master_fd, data.encode('utf-8'))
+                return True
+        except Exception as e:
+            logger.error("PTY write error: %s", e)
+        return False
+
+    def is_alive(self) -> bool:
+        """Check if the PTY process is still running."""
+        try:
+            if os.name == 'nt' and self.pty_process:
+                return self.pty_process.isalive()
+            elif self.pty_process:
+                return self.pty_process.poll() is None
         except Exception:
             pass
+        return False
+
+    def _watch_loop_windows(self) -> None:
+        """Read output from Windows PTY."""
+        try:
+            logger.info("PTYProcessWatcher (Windows) started for %s", self.server_name)
+            buffer = ""
+
+            while not self._stop_event.is_set() and self.pty_process.isalive():
+                try:
+                    data = self.pty_process.read(blocking=False)
+                    if data:
+                        buffer += data
+                        while '\n' in buffer:
+                            line, buffer = buffer.split('\n', 1)
+                            line = line.rstrip('\r')
+                            if line:
+                                self._emit_log_line(line)
+                    else:
+                        time.sleep(0.05)
+                except Exception as e:
+                    error_msg = str(e).lower()
+                    if "eof" in error_msg or "closed" in error_msg:
+                        logger.info("PTY closed for %s", self.server_name)
+                        break
+                    logger.error("PTY read error: %s", e)
+                    time.sleep(0.1)
+
+            if buffer.strip():
+                self._emit_log_line(buffer.strip())
+
+            logger.info("PTYProcessWatcher (Windows) loop ended for %s", self.server_name)
+        except Exception as e:
+            logger.error("PTYProcessWatcher error: %s", e)
+            self._emit_log_line(f"[ERROR] PTY watcher error: {e}")
+
+    def _watch_loop_unix(self) -> None:
+        """Read output from Unix PTY."""
+        import select
+
+        try:
+            logger.info("PTYProcessWatcher (Unix) started for %s", self.server_name)
+            buffer = b""
+
+            while not self._stop_event.is_set():
+                if self.pty_process.poll() is not None:
+                    break
+
+                rlist, _, _ = select.select([self.master_fd], [], [], 0.1)
+                if self.master_fd in rlist:
+                    try:
+                        data = os.read(self.master_fd, 1024)
+                        if not data:
+                            break
+                        buffer += data
+                        while b'\n' in buffer:
+                            line, buffer = buffer.split(b'\n', 1)
+                            line_str = line.decode('utf-8', errors='replace').rstrip('\r')
+                            if line_str:
+                                self._emit_log_line(line_str)
+                    except OSError:
+                        break
+
+            if buffer:
+                line_str = buffer.decode('utf-8', errors='replace').strip()
+                if line_str:
+                    self._emit_log_line(line_str)
+
+            os.close(self.master_fd)
+            logger.info("PTYProcessWatcher (Unix) loop ended for %s", self.server_name)
+        except Exception as e:
+            logger.error("PTYProcessWatcher error: %s", e)
+            self._emit_log_line(f"[ERROR] PTY watcher error: {e}")
 
 
 def allowed_file(filename: str | None) -> bool:
@@ -159,16 +304,12 @@ def upload_package():
         single = items[0]
         single_path = os.path.join(server_dir, single)
         if os.path.isdir(single_path) and single == base_name:
-            import shutil
-
             for item in os.listdir(single_path):
                 shutil.move(os.path.join(single_path, item), server_dir)
             os.rmdir(single_path)
 
     is_valid, result = validate_server_structure(server_dir)
     if not is_valid:
-        import shutil
-
         if os.path.exists(server_dir):
             shutil.rmtree(server_dir)
         return jsonify(
@@ -201,32 +342,33 @@ def start_server():
         return jsonify({"error": "No JAR file found"}), 404
 
     jar_path = os.path.join(server_dir, jar_file)
+    command = ["java", "-jar", jar_path, "nogui"]
+
     try:
-        process = subprocess.Popen(
-            ["java", "-jar", jar_path, "nogui"],
-            cwd=server_dir,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
+        if not socketio:
+            return jsonify({"error": "SocketIO not available"}), 500
+
+        if server_name in server_manager.running_servers:
+            server_manager.running_servers[server_name].stop()
+
+        watcher = PTYProcessWatcher(server_name, command, server_dir, socketio)
+        success, pid, error = watcher.start()
+        if not success:
+            return jsonify({"error": f"Failed to start server: {error}"}), 500
+
+        server_manager.running_servers[server_name] = watcher
+
+        socketio.emit(
+            "server_started", {"server_name": server_name, "pid": pid},
+            room=server_name,
+            namespace="/",
         )
-        server_manager.running_servers[server_name] = process
-        log_file = str(config.get_logs_dir(server_name) / "latest.log")
-        if server_name not in server_manager.log_watchers and socketio:
-            server_manager.log_watchers[server_name] = LogWatcher(
-                server_name, log_file, socketio
-            )
-        server_manager.log_watchers[server_name].start()
-        if socketio:
-            socketio.emit(
-                "server_started", {"server_name": server_name, "pid": process.pid}
-            )
+
         return jsonify(
             {
                 "message": f"Server '{server_name}' started",
                 "jar_file": jar_file,
-                "pid": process.pid,
+                "pid": pid,
             }
         ), 200
     except Exception as e:
@@ -242,21 +384,34 @@ def stop_server():
 
     if server_name not in server_manager.running_servers:
         return jsonify({"error": f"Server '{server_name}' is not running"}), 404
-    process = server_manager.running_servers[server_name]
+    watcher = server_manager.running_servers[server_name]
 
     try:
-        process.terminate()
-        try:
-            process.wait(timeout=30)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait()
-        if server_name in server_manager.log_watchers:
-            server_manager.log_watchers[server_name].stop()
-            del server_manager.log_watchers[server_name]
+        # Send 'stop' command for graceful shutdown
+        watcher.write_input("stop\r\n")
+
+        # Wait for graceful shutdown (up to 30 seconds)
+        for _ in range(60):
+            if not watcher.is_alive():
+                break
+            time.sleep(0.5)
+
+        # Force kill if still alive
+        if watcher.is_alive() and watcher.pid:
+            try:
+                proc = psutil.Process(watcher.pid)
+                for child in proc.children(recursive=True):
+                    child.kill()
+                proc.kill()
+            except psutil.NoSuchProcess:
+                pass
+
+        # Clean up watcher thread (stop() no longer sends duplicate 'stop')
+        watcher.stop()
         del server_manager.running_servers[server_name]
+
         if socketio:
-            socketio.emit("server_stopped", {"server_name": server_name})
+            socketio.emit("server_stopped", {"server_name": server_name}, room=server_name, namespace="/")
         return jsonify({"message": f"Server '{server_name}' stopped"}), 200
     except Exception as e:
         return jsonify({"error": f"Failed to stop server: {str(e)}"}), 500
@@ -311,11 +466,12 @@ def get_server_logs(server_name: str):
 def send_command_to_server(server_name: str, command: str) -> tuple[bool, str]:
     if server_name not in server_manager.running_servers:
         return False, f"Server '{server_name}' is not running"
-    process = server_manager.running_servers[server_name]
+    watcher = server_manager.running_servers[server_name]
     try:
-        process.stdin.write(command + "\n")
-        process.stdin.flush()
-        return True, "Command sent"
+        success = watcher.write_input(command + "\r\n")
+        if success:
+            return True, "Command sent"
+        return False, "Failed to write to server"
     except Exception as e:
         return False, str(e)
 
@@ -323,15 +479,9 @@ def send_command_to_server(server_name: str, command: str) -> tuple[bool, str]:
 @servers_bp.route("/servers", methods=["GET"])
 def list_servers():
     """List all server instances from database."""
-    import sqlite3
-
-    conn = sqlite3.connect(str(config.database_path))
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT * FROM server_instance")
-    rows = cursor.fetchall()
-    conn.close()
+    with sqlite3.connect(str(config.database_path)) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT * FROM server_instance").fetchall()
 
     servers = []
     for row in rows:
@@ -355,9 +505,6 @@ def list_servers():
 @servers_bp.route("/servers", methods=["POST"])
 def create_server_instance():
     """Create a new server instance with folder and server.jar download."""
-    import sqlite3
-    import shutil
-
     data = request.get_json()
     if not data or "name" not in data:
         return jsonify({"error": "Missing 'name' parameter"}), 400
@@ -369,7 +516,6 @@ def create_server_instance():
     version_url = data.get("version_url")
     port = data.get("port")
 
-    # Create server directory
     server_dir = config.get_server_dir(name)
     if os.path.exists(server_dir):
         return jsonify({"error": f"Server directory '{name}' already exists"}), 409
@@ -377,9 +523,7 @@ def create_server_instance():
     try:
         os.makedirs(server_dir, exist_ok=True)
 
-        # Download server.jar if version_url is provided (Vanilla only for now)
         if version_url and server_type == "vanilla":
-            # Fetch version metadata
             try:
                 with urllib.request.urlopen(version_url, timeout=30) as response:
                     version_meta = json.loads(response.read().decode("utf-8"))
@@ -387,7 +531,6 @@ def create_server_instance():
                 shutil.rmtree(server_dir)
                 return jsonify({"error": f"Failed to fetch version metadata: {str(e)}"}), 500
 
-            # Get server download URL
             server_download = version_meta.get("downloads", {}).get("server")
             if not server_download:
                 shutil.rmtree(server_dir)
@@ -398,7 +541,6 @@ def create_server_instance():
                 shutil.rmtree(server_dir)
                 return jsonify({"error": "No server JAR URL found in version metadata"}), 400
 
-            # Download server.jar with progress reporting
             jar_path = os.path.join(str(server_dir), "server.jar")
             try:
                 def report_progress(block_num, block_size, total_size):
@@ -410,30 +552,25 @@ def create_server_instance():
                             "downloaded": min(block_num * block_size, total_size),
                             "total": total_size
                         })
-                
+
                 urllib.request.urlretrieve(server_jar_url, jar_path, report_progress)
             except Exception as e:
                 shutil.rmtree(server_dir)
                 return jsonify({"error": f"Failed to download server.jar: {str(e)}"}), 500
 
-        # Create eula.txt
         eula_path = os.path.join(str(server_dir), "eula.txt")
         with open(eula_path, "w", encoding="utf-8") as f:
             f.write("eula=true\n")
 
-        # Save to database
-        conn = sqlite3.connect(str(config.database_path))
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO server_instance (id, name, server_type, version, port) VALUES (?, ?, ?, ?, ?)",
-            (server_id, name, server_type, version, port),
-        )
-        conn.commit()
-        cursor.execute("SELECT * FROM server_instance WHERE id = ?", (server_id,))
-        row = cursor.fetchone()
-        server = dict(row) if row else {"id": server_id, "name": name, "server_type": server_type, "version": version, "port": port}
-        conn.close()
+        with sqlite3.connect(str(config.database_path)) as conn:
+            conn.row_factory = sqlite3.Row
+            conn.execute(
+                "INSERT INTO server_instance (id, name, server_type, version, port) VALUES (?, ?, ?, ?, ?)",
+                (server_id, name, server_type, version, port),
+            )
+            conn.commit()
+            row = conn.execute("SELECT * FROM server_instance WHERE id = ?", (server_id,)).fetchone()
+            server = dict(row) if row else {"id": server_id, "name": name, "server_type": server_type, "version": version, "port": port}
 
         return jsonify({
             "message": f"Server '{name}' created successfully",
@@ -450,33 +587,6 @@ def create_server_instance():
         return jsonify({"error": str(e)}), 500
 
 
-@servers_bp.route("/servers/create", methods=["POST"])
-def create_server():
-    data = request.get_json()
-    if not data or "server_name" not in data:
-        return jsonify({"error": "Missing 'server_name' parameter"}), 400
-    server_name = data["server_name"]
-    server_dir = str(config.get_server_dir(server_name))
-    if os.path.exists(server_dir):
-        return jsonify({"error": f"Server '{server_name}' already exists"}), 409
-    try:
-        os.makedirs(server_dir, exist_ok=True)
-        jar_file = "server.jar"
-        with open(os.path.join(server_dir, jar_file), "w") as f:
-            f.write("# Placeholder - download actual server jar")
-        with open(os.path.join(server_dir, "eula.txt"), "w") as f:
-            f.write("eula=true\n")
-        return jsonify(
-            {"message": f"Server '{server_name}' created", "server_dir": server_dir}
-        ), 200
-    except Exception as e:
-        import shutil
-
-        if os.path.exists(server_dir):
-            shutil.rmtree(server_dir)
-        return jsonify({"error": str(e)}), 500
-
-
 @servers_bp.route("/servers/<server_name>/delete", methods=["DELETE"])
 def delete_server(server_name: str):
     server_dir = str(config.get_server_dir(server_name))
@@ -485,9 +595,13 @@ def delete_server(server_name: str):
     if server_manager.is_server_running(server_name):
         return jsonify({"error": "Server is running, stop it first"}), 400
     try:
-        import shutil
-
         shutil.rmtree(server_dir)
+
+        # Also remove from database
+        with sqlite3.connect(str(config.database_path)) as conn:
+            conn.execute("DELETE FROM server_instance WHERE name = ?", (server_name,))
+            conn.commit()
+
         return jsonify({"message": f"Server '{server_name}' deleted"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
