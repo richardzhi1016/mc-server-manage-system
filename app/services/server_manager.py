@@ -89,15 +89,24 @@ class ServerManager:
 
         return True, "", abs_path
 
-    def get_file_info(self, file_path: str) -> dict[str, Any]:
-        """Get file information for the API response."""
+    def get_file_info(self, file_path: str, server_dir: str = "") -> dict[str, Any]:
+        """Get file information for the API response.
+
+        Args:
+            file_path: Absolute path to the file.
+            server_dir: The server root directory to compute relative paths from.
+        """
         is_dir = os.path.isdir(file_path)
         stat = os.stat(file_path)
+        if server_dir:
+            rel_path = os.path.relpath(file_path, server_dir)
+        else:
+            rel_path = os.path.basename(file_path)
+        # Normalize to forward slashes for consistent API responses
+        rel_path = rel_path.replace("\\", "/")
         return {
             "name": os.path.basename(file_path),
-            "path": os.path.relpath(
-                file_path, os.path.dirname(os.path.dirname(file_path))
-            ),
+            "path": rel_path,
             "is_directory": is_dir,
             "size": stat.st_size if not is_dir else 0,
             "modified": stat.st_mtime,
@@ -117,11 +126,13 @@ class ServerManager:
         if not os.path.isdir(abs_path):
             return False, "Path is not a directory", []
 
+        server_dir = os.path.realpath(str(config.get_server_dir(server_name)))
+
         try:
             items = []
             for item in os.listdir(abs_path):
                 item_path = os.path.join(abs_path, item)
-                items.append(self.get_file_info(item_path))
+                items.append(self.get_file_info(item_path, server_dir))
             items.sort(key=lambda x: (not x["is_directory"], x["name"].lower()))
             return True, "", items
         except PermissionError:

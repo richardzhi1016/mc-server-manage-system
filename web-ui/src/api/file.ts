@@ -23,6 +23,11 @@ export interface FileApiError {
   error: string;
 }
 
+/** Encode a file path for use in URL, preserving forward slashes. */
+function encodeFilePath(path: string): string {
+  return path.split('/').map(encodeURIComponent).join('/');
+}
+
 export async function listFiles(serverName: string, path: string = ''): Promise<FileListResponse> {
   const params = new URLSearchParams();
   if (path) params.set('path', path);
@@ -38,7 +43,7 @@ export async function listFiles(serverName: string, path: string = ''): Promise<
 }
 
 export async function readFile(serverName: string, path: string): Promise<FileContentResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/servers/${encodeURIComponent(serverName)}/files/${encodeURIComponent(path)}`);
+  const response = await fetch(`${API_BASE_URL}/api/servers/${encodeURIComponent(serverName)}/files/${encodeFilePath(path)}`);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
@@ -49,7 +54,7 @@ export async function readFile(serverName: string, path: string): Promise<FileCo
 }
 
 export async function writeFile(serverName: string, path: string, content: string): Promise<{ message: string }> {
-  const response = await fetch(`${API_BASE_URL}/api/servers/${encodeURIComponent(serverName)}/files/${encodeURIComponent(path)}`, {
+  const response = await fetch(`${API_BASE_URL}/api/servers/${encodeURIComponent(serverName)}/files/${encodeFilePath(path)}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -66,7 +71,7 @@ export async function writeFile(serverName: string, path: string, content: strin
 }
 
 export async function createFolder(serverName: string, path: string): Promise<{ message: string }> {
-  const response = await fetch(`${API_BASE_URL}/api/servers/${encodeURIComponent(serverName)}/files/${encodeURIComponent(path)}`, {
+  const response = await fetch(`${API_BASE_URL}/api/servers/${encodeURIComponent(serverName)}/files/${encodeFilePath(path)}`, {
     method: 'POST',
   });
 
@@ -79,7 +84,7 @@ export async function createFolder(serverName: string, path: string): Promise<{ 
 }
 
 export async function deleteFile(serverName: string, path: string): Promise<{ message: string }> {
-  const response = await fetch(`${API_BASE_URL}/api/servers/${encodeURIComponent(serverName)}/files/${encodeURIComponent(path)}`, {
+  const response = await fetch(`${API_BASE_URL}/api/servers/${encodeURIComponent(serverName)}/files/${encodeFilePath(path)}`, {
     method: 'DELETE',
   });
 
@@ -127,7 +132,7 @@ export async function uploadFile(serverName: string, path: string, file: File): 
 }
 
 export function getDownloadUrl(serverName: string, path: string): string {
-  return `${API_BASE_URL}/api/servers/${encodeURIComponent(serverName)}/download/${encodeURIComponent(path)}`;
+  return `${API_BASE_URL}/api/servers/${encodeURIComponent(serverName)}/download/${encodeFilePath(path)}`;
 }
 
 export function getFileLanguage(filename: string): string {
