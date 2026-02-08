@@ -1,7 +1,10 @@
+import logging
 import os
 import re
 from typing import Any
 from app.config import config
+
+logger = logging.getLogger(__name__)
 
 
 def parse_log_level(line: str) -> str:
@@ -137,6 +140,43 @@ class ServerManager:
             return True, "", items
         except PermissionError:
             return False, "Permission denied", []
+
+
+def update_server_properties_port(server_dir: str, new_port: int) -> bool:
+    """Update the server-port value in server.properties.
+
+    Reads the file, replaces the server-port line (or appends it),
+    and writes the updated content back.
+
+    Returns True on success, False if the file is missing or on error.
+    """
+    props_path = os.path.join(server_dir, "server.properties")
+    if not os.path.exists(props_path):
+        return False
+
+    try:
+        with open(props_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+        new_lines = []
+        port_found = False
+        for line in lines:
+            if line.strip().startswith("server-port="):
+                new_lines.append(f"server-port={new_port}\n")
+                port_found = True
+            else:
+                new_lines.append(line)
+
+        if not port_found:
+            new_lines.append(f"server-port={new_port}\n")
+
+        with open(props_path, "w", encoding="utf-8") as f:
+            f.writelines(new_lines)
+
+        return True
+    except Exception as e:
+        logger.error("Failed to update server.properties port: %s", e)
+        return False
 
 
 server_manager = ServerManager()

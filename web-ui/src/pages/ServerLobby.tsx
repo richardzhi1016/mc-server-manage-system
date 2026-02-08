@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Moon, Sun } from 'lucide-react'
 import { io, Socket } from 'socket.io-client'
-import { getServers, createServer } from '@/api/client'
+import { getServers, createServer, cloneServer } from '@/api/client'
 import { API_BASE_URL } from '@/lib/api'
 import {
   LobbyServerCard,
   AddServerCard,
   CreateServerModal,
+  CloneServerModal,
   type ServerType,
   type LobbyServer,
 } from '@/components/server-lobby'
@@ -18,6 +19,8 @@ export default function ServerLobby() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isCreateModalOpen, setCreateModalOpen] = useState(false)
+  const [isCloneModalOpen, setCloneModalOpen] = useState(false)
+  const [cloneSourceServer, setCloneSourceServer] = useState<LobbyServer | null>(null)
   const [isDarkMode, setIsDarkMode] = useState(false)
   const socketRef = useRef<Socket | null>(null)
   const { showToast } = useToast()
@@ -115,6 +118,52 @@ export default function ServerLobby() {
     }
   }, [showToast])
 
+  const handleOpenCloneModal = useCallback((server: LobbyServer) => {
+    setCloneSourceServer(server)
+    setCloneModalOpen(true)
+  }, [])
+
+  const handleCloseCloneModal = useCallback(() => {
+    setCloneModalOpen(false)
+    setCloneSourceServer(null)
+  }, [])
+
+  const handleCloneServer = useCallback(async (
+    serverName: string,
+    newName: string,
+    newPort: number
+  ) => {
+    try {
+      const response = await cloneServer(serverName, {
+        new_name: newName,
+        new_port: newPort,
+      })
+
+      const newServer: LobbyServer = {
+        id: response.server.id,
+        name: response.server.name,
+        version: response.server.version || 'Unknown',
+        type: (response.server.server_type
+          ? response.server.server_type.charAt(0).toUpperCase() + response.server.server_type.slice(1)
+          : 'Vanilla') as ServerType,
+        status: 'offline',
+        port: response.server.port || newPort,
+      }
+      setServers(prev => [...prev, newServer])
+      setCloneModalOpen(false)
+      setCloneSourceServer(null)
+
+      if (response.warning) {
+        showToast('warning', response.warning)
+      }
+      showToast('success', `Server "${newName}" cloned successfully!`)
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { error?: string } } }
+      const serverMessage = axiosError?.response?.data?.error
+      throw new Error(serverMessage || 'Clone failed. Please try again.')
+    }
+  }, [showToast])
+
   const toggleDarkMode = useCallback(() => {
     setIsDarkMode(prev => !prev)
   }, [])
@@ -170,7 +219,7 @@ export default function ServerLobby() {
           ) : (
             <>
               {servers.map((server) => (
-                <LobbyServerCard key={server.id} server={server} />
+                <LobbyServerCard key={server.id} server={server} onClone={handleOpenCloneModal} />
               ))}
               <AddServerCard onClick={handleOpenCreateModal} />
             </>
@@ -185,6 +234,13 @@ export default function ServerLobby() {
         versions={mcVersions}
         versionsMap={versionsMap}
         latestRelease={latestRelease}
+      />
+
+      <CloneServerModal
+        isOpen={isCloneModalOpen}
+        onClose={handleCloseCloneModal}
+        onClone={handleCloneServer}
+        sourceServer={cloneSourceServer}
       />
     </div>
   )

@@ -23,6 +23,7 @@ from app.services.server_manager import (
     validate_server_structure,
     find_server_jar,
     parse_log_level,
+    update_server_properties_port,
 )
 
 logger = logging.getLogger(__name__)
@@ -605,3 +606,170 @@ def delete_server(server_name: str):
         return jsonify({"message": f"Server '{server_name}' deleted"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+_clone_lock = threading.Lock()
+
+
+def _find_next_available_port() -> int | None:
+    """Return the next unused port starting from 25565, or None if exhausted."""
+    with sqlite3.connect(str(config.database_path)) as conn:
+        rows = conn.execute(
+            "SELECT port FROM server_instance WHERE port IS NOT NULL"
+        ).fetchall()
+    used_ports = {row[0] for row in rows}
+    port = 25565
+    while port in used_ports:
+        port += 1
+    return port if port <= 65535 else None
+
+
+def _ignore_lock_files(directory: str, files: list[str]) -> list[str]:
+    """Ignore session.lock files during shutil.copytree to avoid conflicts."""
+    return [f for f in files if f == "session.lock"]
+
+
+@servers_bp.route("/servers/next-available-port", methods=["GET"])
+def get_next_available_port():
+    """Get the next available port number not used by any server."""
+    port = _find_next_available_port()
+    if port is None:
+        return jsonify({"error": "No available ports"}), 500
+    return jsonify({"port": port}), 200
+
+
+@servers_bp.route("/servers/<server_name>/clone", methods=["POST"])
+def clone_server(server_name: str):
+    """Clone an existing server to a new name with a new port."""
+    data = request.get_json()
+    if not data or "new_name" not in data:
+        return jsonify({"error": "Missing 'new_name' parameter"}), 400
+
+    # Validate source server name: reject path traversal attempts
+    if ".." in server_name or "/" in server_name or "\\" in server_name:
+        return jsonify({"error": "Invalid source server name"}), 400
+
+    new_name = data["new_name"].strip()
+    if not new_name:
+        return jsonify({"error": "Server name cannot be empty"}), 400
+
+    if len(new_name) > 64:
+        return jsonify({"error": "Server name must be 64 characters or less"}), 400
+
+    # Validate new name is filesystem-safe
+    safe_name = secure_filename(new_name)
+    if not safe_name or safe_name != new_name:
+        return jsonify({"error": "Server name contains invalid characters"}), 400
+
+    # Check source server exists in database
+    with sqlite3.connect(str(config.database_path)) as conn:
+        conn.row_factory = sqlite3.Row
+        source_row = conn.execute(
+            "SELECT * FROM server_instance WHERE name = ?", (server_name,)
+        ).fetchone()
+
+    if not source_row:
+        return jsonify({"error": f"Source server '{server_name}' not found in database"}), 404
+
+    # Check source server exists on filesystem
+    source_dir = str(config.get_server_dir(server_name))
+    if not os.path.exists(source_dir):
+        return jsonify({"error": f"Source server '{server_name}' directory not found"}), 404
+
+    # Port handling
+    new_port = data.get("new_port")
+    if new_port is not None:
+        try:
+            new_port = int(new_port)
+        except (ValueError, TypeError):
+            return jsonify({"error": "Invalid port number"}), 400
+        if new_port < 1024 or new_port > 65535:
+            return jsonify({"error": "Port must be between 1024 and 65535"}), 400
+    else:
+        new_port = _find_next_available_port()
+        if new_port is None:
+            return jsonify({"error": "No available ports found"}), 500
+
+    # Warn if source server is running (but allow cloning)
+    warning = None
+    if server_manager.is_server_running(server_name):
+        warning = "Source server is currently running. Cloned world data may be inconsistent."
+
+    # Serialize clone operations to prevent race conditions
+    with _clone_lock:
+        # Check new name is not taken (filesystem)
+        dest_dir = str(config.get_server_dir(new_name))
+        if os.path.exists(dest_dir):
+            return jsonify({"error": f"Server directory '{new_name}' already exists"}), 409
+
+        # Check new name is not taken (database)
+        with sqlite3.connect(str(config.database_path)) as conn:
+            existing = conn.execute(
+                "SELECT id FROM server_instance WHERE name = ?", (new_name,)
+            ).fetchone()
+        if existing:
+            return jsonify({"error": f"Server '{new_name}' already exists in database"}), 409
+
+        # Check port not already in use by another server
+        with sqlite3.connect(str(config.database_path)) as conn:
+            port_check = conn.execute(
+                "SELECT name FROM server_instance WHERE port = ?", (new_port,)
+            ).fetchone()
+        if port_check:
+            return jsonify(
+                {"error": f"Port {new_port} is already used by server '{port_check[0]}'"}
+            ), 409
+
+        # Copy server files (excluding session.lock)
+        try:
+            shutil.copytree(source_dir, dest_dir, ignore=_ignore_lock_files)
+        except Exception as e:
+            return jsonify({"error": f"Failed to copy server files: {str(e)}"}), 500
+
+        # Update server.properties with the new port
+        port_updated = update_server_properties_port(dest_dir, new_port)
+        if not port_updated:
+            logger.warning(
+                "Could not update server.properties for cloned server '%s'. "
+                "Port may conflict with source server.",
+                new_name,
+            )
+            if warning is None:
+                warning = "server.properties could not be updated with the new port. Please update it manually."
+            else:
+                warning += " Also, server.properties could not be updated with the new port."
+
+        # Insert new database record
+        new_id = str(uuid.uuid4())
+        try:
+            with sqlite3.connect(str(config.database_path)) as conn:
+                conn.execute(
+                    "INSERT INTO server_instance (id, name, server_type, version, port) VALUES (?, ?, ?, ?, ?)",
+                    (new_id, new_name, source_row["server_type"], source_row["version"], new_port),
+                )
+                conn.commit()
+        except sqlite3.IntegrityError:
+            if os.path.exists(dest_dir):
+                shutil.rmtree(dest_dir)
+            return jsonify({"error": f"Server '{new_name}' already exists in database"}), 409
+        except Exception as e:
+            if os.path.exists(dest_dir):
+                shutil.rmtree(dest_dir)
+            return jsonify({"error": f"Database error: {str(e)}"}), 500
+
+    server = {
+        "id": new_id,
+        "name": new_name,
+        "server_type": source_row["server_type"],
+        "version": source_row["version"],
+        "port": new_port,
+    }
+
+    response = {
+        "message": f"Server '{new_name}' cloned from '{server_name}' successfully",
+        "server": server,
+    }
+    if warning:
+        response["warning"] = warning
+
+    return jsonify(response), 201

@@ -40,6 +40,9 @@ import type {
   SchedulerStatusResponse,
   CreateServerRequest,
   CreateServerResponse,
+  CloneServerRequest,
+  CloneServerResponse,
+  NextAvailablePortResponse,
 } from "@/types/api"
 
 export async function getServers(): Promise<ServerListResponse> {
@@ -222,5 +225,23 @@ export async function deleteScheduledTask(taskId: string): Promise<{ message: st
 
 export async function getSchedulerStatus(): Promise<SchedulerStatusResponse> {
   const response = await apiClient.get<SchedulerStatusResponse>("/api/scheduler/status")
+  return response.data
+}
+
+export async function cloneServer(
+  serverName: string,
+  data: CloneServerRequest
+): Promise<CloneServerResponse> {
+  const response = await apiClient.post<CloneServerResponse>(
+    `/api/servers/${encodeURIComponent(serverName)}/clone`,
+    data
+  )
+  return response.data
+}
+
+export async function getNextAvailablePort(): Promise<NextAvailablePortResponse> {
+  const response = await apiClient.get<NextAvailablePortResponse>(
+    "/api/servers/next-available-port"
+  )
   return response.data
 }

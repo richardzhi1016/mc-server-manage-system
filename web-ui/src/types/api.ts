@@ -288,3 +288,18 @@ export interface CreateServerResponse {
   message: string
   server: Server
 }
+
+export interface CloneServerRequest {
+  new_name: string
+  new_port?: number
+}
+
+export interface CloneServerResponse {
+  message: string
+  server: Server
+  warning?: string
+}
+
+export interface NextAvailablePortResponse {
+  port: number
+}
