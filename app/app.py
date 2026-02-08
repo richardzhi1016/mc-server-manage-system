@@ -12,9 +12,6 @@ if PROJECT_ROOT not in sys.path:
 from flask import Flask
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-
 from app.config import config
 from app.routes.server_routes import servers_bp, set_socketio
 from app.routes.player_routes import players_bp
@@ -34,13 +31,6 @@ ALLOWED_ORIGINS = os.environ.get(
 ).split(",")
 
 CORS(app, origins=ALLOWED_ORIGINS)
-
-limiter = Limiter(
-    app=app,
-    key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"],
-    storage_uri="memory://",
-)
 
 socketio = SocketIO(app, cors_allowed_origins=ALLOWED_ORIGINS, async_mode='threading')
 set_socketio(socketio)
