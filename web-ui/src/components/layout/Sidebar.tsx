@@ -1,4 +1,4 @@
-import { LayoutDashboard, Server, Settings, Users, Terminal, Folder, ArrowLeftCircle } from 'lucide-react'
+import { LayoutDashboard, Server, Settings, Users, Terminal, Folder, Database, ArrowLeftCircle } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 import { SidebarItem } from './SidebarItem'
 import { cn } from '@/lib/utils'
@@ -59,6 +59,12 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
           to={`${basePath}/files`}
           icon={<Folder className="w-5 h-5" />}
           label="文件"
+          collapsed={collapsed}
+        />
+        <SidebarItem
+          to={`${basePath}/backups`}
+          icon={<Database className="w-5 h-5" />}
+          label="备份"
           collapsed={collapsed}
         />
         <SidebarItem

@@ -8,10 +8,10 @@ interface LogFilterProps {
 }
 
 const LEVELS: { value: LogLevel; label: string; color: string }[] = [
-  { value: "INFO", label: "INFO", color: "text-gray-300" },
-  { value: "WARN", label: "WARN", color: "text-yellow-400" },
-  { value: "ERROR", label: "ERROR", color: "text-red-400" },
-  { value: "DEBUG", label: "DEBUG", color: "text-gray-500" },
+  { value: "INFO", label: "INFO", color: "text-gray-700 dark:text-gray-300" },
+  { value: "WARN", label: "WARN", color: "text-yellow-600 dark:text-yellow-400" },
+  { value: "ERROR", label: "ERROR", color: "text-red-600 dark:text-red-400" },
+  { value: "DEBUG", label: "DEBUG", color: "text-gray-500 dark:text-gray-500" },
 ];
 
 export function LogFilter({ selectedLevels, onLevelChange }: LogFilterProps) {
@@ -42,8 +42,8 @@ export function LogFilter({ selectedLevels, onLevelChange }: LogFilterProps) {
   };
 
   return (
-    <div className="flex items-center gap-2 p-2 bg-gray-900/50 rounded-lg">
-      <span className="text-sm text-gray-400 mr-2">Filter:</span>
+    <div className="flex items-center gap-2 p-2 bg-gray-100 dark:bg-gray-900/50 rounded-lg">
+      <span className="text-sm text-gray-500 dark:text-gray-400 mr-2">Filter:</span>
       {LEVELS.map((level) => (
         <Button
           key={level.value}
@@ -53,7 +53,7 @@ export function LogFilter({ selectedLevels, onLevelChange }: LogFilterProps) {
           className={clsx(
             "px-2 py-1 text-xs font-mono transition-colors",
             isSelected(level.value) && level.color,
-            !isSelected(level.value) && "text-gray-500 hover:text-gray-300"
+            !isSelected(level.value) && "text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
           )}
         >
           {level.label}

@@ -80,8 +80,8 @@ export default function Console() {
     <div className="flex flex-col h-full p-4 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h1 className="text-xl font-semibold text-gray-100">Console: {serverName}</h1>
-          <div className="flex items-center gap-2 px-3 py-1 bg-gray-800 rounded-full">
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Console: {serverName}</h1>
+          <div className="flex items-center gap-2 px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full">
             <Circle
               className={clsx(
                 "w-2 h-2 fill-current animate-pulse",
@@ -99,7 +99,7 @@ export default function Console() {
               variant="outline"
               size="sm"
               onClick={handleStart}
-              className="flex items-center gap-2 text-green-400 border-green-400 hover:bg-green-400/10"
+              className="flex items-center gap-2 text-green-600 dark:text-green-400 border-green-500 dark:border-green-400 hover:bg-green-500/10 dark:hover:bg-green-400/10 hover:text-green-700 dark:hover:text-green-300"
             >
               <Play className="w-4 h-4" />
               Start Server
@@ -109,13 +109,13 @@ export default function Console() {
               variant="outline"
               size="sm"
               onClick={handleStop}
-              className="flex items-center gap-2 text-red-400 border-red-400 hover:bg-red-400/10"
+              className="flex items-center gap-2 text-red-600 dark:text-red-400 border-red-500 dark:border-red-400 hover:bg-red-500/10 dark:hover:bg-red-400/10 hover:text-red-700 dark:hover:text-red-300"
             >
               <Square className="w-4 h-4" />
               Stop Server
             </Button>
           )}
-          <div className="w-px h-6 bg-gray-700 mx-2" />
+          <div className="w-px h-6 bg-gray-300 dark:bg-gray-700 mx-2" />
           <LogFilter
             selectedLevels={state.selectedLevels}
             onLevelChange={handleLevelChange}
@@ -124,7 +124,7 @@ export default function Console() {
             variant="ghost"
             size="icon"
             onClick={actions.clearLogs}
-            className="text-gray-400 hover:text-gray-200"
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
           >
             <Trash2 className="w-4 h-4" />
           </Button>

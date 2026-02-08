@@ -1,18 +1,16 @@
 import { useState } from "react"
-import { Settings, Cpu, FileText, Database, Clock, Palette } from "lucide-react"
+import { Settings, Cpu, FileText, Clock, Palette } from "lucide-react"
 import { StartupParams } from "@/components/settings/StartupParams"
 import { ServerProperties } from "@/components/settings/ServerProperties"
-import { BackupManagement } from "@/components/settings/BackupManagement"
 import { ScheduledTasks } from "@/components/settings/ScheduledTasks"
 import { ThemeSettings } from "@/components/settings/ThemeSettings"
 import { cn } from "@/lib/utils"
 
-type SettingsTab = "startup" | "properties" | "backups" | "scheduler" | "theme"
+type SettingsTab = "startup" | "properties" | "scheduler" | "theme"
 
 const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: "startup", label: "Startup", icon: <Cpu className="w-5 h-5" /> },
   { id: "properties", label: "Server Properties", icon: <FileText className="w-5 h-5" /> },
-  { id: "backups", label: "Backups", icon: <Database className="w-5 h-5" /> },
   { id: "scheduler", label: "Scheduled Tasks", icon: <Clock className="w-5 h-5" /> },
   { id: "theme", label: "Theme", icon: <Palette className="w-5 h-5" /> },
 ]
@@ -58,7 +56,6 @@ export default function SettingsPage() {
           <div className="card p-6">
             {activeTab === "startup" && <StartupParams />}
             {activeTab === "properties" && <ServerProperties />}
-            {activeTab === "backups" && <BackupManagement />}
             {activeTab === "scheduler" && <ScheduledTasks />}
             {activeTab === "theme" && <ThemeSettings />}
           </div>

@@ -179,14 +179,16 @@ export async function createBackup(data: CreateBackupRequest): Promise<CreateBac
 }
 
 export async function restoreBackup(data: RestoreBackupRequest): Promise<{ message: string }> {
-  const response = await apiClient.post<{ message: string }>("/api/backups/restore", data)
+  const response = await apiClient.post<{ message: string }>(
+    `/api/backups/${encodeURIComponent(data.server_name)}/${encodeURIComponent(data.backup_id)}/restore`
+  )
   return response.data
 }
 
 export async function deleteBackup(serverName: string, backupId: string): Promise<{ message: string }> {
-  const response = await apiClient.delete<{ message: string }>(`/api/backups/${backupId}`, {
-    data: { server_name: serverName },
-  })
+  const response = await apiClient.delete<{ message: string }>(
+    `/api/backups/${encodeURIComponent(serverName)}/${encodeURIComponent(backupId)}`
+  )
   return response.data
 }
 

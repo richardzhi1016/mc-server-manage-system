@@ -84,7 +84,7 @@ export function TerminalLogDisplay({ logs, autoScroll, onScroll, height = 500 }:
     <div className="relative flex-1 min-h-0">
       <div
         ref={containerRef}
-        className="h-full bg-gray-950 rounded-lg border border-gray-800 overflow-hidden"
+        className="h-full bg-gray-900 dark:bg-gray-950 rounded-lg border border-gray-300 dark:border-gray-800 overflow-hidden"
       >
         <List
           ref={listRef}

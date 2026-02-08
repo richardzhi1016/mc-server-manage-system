@@ -58,8 +58,8 @@ export function CommandInput({
   );
 
   return (
-    <form onSubmit={handleSubmit} className="flex items-center gap-2 p-2 bg-gray-900/50 rounded-lg">
-      <span className="text-green-400 font-mono text-sm">{">"}</span>
+    <form onSubmit={handleSubmit} className="flex items-center gap-2 p-2 bg-gray-100 dark:bg-gray-900/50 rounded-lg">
+      <span className="text-green-600 dark:text-green-400 font-mono text-sm">{">"}</span>
       <Input
         ref={inputRef}
         value={input}
@@ -67,14 +67,14 @@ export function CommandInput({
         onKeyDown={handleKeyDown}
         placeholder="Enter command..."
         disabled={disabled}
-        className="flex-1 font-mono text-sm bg-gray-800/50 border-gray-700 focus:border-green-500 focus:ring-green-500 text-gray-200 placeholder-gray-500"
+        className="flex-1 font-mono text-sm bg-white dark:bg-gray-800/50 border-gray-300 dark:border-gray-700 focus:border-green-500 focus:ring-green-500 text-gray-900 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500"
       />
       <Button
         type="submit"
         disabled={disabled || !input.trim()}
         variant="ghost"
         size="icon"
-        className="text-green-400 hover:text-green-300 hover:bg-green-400/10 disabled:opacity-50"
+        className="text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 hover:bg-green-500/10 dark:hover:bg-green-400/10 disabled:opacity-50"
       >
         <Send className="w-4 h-4" />
       </Button>
@@ -85,7 +85,7 @@ export function CommandInput({
           size="icon"
           disabled={disabled || historyIndex >= commandHistory.length - 1}
           onClick={() => onNavigateHistory("up")}
-          className="text-gray-500 hover:text-gray-300 h-6 w-6"
+          className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 h-6 w-6"
         >
           <ArrowUp className="w-3 h-3" />
         </Button>
@@ -95,7 +95,7 @@ export function CommandInput({
           size="icon"
           disabled={disabled || historyIndex < 0}
           onClick={() => onNavigateHistory("down")}
-          className="text-gray-500 hover:text-gray-300 h-6 w-6"
+          className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 h-6 w-6"
         >
           <ArrowDown className="w-3 h-3" />
         </Button>

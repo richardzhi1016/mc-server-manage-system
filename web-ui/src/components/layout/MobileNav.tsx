@@ -1,5 +1,5 @@
 import { X } from 'lucide-react'
-import { LayoutDashboard, Server, Users, Settings, Terminal, Folder } from 'lucide-react'
+import { LayoutDashboard, Server, Users, Settings, Terminal, Folder, Database } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 import { SidebarItem } from './SidebarItem'
 import { Button } from '@/components/ui/Button'
@@ -75,6 +75,12 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
             to={`${basePath}/files`}
             icon={<Folder className="w-5 h-5" />}
             label="文件"
+            onClick={onClose}
+          />
+          <SidebarItem
+            to={`${basePath}/backups`}
+            icon={<Database className="w-5 h-5" />}
+            label="备份"
             onClick={onClose}
           />
           <SidebarItem

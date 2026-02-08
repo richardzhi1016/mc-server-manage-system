@@ -10,6 +10,7 @@ const ServerCreate = lazy(() => import("@/pages/ServerCreate"))
 const Console = lazy(() => import("@/pages/Console"))
 const Players = lazy(() => import("@/pages/Players"))
 const FileManager = lazy(() => import("@/pages/FileManager"))
+const Backups = lazy(() => import("@/pages/Backups"))
 const Settings = lazy(() => import("@/pages/Settings"))
 
 export const appRouter = createBrowserRouter([
@@ -74,6 +75,14 @@ export const appRouter = createBrowserRouter([
           element: (
             <Suspense fallback={<LoadingFallback />}>
               <FileManager />
+            </Suspense>
+          ),
+        },
+        {
+          path: "backups",
+          element: (
+            <Suspense fallback={<LoadingFallback />}>
+              <Backups />
             </Suspense>
           ),
         },
