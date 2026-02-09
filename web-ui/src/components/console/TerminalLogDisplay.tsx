@@ -22,15 +22,21 @@ function LogLine({ index, style, data }: ListChildComponentProps<{ logs: LogMess
   const log = data.logs[index];
 
   return (
-    <div style={style} className="px-2 py-0.5 hover:bg-gray-800/30">
-      <div className="flex items-start gap-2 font-mono text-xs leading-5">
+    <div style={style} className="px-2 py-0.5 hover:bg-gray-800/30 overflow-hidden">
+      <div className="flex items-center gap-2 font-mono text-xs leading-5 min-w-0">
         <span className="text-green-400 shrink-0 select-none">
           [{log.timestamp.split("T")[1].split(".")[0]}]
         </span>
         <span className={clsx("shrink-0 w-12 font-semibold", levelColors[log.level] || "text-gray-300")}>
           {log.level}
         </span>
-        <span className="text-green-400 break-all whitespace-pre-wrap">{log.message}</span>
+        <span
+          className="text-green-400 truncate min-w-0 cursor-pointer hover:text-green-300 transition-colors"
+          title={log.message}
+          onClick={() => navigator.clipboard.writeText(log.message)}
+        >
+          {log.message}
+        </span>
       </div>
     </div>
   );
@@ -39,36 +45,35 @@ function LogLine({ index, style, data }: ListChildComponentProps<{ logs: LogMess
 export function TerminalLogDisplay({ logs, autoScroll, onScroll, height = 500 }: TerminalLogDisplayProps) {
   const listRef = useRef<List>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const logsLengthRef = useRef(logs.length);
+  logsLengthRef.current = logs.length;
 
   const handleScroll = useCallback(
     ({ scrollOffset, scrollUpdateWasRequested }: { scrollOffset: number; scrollUpdateWasRequested: boolean }) => {
-      if (!scrollUpdateWasRequested && listRef.current) {
-        const listState = listRef.current.state;
-        if (listState) {
-          const totalHeight = listState.height || 0;
-          const itemSize = 28;
-          const totalContentHeight = logs.length * itemSize;
-          const maxScroll = totalContentHeight - totalHeight;
+      if (scrollUpdateWasRequested) return;
 
-          // If scrolled up more than 50px from bottom, disable auto-scroll
-          if (maxScroll > 0) {
-            const isAtBottom = scrollOffset >= maxScroll - 50;
-            // Only toggle if status changes to avoid loops
-            if (isAtBottom !== autoScroll) {
-              onScroll(isAtBottom);
-            }
-          }
-        }
+      const itemSize = 28;
+      const totalContentHeight = logsLengthRef.current * itemSize;
+      const maxScroll = totalContentHeight - height;
+
+      if (maxScroll <= 0) return;
+
+      const isAtBottom = scrollOffset >= maxScroll - 50;
+      if (isAtBottom !== autoScroll) {
+        onScroll(isAtBottom);
       }
     },
-    [logs.length, onScroll, autoScroll]
+    [height, onScroll, autoScroll]
   );
 
   useEffect(() => {
     if (autoScroll && logs.length > 0) {
-      listRef.current?.scrollToItem(logs.length, "end");
+      const maxScroll = logs.length * 29 - height;
+      if (maxScroll > 0) {
+        listRef.current?.scrollTo(maxScroll);
+      }
     }
-  }, [logs.length, autoScroll]);
+  }, [logs.length, autoScroll, height]);
 
   const itemData = useMemo(() => ({ logs }), [logs]);
   const itemCount = logs.length;
@@ -77,8 +82,11 @@ export function TerminalLogDisplay({ logs, autoScroll, onScroll, height = 500 }:
 
   const scrollToBottom = useCallback(() => {
     onScroll(true);
-    listRef.current?.scrollToItem(logs.length, "end");
-  }, [logs.length, onScroll]);
+    const maxScroll = logs.length * 29 - height;
+    if (maxScroll > 0) {
+      listRef.current?.scrollTo(maxScroll);
+    }
+  }, [logs.length, height, onScroll]);
 
   return (
     <div className="relative flex-1 min-h-0">
