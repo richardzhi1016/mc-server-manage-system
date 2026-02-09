@@ -101,6 +101,7 @@ export function useConsoleSocket(serverName: string | null) {
   useEffect(() => {
     let mounted = true;
     if (serverName && mounted) {
+      useConsoleStore.getState().setCurrentServer(serverName);
       requestAnimationFrame(() => {
         if (mounted) {
           connect(serverName);

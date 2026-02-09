@@ -15,10 +15,21 @@ function applyFilters(
   return logs.filter((log) => selectedLevels.includes(log.level))
 }
 
+function getServerLogs(logs: Record<string, LogMessage[]>, server: string | null): LogMessage[] {
+  if (!server) return []
+  return logs[server] || []
+}
+
+function capLogs(logs: LogMessage[]): LogMessage[] {
+  if (logs.length <= MAX_LOGS) return logs
+  return logs.slice(logs.length - MAX_LOGS)
+}
+
 export const useConsoleStore = create<ConsoleState & ConsoleActions>()((set) => ({
   isConnected: false,
   connectionStatus: "disconnected",
-  logs: [],
+  currentServer: null,
+  logs: {},
   filteredLogs: [],
   selectedLevels: ["ALL"],
   commandHistory: [],
@@ -30,13 +41,27 @@ export const useConsoleStore = create<ConsoleState & ConsoleActions>()((set) => 
 
   setConnectionStatus: (connectionStatus) => set({ connectionStatus }),
 
+  setCurrentServer: (server) =>
+    set((state) => {
+      const serverLogs = getServerLogs(state.logs, server)
+      return {
+        ...state,
+        currentServer: server,
+        filteredLogs: applyFilters(serverLogs, state.selectedLevels),
+      }
+    }),
+
   addLog: (log) =>
     set((state) => {
-      const newLogs = [...state.logs, log]
-      if (newLogs.length > MAX_LOGS) {
-        newLogs.splice(0, newLogs.length - MAX_LOGS)
-      }
-      const filteredLogs = applyFilters(newLogs, state.selectedLevels)
+      const serverKey = log.server
+      const existingLogs = state.logs[serverKey] || []
+      const updatedServerLogs = capLogs([...existingLogs, log])
+      const newLogs = { ...state.logs, [serverKey]: updatedServerLogs }
+
+      const filteredLogs = serverKey === state.currentServer
+        ? applyFilters(updatedServerLogs, state.selectedLevels)
+        : state.filteredLogs
+
       return {
         ...state,
         logs: newLogs,
@@ -44,14 +69,26 @@ export const useConsoleStore = create<ConsoleState & ConsoleActions>()((set) => 
       }
     }),
 
-  setLogs: (logs) => set((state) => ({ ...state, logs, filteredLogs: applyFilters(logs, state.selectedLevels) })),
+  setLogs: (logs) =>
+    set((state) => {
+      if (!state.currentServer) return state
+      const newLogs = { ...state.logs, [state.currentServer]: logs }
+      return {
+        ...state,
+        logs: newLogs,
+        filteredLogs: applyFilters(logs, state.selectedLevels),
+      }
+    }),
 
   setFilterLevels: (levels) =>
-    set((state) => ({
-      ...state,
-      selectedLevels: levels,
-      filteredLogs: applyFilters(state.logs, levels),
-    })),
+    set((state) => {
+      const serverLogs = getServerLogs(state.logs, state.currentServer)
+      return {
+        ...state,
+        selectedLevels: levels,
+        filteredLogs: applyFilters(serverLogs, levels),
+      }
+    }),
 
   addCommandToHistory: (command) =>
     set((state) => {
@@ -78,5 +115,13 @@ export const useConsoleStore = create<ConsoleState & ConsoleActions>()((set) => 
 
   setServerRunning: (serverRunning) => set((state) => ({ ...state, serverRunning })),
 
-  clearLogs: () => set((state) => ({ ...state, logs: [], filteredLogs: [] })),
+  clearLogs: () =>
+    set((state) => {
+      if (!state.currentServer) return { ...state, filteredLogs: [] }
+      return {
+        ...state,
+        logs: { ...state.logs, [state.currentServer]: [] },
+        filteredLogs: [],
+      }
+    }),
 }))

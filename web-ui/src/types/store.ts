@@ -89,7 +89,8 @@ export interface UIActions {
 export interface ConsoleState {
   isConnected: boolean
   connectionStatus: "connecting" | "connected" | "reconnecting" | "disconnected"
-  logs: LogMessage[]
+  currentServer: string | null
+  logs: Record<string, LogMessage[]>
   filteredLogs: LogMessage[]
   selectedLevels: LogLevel[]
   commandHistory: string[]
@@ -101,6 +102,7 @@ export interface ConsoleState {
 export interface ConsoleActions {
   setIsConnected: (isConnected: boolean) => void
   setConnectionStatus: (status: "connecting" | "connected" | "reconnecting" | "disconnected") => void
+  setCurrentServer: (server: string | null) => void
   addLog: (log: LogMessage) => void
   setLogs: (logs: LogMessage[]) => void
   setFilterLevels: (levels: LogLevel[]) => void
