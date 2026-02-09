@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Moon, Sun } from 'lucide-react'
 import { io, Socket } from 'socket.io-client'
-import { getServers, createServer, cloneServer } from '@/api/client'
+import { getServers, createServer, cloneServer, deleteServer } from '@/api/client'
 import { API_BASE_URL } from '@/lib/api'
 import {
   LobbyServerCard,
   AddServerCard,
   CreateServerModal,
   CloneServerModal,
+  DeleteServerModal,
   type ServerType,
   type LobbyServer,
 } from '@/components/server-lobby'
@@ -21,6 +22,8 @@ export default function ServerLobby() {
   const [isCreateModalOpen, setCreateModalOpen] = useState(false)
   const [isCloneModalOpen, setCloneModalOpen] = useState(false)
   const [cloneSourceServer, setCloneSourceServer] = useState<LobbyServer | null>(null)
+  const [isDeleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [deleteTargetServer, setDeleteTargetServer] = useState<LobbyServer | null>(null)
   const [isDarkMode, setIsDarkMode] = useState(false)
   const socketRef = useRef<Socket | null>(null)
   const { showToast } = useToast()
@@ -164,6 +167,30 @@ export default function ServerLobby() {
     }
   }, [showToast])
 
+  const handleOpenDeleteModal = useCallback((server: LobbyServer) => {
+    setDeleteTargetServer(server)
+    setDeleteModalOpen(true)
+  }, [])
+
+  const handleCloseDeleteModal = useCallback(() => {
+    setDeleteModalOpen(false)
+    setDeleteTargetServer(null)
+  }, [])
+
+  const handleDeleteServer = useCallback(async (serverName: string) => {
+    try {
+      await deleteServer(serverName)
+      setServers(prev => prev.filter(s => s.name !== serverName))
+      setDeleteModalOpen(false)
+      setDeleteTargetServer(null)
+      showToast('success', `Server "${serverName}" deleted successfully!`)
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { error?: string } } }
+      const serverMessage = axiosError?.response?.data?.error
+      throw new Error(serverMessage || 'Failed to delete server. Please try again.')
+    }
+  }, [showToast])
+
   const toggleDarkMode = useCallback(() => {
     setIsDarkMode(prev => !prev)
   }, [])
@@ -219,7 +246,7 @@ export default function ServerLobby() {
           ) : (
             <>
               {servers.map((server) => (
-                <LobbyServerCard key={server.id} server={server} onClone={handleOpenCloneModal} />
+                <LobbyServerCard key={server.id} server={server} onClone={handleOpenCloneModal} onDelete={handleOpenDeleteModal} />
               ))}
               <AddServerCard onClick={handleOpenCreateModal} />
             </>
@@ -241,6 +268,14 @@ export default function ServerLobby() {
         onClose={handleCloseCloneModal}
         onClone={handleCloneServer}
         sourceServer={cloneSourceServer}
+      />
+
+      <DeleteServerModal
+        key={deleteTargetServer?.id}
+        isOpen={isDeleteModalOpen}
+        onClose={handleCloseDeleteModal}
+        onDelete={handleDeleteServer}
+        server={deleteTargetServer}
       />
     </div>
   )

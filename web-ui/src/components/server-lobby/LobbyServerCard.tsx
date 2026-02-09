@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Server as ServerIcon, MoreVertical, Copy } from 'lucide-react'
+import { Server as ServerIcon, MoreVertical, Copy, Trash2 } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import { TypeBadge, type ServerType } from './TypeBadge'
 
@@ -16,9 +16,10 @@ export interface LobbyServer {
 interface LobbyServerCardProps {
     server: LobbyServer
     onClone?: (server: LobbyServer) => void
+    onDelete?: (server: LobbyServer) => void
 }
 
-export const LobbyServerCard = React.memo(function LobbyServerCard({ server, onClone }: LobbyServerCardProps) {
+export const LobbyServerCard = React.memo(function LobbyServerCard({ server, onClone, onDelete }: LobbyServerCardProps) {
     const navigate = useNavigate()
     const [isMenuOpen, setIsMenuOpen] = useState(false)
     const menuRef = useRef<HTMLDivElement>(null)
@@ -37,6 +38,12 @@ export const LobbyServerCard = React.memo(function LobbyServerCard({ server, onC
         setIsMenuOpen(false)
         onClone?.(server)
     }, [onClone, server])
+
+    const handleDeleteClick = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation()
+        setIsMenuOpen(false)
+        onDelete?.(server)
+    }, [onDelete, server])
 
     // Close dropdown on outside click or Escape key
     useEffect(() => {
@@ -91,6 +98,14 @@ export const LobbyServerCard = React.memo(function LobbyServerCard({ server, onC
                                 >
                                     <Copy size={14} />
                                     Clone
+                                </button>
+                                <div className="my-1 border-t border-slate-200 dark:border-slate-600" />
+                                <button
+                                    onClick={handleDeleteClick}
+                                    className="cursor-pointer w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                >
+                                    <Trash2 size={14} />
+                                    Delete
                                 </button>
                             </div>
                         )}

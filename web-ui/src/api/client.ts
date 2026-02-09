@@ -239,6 +239,13 @@ export async function cloneServer(
   return response.data
 }
 
+export async function deleteServer(serverName: string): Promise<{ message: string }> {
+  const response = await apiClient.delete<{ message: string }>(
+    `/api/servers/${encodeURIComponent(serverName)}/delete`
+  )
+  return response.data
+}
+
 export async function getNextAvailablePort(): Promise<NextAvailablePortResponse> {
   const response = await apiClient.get<NextAvailablePortResponse>(
     "/api/servers/next-available-port"
