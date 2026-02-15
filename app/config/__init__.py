@@ -20,7 +20,7 @@ class Config:
         base_dir = Path(__file__).parent.parent
         self._config = {
             "servers_dir": base_dir / "data" / "servers",
-            "backups_dir": base_dir / "backups",
+            "backups_dir": base_dir / "data" / "backups",
             "database_dir": base_dir / "data" / "database",
             "database_path": base_dir / "data" / "database" / "database.db",
             "allowed_extensions": {"7z", "7zip"},
@@ -82,6 +82,12 @@ class Config:
         logs_dir = self.get_server_dir(server_name) / "logs"
         os.makedirs(logs_dir, exist_ok=True)
         return logs_dir
+
+    def get_server_backup_dir(self, server_name: str) -> Path:
+        """Get the backup directory for a specific server."""
+        server_backup_dir = self.backups_dir / server_name
+        os.makedirs(server_backup_dir, exist_ok=True)
+        return server_backup_dir
 
 
 config = Config()

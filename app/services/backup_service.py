@@ -7,19 +7,29 @@ from typing import Any
 from app.config import config
 
 
+# World folder patterns to backup (only backup existing ones)
+WORLD_PATTERNS = ["world", "world_nether", "world_the_end"]
+
+
 def get_backups_dir() -> str:
     """Get the absolute path to the backups directory."""
     return str(config.get_backup_dir())
 
 
-def get_backup_path(server_name: str, backup_id: str) -> str:
-    """Get the path to a specific backup file."""
-    return str(config.get_backup_dir() / f"{server_name}_{backup_id}.tar.gz")
+def get_server_backup_dir(server_name: str) -> str:
+    """Get the backup directory for a specific server."""
+    return str(config.get_server_backup_dir(server_name))
 
 
-def get_backup_info_path(server_name: str, backup_id: str) -> str:
+def get_backup_path(server_name: str, backup_filename_base: str) -> str:
+    """Get the path to a specific backup directory."""
+    return str(config.get_server_backup_dir(server_name) / backup_filename_base)
+
+
+def get_backup_info_path(server_name: str, backup_filename_base: str, backup_type: str = "manual") -> str:
     """Get the path to a backup info JSON file."""
-    return str(config.get_backup_dir() / f"{server_name}_{backup_id}.json")
+    backup_folder = config.get_server_backup_dir(server_name) / f"backup-{backup_filename_base}_{backup_type}"
+    return str(backup_folder / f"{backup_filename_base}.json")
 
 
 class BackupService:
@@ -35,52 +45,83 @@ class BackupService:
             return []
 
         backups = []
-        for filename in os.listdir(backups_dir):
-            if filename.endswith(".json"):
-                try:
-                    filepath = os.path.join(backups_dir, filename)
-                    with open(filepath, "r", encoding="utf-8") as f:
-                        info = json.load(f)
-                    if server_name is None or info.get("server_name") == server_name:
-                        backups.append(info)
-                except Exception:
-                    continue
+        
+        # If server_name is specified, only search that server's directory
+        if server_name:
+            server_dirs = [server_name] if os.path.exists(os.path.join(backups_dir, server_name)) else []
+        else:
+            # List all server backup directories
+            try:
+                server_dirs = [d for d in os.listdir(backups_dir) 
+                              if os.path.isdir(os.path.join(backups_dir, d))]
+            except Exception:
+                server_dirs = []
+        
+        for server_dir_name in server_dirs:
+            server_backup_path = os.path.join(backups_dir, server_dir_name)
+            try:
+                # Look for backup folders (format: backup-YYYYMMDD-HHMMSS_type)
+                for folder_name in os.listdir(server_backup_path):
+                    folder_path = os.path.join(server_backup_path, folder_name)
+                    if os.path.isdir(folder_path) and folder_name.startswith("backup-"):
+                        # Look for json file inside the backup folder
+                        for filename in os.listdir(folder_path):
+                            if filename.endswith(".json"):
+                                try:
+                                    filepath = os.path.join(folder_path, filename)
+                                    with open(filepath, "r", encoding="utf-8") as f:
+                                        info = json.load(f)
+                                    backups.append(info)
+                                except Exception:
+                                    continue
+            except Exception:
+                continue
 
         backups.sort(key=lambda x: x.get("created_at", ""), reverse=True)
         return backups
 
     def create_backup(self, server_name: str, backup_type: str = "manual") -> dict[str, Any] | None:
-        """Create a backup of a server."""
-        backups_dir = get_backups_dir()
-        os.makedirs(backups_dir, exist_ok=True)
+        """Create a backup of a server (world data only)."""
+        # Get server-specific backup directory
+        server_backup_dir = get_server_backup_dir(server_name)
 
         server_dir = str(config.get_server_dir(server_name))
         if not os.path.exists(server_dir):
             return None
 
-        # Filename format: servername_YYYYMMDD_HHMMSS_type.tar.gz
-        backup_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_filename_base = f"{server_name}_{backup_id}_{backup_type}"
+        # Find existing world folders to backup
+        world_folders = []
+        for pattern in WORLD_PATTERNS:
+            world_path = os.path.join(server_dir, pattern)
+            if os.path.exists(world_path) and os.path.isdir(world_path):
+                world_folders.append(pattern)
         
-        # Override get_backup_path logic locally or update helper? 
-        # For now, let's construct path manually here to include type in filename
-        # Ideally we update helpers but let's stick to local change for now to see
-        # actually, listing relies on filename pattern? 
-        # The existing list_backups relies on .json files.
-        # Let's keep backup_id simple for the ID itself, but filename can differ.
+        if not world_folders:
+            # No world folders found, nothing to backup
+            return None
+
+        # Filename format: backup-YYYYMMDD-HHMMSS_type/
+        backup_id = datetime.now().strftime("%Y%m%d-%H%M%S")
+        backup_filename_base = f"backup-{backup_id}_{backup_type}"
+        backup_folder = os.path.join(server_backup_dir, backup_filename_base)
+        backup_filename = f"{backup_filename_base}.tar.gz"
         
-        # Let's stick to the current ID format but append type to filename
-        backup_path = str(config.get_backup_dir() / f"{backup_filename_base}.tar.gz")
-        info_path = str(config.get_backup_dir() / f"{backup_filename_base}.json")
+        os.makedirs(backup_folder, exist_ok=True)
+        backup_path = os.path.join(backup_folder, backup_filename)
+        info_path = os.path.join(backup_folder, f"{backup_filename_base}.json")
 
         try:
+            # Backup server.properties as well (useful for restore)
             props_src = os.path.join(server_dir, "server.properties")
-            props_bak = os.path.join(backups_dir, f"properties_{backup_id}.bak")
+            props_bak = os.path.join(backup_folder, f"properties_{backup_id}.bak")
             if os.path.exists(props_src):
                 shutil.copy(props_src, props_bak)
 
+            # Only archive world folders (not the entire server directory)
             with tarfile.open(backup_path, "w:gz") as tar:
-                tar.add(server_dir, arcname=os.path.basename(server_dir))
+                for world_folder in world_folders:
+                    world_path = os.path.join(server_dir, world_folder)
+                    tar.add(world_path, arcname=world_folder)
 
             file_size = os.path.getsize(backup_path)
 
@@ -89,8 +130,9 @@ class BackupService:
                 "server_name": server_name,
                 "created_at": datetime.now().isoformat(),
                 "size": file_size,
-                "filename": os.path.basename(backup_path),
-                "type": backup_type
+                "filename": backup_filename,
+                "type": backup_type,
+                "world_folders": world_folders  # Track which worlds were backed up
             }
 
             with open(info_path, "w", encoding="utf-8") as f:
@@ -103,41 +145,51 @@ class BackupService:
             return None
 
     def restore_backup(self, server_name: str, backup_id: str) -> bool:
-        """Restore a server from a backup."""
+        """Restore a server from a backup (world data only)."""
         os.makedirs(str(config.get_server_dir(server_name)), exist_ok=True)
 
-        backup_path = get_backup_path(server_name, backup_id)
+        # First, find the backup file by backup_id
+        backups = self.list_backups(server_name)
+        backup_info = None
+        for b in backups:
+            if b.get("id") == backup_id:
+                backup_info = b
+                break
+        
+        if not backup_info:
+            return False
+        
+        server_backup_dir = get_server_backup_dir(server_name)
+        backup_filename = backup_info.get("filename", "")
+        backup_filename_base = backup_info.get("id", "")
+        backup_type = backup_info.get("type", "manual") or "manual"
+        if not backup_filename or not backup_filename_base:
+            return False
+        backup_folder_name = f"backup-{backup_filename_base}_{backup_type}"
+        backup_path = os.path.join(server_backup_dir, backup_folder_name, backup_filename)
         server_dir = str(config.get_server_dir(server_name))
-        backups_dir = get_backups_dir()
 
         if not os.path.exists(backup_path):
             return False
 
         try:
-            if os.path.exists(server_dir):
-                shutil.rmtree(server_dir)
+            # Get list of world folders that were backed up
+            world_folders = backup_info.get("world_folders", WORLD_PATTERNS)
+            
+            # Remove existing world folders before restore
+            for world_folder in world_folders:
+                world_path = os.path.join(server_dir, world_folder)
+                if os.path.exists(world_path):
+                    shutil.rmtree(world_path)
 
-            os.makedirs(server_dir, exist_ok=True)
-
+            # Extract world folders to server directory
             with tarfile.open(backup_path, "r:gz") as tar:
-                tar.extractall(os.path.dirname(server_dir))
+                tar.extractall(server_dir)
 
-            for item in os.listdir(os.path.dirname(server_dir)):
-                if item.startswith(server_name) and item != server_name and "_" in item:
-                    full_path = os.path.join(os.path.dirname(server_dir), item)
-                    if os.path.isdir(full_path):
-                        contents = os.listdir(full_path)
-                        for c in contents:
-                            shutil.move(
-                                os.path.join(full_path, c), os.path.dirname(server_dir)
-                            )
-                        shutil.rmtree(full_path)
-                        break
-
-            props_bak = os.path.join(backups_dir, f"properties_{backup_id}.bak")
+            # Restore server.properties if backup exists
+            props_bak = os.path.join(server_backup_dir, backup_folder_name, f"properties_{backup_id}.bak")
             if os.path.exists(props_bak):
                 shutil.copy(props_bak, os.path.join(server_dir, "server.properties"))
-                os.remove(props_bak)
 
             return True
         except Exception:
@@ -264,29 +316,26 @@ class BackupService:
 
     def delete_backup_by_info(self, info: dict[str, Any]) -> bool:
         """Helper to delete backup using info dict."""
-        # Use filename from info if available, else standard construction might fail if type is missing
-        # Standard delete_backup uses standard path construction which might miss the localized filename
-        # So we should implement a robust deletion here.
-        backups_dir = get_backups_dir()
-        filename = info.get("filename")
-        if not filename:
-             return self.delete_backup(info.get("server_name"), info.get("id"))
-
-        backup_path = os.path.join(backups_dir, filename)
-        # Assuming json config file has same basename but .json
-        # Handle .tar.gz specifically because splitext only removes .gz
-        if filename.endswith(".tar.gz"):
-            info_path_name = filename[:-7] + ".json"
-        else:
-            info_path_name = os.path.splitext(filename)[0] + ".json"
-            
-        info_path = os.path.join(backups_dir, info_path_name)
+        # Use filename and server_name from info to locate backup folder in server subdirectory
+        server_name_val: str | None = info.get("server_name")
+        backup_id_val: str | None = info.get("id")
+        backup_type: str = info.get("type", "manual") or "manual"
+        
+        if not server_name_val or not backup_id_val:
+            # Fallback to old method if info is incomplete
+            if server_name_val and backup_id_val:
+                return self.delete_backup(server_name_val, backup_id_val)
+            return False
+        
+        server_name: str = server_name_val
+        backup_id: str = backup_id_val
+        server_backup_dir = get_server_backup_dir(server_name)
+        backup_folder_name = f"backup-{backup_id}_{backup_type}"
+        backup_folder = os.path.join(server_backup_dir, backup_folder_name)
 
         try:
-            if os.path.exists(backup_path):
-                os.remove(backup_path)
-            if os.path.exists(info_path):
-                os.remove(info_path)
+            if os.path.exists(backup_folder):
+                shutil.rmtree(backup_folder)
             return True
         except Exception:
             return False
@@ -295,17 +344,17 @@ class BackupService:
         self, server_name: str, backup_id: str
     ) -> dict[str, Any] | None:
         """Get information about a specific backup."""
-
-        info_path = get_backup_info_path(server_name, backup_id)
-
-        if not os.path.exists(info_path):
-            return None
-
-        try:
-            with open(info_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return None
+        # Try all possible backup types
+        backup_types = ["manual", "startup", "periodic"]
+        for backup_type in backup_types:
+            info_path = get_backup_info_path(server_name, backup_id, backup_type)
+            if os.path.exists(info_path):
+                try:
+                    with open(info_path, "r", encoding="utf-8") as f:
+                        return json.load(f)
+                except Exception:
+                    continue
+        return None
 
 
 backup_service = BackupService()
