@@ -387,6 +387,18 @@ def stop_server():
         return jsonify({"error": f"Server '{server_name}' is not running"}), 404
     watcher = server_manager.running_servers[server_name]
 
+    # Check if backup is in progress with save disabled
+    try:
+        from app.services.backup_service import backup_service
+        if server_name in backup_service._active_backups:
+            backup_info = backup_service._active_backups[server_name]
+            if backup_info.get('save_disabled'):
+                # Re-enable auto-save before stopping
+                watcher.write_input("save-on\r\n")
+                time.sleep(0.5)
+    except Exception:
+        pass  # Continue even if check fails
+
     try:
         # Send 'stop' command for graceful shutdown
         watcher.write_input("stop\r\n")

@@ -2,9 +2,25 @@ import json
 import os
 import shutil
 import tarfile
+import threading
+import time
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 from app.config import config
+
+
+# Custom exceptions for backup operations
+class BackupError(Exception):
+    """Base exception for backup-related errors."""
+    pass
+
+
+class BackupInProgressError(BackupError):
+    """Raised when a backup is already in progress for a server."""
+    def __init__(self, server_name: str):
+        self.server_name = server_name
+        super().__init__(f"Backup already in progress for server: {server_name}")
 
 
 # World folder patterns to backup (only backup existing ones)
@@ -36,6 +52,13 @@ class BackupService:
     """Service class for managing server backups."""
 
     BACKUP_RETENTION = 10
+
+    def __init__(self):
+        """Initialize backup service with concurrency control."""
+        # Lock for each server to prevent concurrent backups
+        self._backup_locks: dict[str, threading.RLock] = {}
+        # Track active backups for crash recovery
+        self._active_backups: dict[str, dict] = {}
 
     def list_backups(self, server_name: str | None = None) -> list[dict[str, Any]]:
         """List all backups, optionally filtered by server name."""
@@ -80,16 +103,193 @@ class BackupService:
         backups.sort(key=lambda x: x.get("created_at", ""), reverse=True)
         return backups
 
+    def _get_backup_lock(self, server_name: str) -> threading.RLock:
+        """Get or create a backup lock for the specified server."""
+        if server_name not in self._backup_locks:
+            self._backup_locks[server_name] = threading.RLock()
+        return self._backup_locks[server_name]
+
     def create_backup(self, server_name: str, backup_type: str = "manual") -> dict[str, Any] | None:
-        """Create a backup of a server (world data only)."""
-        # Get server-specific backup directory
-        server_backup_dir = get_server_backup_dir(server_name)
-
-        server_dir = str(config.get_server_dir(server_name))
-        if not os.path.exists(server_dir):
+        """Create a backup of a server (world data only) with concurrency protection.
+        
+        Args:
+            server_name: Name of the server to backup
+            backup_type: Type of backup (manual, startup, periodic)
+            
+        Returns:
+            Backup info dict if successful, None if backup already in progress or failed
+        """
+        lock = self._get_backup_lock(server_name)
+        
+        # Try to acquire lock non-blocking
+        if not lock.acquire(blocking=False):
+            raise BackupInProgressError(server_name)
+        
+        try:
+            return self._create_backup_internal(server_name, backup_type)
+        except BackupInProgressError:
             return None
+        finally:
+            lock.release()
 
-        # Find existing world folders to backup
+    def _create_backup_internal(self, server_name: str, backup_type: str) -> dict[str, Any] | None:
+        """Internal backup logic - assumes lock is already held."""
+        from app.services.server_manager import server_manager
+        
+        server_backup_dir = get_server_backup_dir(server_name)
+        server_dir = str(config.get_server_dir(server_name))
+        
+        if not os.path.exists(server_dir):
+            print(f"[Backup] ERROR: Server directory not found: {server_dir}")
+            return None
+        
+        # Check if server is running
+        is_running = server_manager.is_server_running(server_name)
+        watcher = None
+        save_was_disabled = False
+        
+        # Register active backup for crash recovery
+        self._active_backups[server_name] = {
+            'start_time': datetime.now().isoformat(),
+            'save_disabled': False
+        }
+        
+        try:
+            if is_running:
+                watcher = server_manager.running_servers.get(server_name)
+                if watcher:
+                    # Step 1: Force save and wait for completion
+                    watcher.write_input("save-all\r\n")
+                    if not self._wait_for_save_complete(server_dir, timeout=90):
+                        pass  # Continue even if timeout
+                    
+                    # Step 2: Disable auto-save
+                    watcher.write_input("save-off\r\n")
+                    self._active_backups[server_name]['save_disabled'] = True
+                    save_was_disabled = True
+                    time.sleep(0.5)
+                    
+                    # Verify server still running
+                    if not server_manager.is_server_running(server_name):
+                        raise Exception("Server stopped during backup preparation")
+            
+            # Step 3: Perform actual backup
+            result = self._perform_backup(server_name, server_dir, server_backup_dir, backup_type)
+            return result
+            
+        except Exception as e:
+            # 添加详细错误日志，帮助诊断备份失败原因
+            import traceback
+            print(f"[Backup] ERROR: Backup failed for server '{server_name}': {e}")
+            print(f"[Backup] Traceback: {traceback.format_exc()}")
+            return None
+        finally:
+            # Step 4: Ensure save-on is executed
+            if is_running and save_was_disabled:
+                self._ensure_save_on(server_name, watcher)
+            
+            # Cleanup active backup tracking
+            if server_name in self._active_backups:
+                del self._active_backups[server_name]
+
+    def _wait_for_save_complete(self, server_dir: str, timeout: int = 90) -> bool:
+        """Wait for save-all to complete by monitoring region file timestamps.
+        
+        Args:
+            server_dir: Path to the server directory
+            timeout: Maximum time to wait in seconds (default 90)
+            
+        Returns:
+            True if save completed, False if timeout
+        """
+        world_dir = Path(server_dir) / "world"
+        region_dir = world_dir / "region"
+        
+        if not region_dir.exists():
+            return True
+        
+        start_time = time.time()
+        
+        # Find all .mca files
+        try:
+            mca_files = [f for f in region_dir.iterdir() if f.suffix == '.mca']
+        except OSError:
+            return True
+        
+        if not mca_files:
+            return True
+        
+        # Phase 1: Wait for save to start (detect file modification)
+        save_started = False
+        max_start_wait = min(timeout, 5)
+        latest_mtime = 0  # 初始化变量，避免未绑定错误
+        
+        while time.time() - start_time < max_start_wait:
+            latest_mtime = 0
+            for mca_file in mca_files:
+                try:
+                    mtime = mca_file.stat().st_mtime
+                    latest_mtime = max(latest_mtime, mtime)
+                except OSError:
+                    continue
+            
+            if latest_mtime > start_time - 1:
+                save_started = True
+                break
+            
+            time.sleep(0.2)
+        
+        if not save_started:
+            return True
+        
+        # Phase 2: Wait for save to complete (file timestamps stable)
+        stable_count = 0
+        required_stable = 3  # 3 consecutive checks
+        last_mtime = latest_mtime
+        
+        while time.time() - start_time < timeout:
+            time.sleep(1)  # Check every 1 second
+            
+            current_latest = 0
+            for mca_file in mca_files:
+                try:
+                    mtime = mca_file.stat().st_mtime
+                    current_latest = max(current_latest, mtime)
+                except OSError:
+                    continue
+            
+            if current_latest == last_mtime:
+                stable_count += 1
+                if stable_count >= required_stable:
+                    return True
+            else:
+                stable_count = 0
+                last_mtime = current_latest
+        
+        return False
+
+    def _ensure_save_on(self, server_name: str, watcher) -> None:
+        """Ensure save-on command is sent with retry logic."""
+        if not watcher:
+            return
+        
+        max_retries = 3
+        for i in range(max_retries):
+            try:
+                if hasattr(watcher, 'write_input'):
+                    watcher.write_input("save-on\r\n")
+                    return
+            except Exception:
+                if i < max_retries - 1:
+                    time.sleep(0.5)
+        
+        # All retries failed
+        pass  # Log error if needed
+
+    def _perform_backup(self, server_name: str, server_dir: str, 
+                       server_backup_dir: str, backup_type: str) -> dict[str, Any] | None:
+        """Perform the actual backup operation."""
+        # Find existing world folders
         world_folders = []
         for pattern in WORLD_PATTERNS:
             world_path = os.path.join(server_dir, pattern)
@@ -97,10 +297,9 @@ class BackupService:
                 world_folders.append(pattern)
         
         if not world_folders:
-            # No world folders found, nothing to backup
+            print(f"[Backup] ERROR: No world folders found in server directory: {server_dir}")
             return None
 
-        # Filename format: backup-YYYYMMDD-HHMMSS_type/
         backup_id = datetime.now().strftime("%Y%m%d-%H%M%S")
         backup_filename_base = f"backup-{backup_id}_{backup_type}"
         backup_folder = os.path.join(server_backup_dir, backup_filename_base)
@@ -111,17 +310,36 @@ class BackupService:
         info_path = os.path.join(backup_folder, f"{backup_filename_base}.json")
 
         try:
-            # Backup server.properties as well (useful for restore)
-            props_src = os.path.join(server_dir, "server.properties")
-            props_bak = os.path.join(backup_folder, f"properties_{backup_id}.bak")
-            if os.path.exists(props_src):
-                shutil.copy(props_src, props_bak)
-
-            # Only archive world folders (not the entire server directory)
+            # Archive world folders
             with tarfile.open(backup_path, "w:gz") as tar:
                 for world_folder in world_folders:
                     world_path = os.path.join(server_dir, world_folder)
-                    tar.add(world_path, arcname=world_folder)
+                    if not os.path.exists(world_path):
+                        continue
+                    
+                    # Add directory itself first (non-recursive)
+                    tar.add(world_path, arcname=world_folder, recursive=False)
+                    
+                    # Walk through all children
+                    for root, dirs, files in os.walk(world_path):
+                        for d in dirs:
+                            dir_path = os.path.join(root, d)
+                            rel_path = os.path.relpath(dir_path, server_dir)
+                            tar.add(dir_path, arcname=rel_path, recursive=False)
+                            
+                        for f in files:
+                            # Explicitly skip session.lock (primary source of Errno 13)
+                            if f == "session.lock":
+                                continue
+                                
+                            file_path = os.path.join(root, f)
+                            rel_path = os.path.relpath(file_path, server_dir)
+                            try:
+                                tar.add(file_path, arcname=rel_path, recursive=False)
+                            except (PermissionError, IOError) as e:
+                                print(f"[Backup] WARNING: Skipping locked file {rel_path}: {e}")
+                            except Exception as e:
+                                print(f"[Backup] WARNING: Error adding {rel_path}: {e}")
 
             file_size = os.path.getsize(backup_path)
 
@@ -132,7 +350,7 @@ class BackupService:
                 "size": file_size,
                 "filename": backup_filename,
                 "type": backup_type,
-                "world_folders": world_folders  # Track which worlds were backed up
+                "world_folders": world_folders
             }
 
             with open(info_path, "w", encoding="utf-8") as f:
@@ -141,7 +359,11 @@ class BackupService:
             self._enforce_retention_policy(server_name)
 
             return info
-        except Exception:
+        except Exception as e:
+            # 添加详细错误日志
+            import traceback
+            print(f"[Backup] ERROR: Failed to create backup archive for '{server_name}': {e}")
+            print(f"[Backup] Traceback: {traceback.format_exc()}")
             return None
 
     def restore_backup(self, server_name: str, backup_id: str) -> bool:
@@ -185,11 +407,6 @@ class BackupService:
             # Extract world folders to server directory
             with tarfile.open(backup_path, "r:gz") as tar:
                 tar.extractall(server_dir)
-
-            # Restore server.properties if backup exists
-            props_bak = os.path.join(server_backup_dir, backup_folder_name, f"properties_{backup_id}.bak")
-            if os.path.exists(props_bak):
-                shutil.copy(props_bak, os.path.join(server_dir, "server.properties"))
 
             return True
         except Exception:
