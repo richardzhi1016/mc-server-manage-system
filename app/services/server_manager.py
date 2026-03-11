@@ -48,6 +48,23 @@ class ServerManager:
 
     def __init__(self):
         self.running_servers: dict[str, Any] = {}
+        self.online_players: dict[str, set[str]] = {}
+
+    def player_joined(self, server_name: str, username: str) -> None:
+        """Record a player joining a server."""
+        self.online_players.setdefault(server_name, set()).add(username)
+
+    def player_left(self, server_name: str, username: str) -> None:
+        """Record a player leaving a server."""
+        self.online_players.get(server_name, set()).discard(username)
+
+    def clear_players(self, server_name: str) -> None:
+        """Clear all tracked players for a server (on server stop)."""
+        self.online_players.pop(server_name, None)
+
+    def get_online_players(self, server_name: str) -> list[str]:
+        """Return list of online player usernames for a server."""
+        return list(self.online_players.get(server_name, set()))
 
     def is_server_running(self, server_name: str) -> bool:
         """Check if a server is currently running."""

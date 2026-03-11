@@ -2,20 +2,33 @@ from flask import Blueprint, request, jsonify
 from app.config import config
 from app.services.server_manager import server_manager
 from app.routes.server_routes import send_command_to_server
+import os
 
 players_bp = Blueprint("players", __name__, url_prefix="/api")
+
 
 @players_bp.route("/players/online", methods=["GET"])
 def get_online_players():
     server_name = request.args.get("server_name")
     if server_name:
-        if server_name not in server_manager.running_servers:
-            return jsonify({"error": f"Server '{server_name}' is not running"}), 404
-        return jsonify({"server_name": server_name, "players": []}), 200
+        if not os.path.exists(str(config.get_server_dir(server_name))):
+            return jsonify({"error": f"Server '{server_name}' not found"}), 404
+        players = [
+            {"username": name, "uuid": "", "latency": 0, "isOp": False}
+            for name in server_manager.get_online_players(server_name)
+        ]
+        return jsonify({"server_name": server_name, "players": players}), 200
+
+    # All servers
     all_players = []
     for name in server_manager.running_servers.keys():
-        all_players.append({"server_name": name, "players": []})
+        players = [
+            {"username": p, "uuid": "", "latency": 0, "isOp": False}
+            for p in server_manager.get_online_players(name)
+        ]
+        all_players.append({"server_name": name, "players": players})
     return jsonify({"servers": all_players}), 200
+
 
 @players_bp.route("/players/kick", methods=["POST"])
 def kick_player():
@@ -30,6 +43,7 @@ def kick_player():
     success, message = send_command_to_server(server_name, command)
     return jsonify({"message": f"{username} kicked"} if success else {"error": message}), 200 if success else 500
 
+
 @players_bp.route("/players/ban", methods=["POST"])
 def ban_player():
     data = request.get_json()
@@ -43,6 +57,7 @@ def ban_player():
     success, message = send_command_to_server(server_name, command)
     return jsonify({"message": f"{username} banned"} if success else {"error": message}), 200 if success else 500
 
+
 @players_bp.route("/players/unban", methods=["POST"])
 def unban_player():
     data = request.get_json()
@@ -54,6 +69,7 @@ def unban_player():
     command = f"/pardon {username}"
     success, message = send_command_to_server(server_name, command)
     return jsonify({"message": f"{username} unbanned"} if success else {"error": message}), 200 if success else 500
+
 
 @players_bp.route("/players/op", methods=["POST"])
 def op_player():
@@ -67,6 +83,7 @@ def op_player():
     success, message = send_command_to_server(server_name, command)
     return jsonify({"message": f"{username} is now operator"} if success else {"error": message}), 200 if success else 500
 
+
 @players_bp.route("/players/deop", methods=["POST"])
 def deop_player():
     data = request.get_json()
@@ -78,6 +95,7 @@ def deop_player():
     command = f"/deop {username}"
     success, message = send_command_to_server(server_name, command)
     return jsonify({"message": f"{username} is no longer operator"} if success else {"error": message}), 200 if success else 500
+
 
 @players_bp.route("/players/teleport", methods=["POST"])
 def teleport_player():

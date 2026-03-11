@@ -31,6 +31,8 @@ from app.services.server_manager import (
 logger = logging.getLogger(__name__)
 
 ANSI_ESCAPE = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+_PLAYER_JOIN = re.compile(r"(\w+) joined the game")
+_PLAYER_LEAVE = re.compile(r"(\w+) left the game")
 
 servers_bp = Blueprint("servers", __name__, url_prefix="/api")
 socketio: SocketIO | None = None
@@ -65,6 +67,12 @@ class PTYProcessWatcher:
         timestamp = datetime.now().isoformat()
         clean_line = ANSI_ESCAPE.sub('', line).strip()
         if clean_line:
+            # Track online players from log events
+            if m := _PLAYER_JOIN.search(clean_line):
+                server_manager.player_joined(self.server_name, m.group(1))
+            elif m := _PLAYER_LEAVE.search(clean_line):
+                server_manager.player_left(self.server_name, m.group(1))
+
             level = parse_log_level(clean_line)
             self.socketio.emit(
                 "log_message",
@@ -205,6 +213,7 @@ class PTYProcessWatcher:
             if buffer.strip():
                 self._emit_log_line(buffer.strip())
 
+            server_manager.clear_players(self.server_name)
             logger.info("PTYProcessWatcher (Windows) loop ended for %s", self.server_name)
         except Exception as e:
             logger.error("PTYProcessWatcher error: %s", e)
@@ -243,6 +252,7 @@ class PTYProcessWatcher:
                     self._emit_log_line(line_str)
 
             os.close(self.master_fd)
+            server_manager.clear_players(self.server_name)
             logger.info("PTYProcessWatcher (Unix) loop ended for %s", self.server_name)
         except Exception as e:
             logger.error("PTYProcessWatcher error: %s", e)
@@ -445,6 +455,7 @@ def stop_server():
         # Clean up watcher thread (stop() no longer sends duplicate 'stop')
         watcher.stop()
         del server_manager.running_servers[server_name]
+        server_manager.clear_players(server_name)
 
         if socketio:
             socketio.emit("server_stopped", {"server_name": server_name}, room=server_name, namespace="/")
