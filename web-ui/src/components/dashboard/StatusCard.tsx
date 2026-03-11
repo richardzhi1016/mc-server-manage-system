@@ -80,7 +80,7 @@ export function StatusCard({
           <div className="mt-3">
             <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
               <span>使用率</span>
-              <span>{threshold}%</span>
+              <span>{threshold.toFixed(1)}%</span>
             </div>
             <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
               <div
