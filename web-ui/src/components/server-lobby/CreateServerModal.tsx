@@ -82,10 +82,12 @@ export const CreateServerModal = React.memo(function CreateServerModal({
     const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(null)
     const [selectedType, setSelectedType] = useState<ServerType | null>(null)
 
+    const [showStableOnly, setShowStableOnly] = useState(true)
+
     // Fabric version hooks
-    const { versions: fabricGameVersions, latestRelease: fabricLatestRelease, isLoading: fabricGameLoading, error: fabricGameError, refetch: refetchFabricGame } = useFabricGameVersions()
-    const { versions: fabricLoaderVersions, latestStable: fabricLatestLoader, isLoading: fabricLoaderLoading, error: fabricLoaderError, refetch: refetchFabricLoader } = useFabricLoaderVersions()
-    const { versions: fabricInstallerVersions, latestStable: fabricLatestInstaller, isLoading: fabricInstallerLoading, error: fabricInstallerError, refetch: refetchFabricInstaller } = useFabricInstallerVersions()
+    const { versions: fabricGameVersions, latestRelease: fabricLatestRelease, isLoading: fabricGameLoading, error: fabricGameError, refetch: refetchFabricGame } = useFabricGameVersions(showStableOnly)
+    const { versions: fabricLoaderVersions, latestStable: fabricLatestLoader, isLoading: fabricLoaderLoading, error: fabricLoaderError, refetch: refetchFabricLoader } = useFabricLoaderVersions(showStableOnly)
+    const { versions: fabricInstallerVersions, latestStable: fabricLatestInstaller, isLoading: fabricInstallerLoading, error: fabricInstallerError, refetch: refetchFabricInstaller } = useFabricInstallerVersions(showStableOnly)
 
     // Step 3 Form State
     const [serverName, setServerName] = useState('')
@@ -112,6 +114,7 @@ export const CreateServerModal = React.memo(function CreateServerModal({
             setIsCreating(false)
             setDownloadProgress(0)
             setSelectedVersion(latestRelease)
+            setShowStableOnly(true)
         }
     }, [isOpen, latestRelease])
 
@@ -345,20 +348,35 @@ export const CreateServerModal = React.memo(function CreateServerModal({
 
                             {/* Row 2 (Fabric only): Loader Version + Installer Version — side by side */}
                             {selectedType === 'Fabric' && !fabricGameLoading && !fabricLoaderLoading && !fabricInstallerLoading && !fabricGameError && !fabricLoaderError && !fabricInstallerError && (
-                                <div className="grid grid-cols-2 gap-4">
-                                    <CustomSelect
-                                        label="Fabric Loader Version"
-                                        options={fabricLoaderVersions}
-                                        value={selectedLoaderVersion}
-                                        onChange={handleLoaderVersionChange}
-                                    />
-                                    <CustomSelect
-                                        label="Fabric Installer Version"
-                                        options={fabricInstallerVersions}
-                                        value={selectedInstallerVersion}
-                                        onChange={handleInstallerVersionChange}
-                                    />
-                                </div>
+                                <>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <CustomSelect
+                                            label="Fabric Loader Version"
+                                            options={fabricLoaderVersions}
+                                            value={selectedLoaderVersion}
+                                            onChange={handleLoaderVersionChange}
+                                        />
+                                        <CustomSelect
+                                            label="Fabric Installer Version"
+                                            options={fabricInstallerVersions}
+                                            value={selectedInstallerVersion}
+                                            onChange={handleInstallerVersionChange}
+                                        />
+                                    </div>
+                                    <label className="flex items-center gap-2 cursor-pointer select-none w-fit">
+                                        <div className="relative flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                className="peer sr-only"
+                                                checked={showStableOnly}
+                                                onChange={(e) => setShowStableOnly(e.target.checked)}
+                                            />
+                                            <div className="w-4 h-4 border-2 border-slate-300 dark:border-slate-500 rounded peer-checked:bg-blue-600 peer-checked:border-blue-600 transition-all"></div>
+                                            <Check size={10} className="absolute left-[3px] text-white opacity-0 peer-checked:opacity-100 transition-opacity" strokeWidth={3} />
+                                        </div>
+                                        <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Show stable versions only</span>
+                                    </label>
+                                </>
                             )}
 
                             <div className="pt-4 border-t border-slate-100 dark:border-slate-700">

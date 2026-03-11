@@ -30,22 +30,20 @@ interface FabricInstallerVersionsResult {
     refetch: () => void
 }
 
-// Module-level cache for game versions
-let cachedGameVersions: string[] | null = null
+// Module-level cache stores ALL raw entries (unfiltered)
+let cachedGameEntries: FabricVersionEntry[] | null = null
 let cachedGameLatestRelease: string | null = null
 
-// Module-level cache for loader versions
-let cachedLoaderVersions: string[] | null = null
+let cachedLoaderEntries: FabricVersionEntry[] | null = null
 let cachedLoaderLatestStable: string | null = null
 
-// Module-level cache for installer versions
-let cachedInstallerVersions: string[] | null = null
+let cachedInstallerEntries: FabricVersionEntry[] | null = null
 let cachedInstallerLatestStable: string | null = null
 
-export function useFabricGameVersions(): FabricGameVersionsResult {
-    const [versions, setVersions] = useState<string[]>(cachedGameVersions || [])
+export function useFabricGameVersions(stableOnly: boolean = true): FabricGameVersionsResult {
+    const [entries, setEntries] = useState<FabricVersionEntry[]>(cachedGameEntries || [])
     const [latestRelease, setLatestRelease] = useState<string>(cachedGameLatestRelease || '')
-    const [isLoading, setIsLoading] = useState(!cachedGameVersions)
+    const [isLoading, setIsLoading] = useState(!cachedGameEntries)
     const [error, setError] = useState<Error | null>(null)
 
     const fetchVersions = useCallback(async () => {
@@ -56,18 +54,13 @@ export function useFabricGameVersions(): FabricGameVersionsResult {
             const response = await apiClient.get<FabricVersionEntry[]>('/api/fabric/game-versions')
             const data = response.data
 
-            // Filter to stable releases only
-            const stableVersions = data
-                .filter((v) => v.stable)
-                .map((v) => v.version)
+            const stableEntry = data.find((v) => v.stable)
+            const latest = stableEntry?.version || data[0]?.version || ''
 
-            const latest = stableVersions[0] || ''
-
-            // Cache
-            cachedGameVersions = stableVersions
+            cachedGameEntries = data
             cachedGameLatestRelease = latest
 
-            setVersions(stableVersions)
+            setEntries(data)
             setLatestRelease(latest)
         } catch (err) {
             const error = err instanceof Error ? err : new Error('Failed to fetch Fabric game versions')
@@ -78,24 +71,28 @@ export function useFabricGameVersions(): FabricGameVersionsResult {
     }, [])
 
     useEffect(() => {
-        if (!cachedGameVersions) {
+        if (!cachedGameEntries) {
             fetchVersions()
         }
     }, [fetchVersions])
 
     const refetch = useCallback(() => {
-        cachedGameVersions = null
+        cachedGameEntries = null
         cachedGameLatestRelease = null
         fetchVersions()
     }, [fetchVersions])
 
+    const versions = stableOnly
+        ? entries.filter((v) => v.stable).map((v) => v.version)
+        : entries.map((v) => v.version)
+
     return { versions, latestRelease, isLoading, error, refetch }
 }
 
-export function useFabricLoaderVersions(): FabricLoaderVersionsResult {
-    const [versions, setVersions] = useState<string[]>(cachedLoaderVersions || [])
+export function useFabricLoaderVersions(stableOnly: boolean = false): FabricLoaderVersionsResult {
+    const [entries, setEntries] = useState<FabricVersionEntry[]>(cachedLoaderEntries || [])
     const [latestStable, setLatestStable] = useState<string>(cachedLoaderLatestStable || '')
-    const [isLoading, setIsLoading] = useState(!cachedLoaderVersions)
+    const [isLoading, setIsLoading] = useState(!cachedLoaderEntries)
     const [error, setError] = useState<Error | null>(null)
 
     const fetchVersions = useCallback(async () => {
@@ -106,16 +103,13 @@ export function useFabricLoaderVersions(): FabricLoaderVersionsResult {
             const response = await apiClient.get<FabricVersionEntry[]>('/api/fabric/loader-versions')
             const data = response.data
 
-            // Include all loader versions (only one is typically stable)
-            const allVersions = data.map((v) => v.version)
             const stableEntry = data.find((v) => v.stable)
-            const latest = stableEntry?.version || allVersions[0] || ''
+            const latest = stableEntry?.version || data[0]?.version || ''
 
-            // Cache
-            cachedLoaderVersions = allVersions
+            cachedLoaderEntries = data
             cachedLoaderLatestStable = latest
 
-            setVersions(allVersions)
+            setEntries(data)
             setLatestStable(latest)
         } catch (err) {
             const error = err instanceof Error ? err : new Error('Failed to fetch Fabric loader versions')
@@ -126,24 +120,28 @@ export function useFabricLoaderVersions(): FabricLoaderVersionsResult {
     }, [])
 
     useEffect(() => {
-        if (!cachedLoaderVersions) {
+        if (!cachedLoaderEntries) {
             fetchVersions()
         }
     }, [fetchVersions])
 
     const refetch = useCallback(() => {
-        cachedLoaderVersions = null
+        cachedLoaderEntries = null
         cachedLoaderLatestStable = null
         fetchVersions()
     }, [fetchVersions])
 
+    const versions = stableOnly
+        ? entries.filter((v) => v.stable).map((v) => v.version)
+        : entries.map((v) => v.version)
+
     return { versions, latestStable, isLoading, error, refetch }
 }
 
-export function useFabricInstallerVersions(): FabricInstallerVersionsResult {
-    const [versions, setVersions] = useState<string[]>(cachedInstallerVersions || [])
+export function useFabricInstallerVersions(stableOnly: boolean = true): FabricInstallerVersionsResult {
+    const [entries, setEntries] = useState<FabricVersionEntry[]>(cachedInstallerEntries || [])
     const [latestStable, setLatestStable] = useState<string>(cachedInstallerLatestStable || '')
-    const [isLoading, setIsLoading] = useState(!cachedInstallerVersions)
+    const [isLoading, setIsLoading] = useState(!cachedInstallerEntries)
     const [error, setError] = useState<Error | null>(null)
 
     const fetchVersions = useCallback(async () => {
@@ -154,18 +152,13 @@ export function useFabricInstallerVersions(): FabricInstallerVersionsResult {
             const response = await apiClient.get<FabricVersionEntry[]>('/api/fabric/installer-versions')
             const data = response.data
 
-            // Filter to stable versions only
-            const stableVersions = data
-                .filter((v) => v.stable)
-                .map((v) => v.version)
+            const stableEntry = data.find((v) => v.stable)
+            const latest = stableEntry?.version || data[0]?.version || ''
 
-            const latest = stableVersions[0] || ''
-
-            // Cache
-            cachedInstallerVersions = stableVersions
+            cachedInstallerEntries = data
             cachedInstallerLatestStable = latest
 
-            setVersions(stableVersions)
+            setEntries(data)
             setLatestStable(latest)
         } catch (err) {
             const error = err instanceof Error ? err : new Error('Failed to fetch Fabric installer versions')
@@ -176,16 +169,20 @@ export function useFabricInstallerVersions(): FabricInstallerVersionsResult {
     }, [])
 
     useEffect(() => {
-        if (!cachedInstallerVersions) {
+        if (!cachedInstallerEntries) {
             fetchVersions()
         }
     }, [fetchVersions])
 
     const refetch = useCallback(() => {
-        cachedInstallerVersions = null
+        cachedInstallerEntries = null
         cachedInstallerLatestStable = null
         fetchVersions()
     }, [fetchVersions])
+
+    const versions = stableOnly
+        ? entries.filter((v) => v.stable).map((v) => v.version)
+        : entries.map((v) => v.version)
 
     return { versions, latestStable, isLoading, error, refetch }
 }
