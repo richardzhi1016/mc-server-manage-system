@@ -473,16 +473,22 @@ def server_status():
 def get_server_metrics():
     server_name = request.args.get("server_name")
     try:
+        disk = psutil.disk_usage(str(config.servers_dir))
         metrics = {
             "cpu": psutil.cpu_percent(interval=0.1),
             "memory_used": psutil.virtual_memory().used / (1024 * 1024),
             "memory_total": psutil.virtual_memory().total / (1024 * 1024),
+            "disk_used": round(disk.used / (1024 ** 3), 2),
+            "disk_total": round(disk.total / (1024 ** 3), 2),
+            "players_online": 0,
+            "players_max": 20,
             "timestamp": datetime.now().isoformat(),
         }
         if server_name and server_name in server_manager.running_servers:
             sp = psutil.Process(server_manager.running_servers[server_name].pid)
             metrics["memory_used"] = sp.memory_info().rss / (1024 * 1024)
             metrics["cpu"] = sp.cpu_percent(interval=0.1)
+            metrics["players_online"] = len(server_manager.online_players.get(server_name, set()))
         return jsonify(metrics), 200
     except Exception:
         return jsonify({"error": "Failed to get metrics"}), 500
