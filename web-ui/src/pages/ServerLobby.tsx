@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Moon, Sun } from 'lucide-react'
 import { io, Socket } from 'socket.io-client'
-import { getServers, createServer, cloneServer, deleteServer } from '@/api/client'
+import { getServers, createServer, cloneServer, deleteServer, getNextAvailablePort } from '@/api/client'
 import { API_BASE_URL } from '@/lib/api'
 import {
   LobbyServerCard,
@@ -94,14 +94,18 @@ export default function ServerLobby() {
     setCreateModalOpen(false)
   }, [])
 
-  const handleCreateServer = useCallback(async (data: { type: ServerType; name: string; version: string; version_url?: string }) => {
+  const handleCreateServer = useCallback(async (data: { type: ServerType; name: string; version: string; version_url?: string; loader_version?: string; installer_version?: string }) => {
     try {
+      const portResponse = await getNextAvailablePort()
+      const port = portResponse.port
       const response = await createServer({
         name: data.name,
         type: data.type.toLowerCase(),
         version: data.version,
         version_url: data.version_url,
-        port: 25565
+        loader_version: data.loader_version,
+        installer_version: data.installer_version,
+        port
       })
       const newServer: LobbyServer = {
         id: response.server.id,
@@ -109,7 +113,7 @@ export default function ServerLobby() {
         version: data.version,
         type: data.type,
         status: 'offline',
-        port: 25565
+        port
       }
       setServers(prev => [...prev, newServer])
       setCreateModalOpen(false)
