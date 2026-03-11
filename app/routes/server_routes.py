@@ -345,7 +345,28 @@ def start_server():
         return jsonify({"error": "No JAR file found"}), 404
 
     jar_path = os.path.join(server_dir, jar_file)
-    command = ["java", "-jar", jar_path, "nogui"]
+
+    # Load saved startup settings (memory + JVM flags)
+    settings_path = os.path.join(server_dir, "startup_settings.json")
+    if os.path.exists(settings_path):
+        try:
+            with open(settings_path, "r", encoding="utf-8") as f:
+                startup = json.loads(f.read())
+        except Exception:
+            startup = {}
+    else:
+        startup = {}
+    min_mem = startup.get("min_memory", config.default_min_memory)
+    max_mem = startup.get("max_memory", config.default_max_memory)
+    jvm_flags = startup.get("jvm_flags", [])
+
+    command = [
+        "java",
+        f"-Xms{min_mem}m",
+        f"-Xmx{max_mem}m",
+        *jvm_flags,
+        "-jar", jar_path, "nogui",
+    ]
 
     try:
         if not socketio:

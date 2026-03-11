@@ -18,6 +18,7 @@ from app.routes.player_routes import players_bp
 from app.routes.whitelist_routes import whitelist_bp
 from app.routes.file_routes import files_bp
 from app.routes.backup_routes import backup_bp
+from app.routes.settings_routes import settings_bp
 from app.services.server_manager import server_manager
 
 logging.basicConfig(level=logging.INFO)
@@ -82,6 +83,7 @@ app.register_blueprint(players_bp)
 app.register_blueprint(whitelist_bp)
 app.register_blueprint(files_bp)
 app.register_blueprint(backup_bp)
+app.register_blueprint(settings_bp)
 
 
 @socketio.on("connect")
