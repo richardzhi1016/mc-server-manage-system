@@ -27,6 +27,7 @@ class Config:
             "upload_folder": base_dir / "data" / "servers",
             "default_max_memory": 2048,
             "default_min_memory": 1024,
+            "fabric_meta_url": "https://meta.fabricmc.net",
             "log_level_patterns": {
                 "ERROR": r"\[.*ERROR.*\]",
                 "WARN": r"\[.*WARN.*\]",
@@ -66,6 +67,10 @@ class Config:
     @property
     def default_min_memory(self) -> int:
         return self._config["default_min_memory"]
+
+    @property
+    def fabric_meta_url(self) -> str:
+        return self._config["fabric_meta_url"]
 
     @property
     def log_level_patterns(self) -> dict[str, str]:

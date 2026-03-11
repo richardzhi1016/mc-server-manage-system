@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, X, ArrowLeft, ChevronRight, Check, Box, Layers, Code, ScrollText } from 'lucide-react'
+import { Plus, X, ArrowLeft, ChevronRight, Check, Box, Layers, Code, ScrollText, Loader2 } from 'lucide-react'
 import { io, Socket } from 'socket.io-client'
 import { API_BASE_URL } from '@/lib/api'
 import { CustomSelect } from '@/components/ui/CustomSelect'
+import { useFabricGameVersions, useFabricLoaderVersions, useFabricInstallerVersions } from '@/hooks/useFabricVersions'
 import type { ServerType } from './TypeBadge'
 
 type CategoryType = 'Official' | 'Plugins' | 'Mods'
@@ -11,7 +12,7 @@ type StepType = 'category' | 'type' | 'details'
 interface CreateServerModalProps {
     isOpen: boolean
     onClose: () => void
-    onCreateServer: (data: { type: ServerType; name: string; version: string; version_url?: string }) => void
+    onCreateServer: (data: { type: ServerType; name: string; version: string; version_url?: string; loader_version?: string; installer_version?: string }) => void
     versions: string[]
     versionsMap: Map<string, string>  // Maps version ID to metadata URL
     latestRelease: string
@@ -81,9 +82,16 @@ export const CreateServerModal = React.memo(function CreateServerModal({
     const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(null)
     const [selectedType, setSelectedType] = useState<ServerType | null>(null)
 
+    // Fabric version hooks
+    const { versions: fabricGameVersions, latestRelease: fabricLatestRelease, isLoading: fabricGameLoading, error: fabricGameError, refetch: refetchFabricGame } = useFabricGameVersions()
+    const { versions: fabricLoaderVersions, latestStable: fabricLatestLoader, isLoading: fabricLoaderLoading, error: fabricLoaderError, refetch: refetchFabricLoader } = useFabricLoaderVersions()
+    const { versions: fabricInstallerVersions, latestStable: fabricLatestInstaller, isLoading: fabricInstallerLoading, error: fabricInstallerError, refetch: refetchFabricInstaller } = useFabricInstallerVersions()
+
     // Step 3 Form State
     const [serverName, setServerName] = useState('')
     const [selectedVersion, setSelectedVersion] = useState(latestRelease)
+    const [selectedLoaderVersion, setSelectedLoaderVersion] = useState('')
+    const [selectedInstallerVersion, setSelectedInstallerVersion] = useState('')
     const [eulaAgreed, setEulaAgreed] = useState(false)
     const [isCreating, setIsCreating] = useState(false)
     const [downloadProgress, setDownloadProgress] = useState(0)
@@ -98,6 +106,8 @@ export const CreateServerModal = React.memo(function CreateServerModal({
             setSelectedCategory(null)
             setSelectedType(null)
             setServerName('')
+            setSelectedLoaderVersion('')
+            setSelectedInstallerVersion('')
             setEulaAgreed(false)
             setIsCreating(false)
             setDownloadProgress(0)
@@ -123,8 +133,15 @@ export const CreateServerModal = React.memo(function CreateServerModal({
     const handleTypeSelect = useCallback((type: ServerType) => {
         setSelectedType(type)
         setServerName(`My ${type} Server`)
+        if (type === 'Fabric') {
+            setSelectedVersion(fabricLatestRelease)
+            setSelectedLoaderVersion(fabricLatestLoader)
+            setSelectedInstallerVersion(fabricLatestInstaller)
+        } else {
+            setSelectedVersion(latestRelease)
+        }
         setStep('details')
-    }, [])
+    }, [fabricLatestRelease, fabricLatestLoader, fabricLatestInstaller, latestRelease])
 
     const handleBack = useCallback(() => {
         if (step === 'type') {
@@ -157,11 +174,14 @@ export const CreateServerModal = React.memo(function CreateServerModal({
             }
 
             try {
+                const isFabric = selectedType === 'Fabric'
                 await onCreateServer({
                     type: selectedType,
                     name: serverName,
                     version: selectedVersion,
-                    version_url: versionsMap.get(selectedVersion)
+                    version_url: isFabric ? undefined : versionsMap.get(selectedVersion),
+                    loader_version: isFabric ? selectedLoaderVersion : undefined,
+                    installer_version: isFabric ? selectedInstallerVersion : undefined,
                 })
                 // Download complete - close modal
                 if (socketRef.current) {
@@ -174,10 +194,18 @@ export const CreateServerModal = React.memo(function CreateServerModal({
                 setDownloadProgress(0)
             }
         }
-    }, [selectedType, serverName, eulaAgreed, isCreating, selectedVersion, versionsMap, onCreateServer])
+    }, [selectedType, serverName, eulaAgreed, isCreating, selectedVersion, selectedLoaderVersion, selectedInstallerVersion, versionsMap, onCreateServer])
 
     const handleVersionChange = useCallback((version: string) => {
         setSelectedVersion(version)
+    }, [])
+
+    const handleLoaderVersionChange = useCallback((version: string) => {
+        setSelectedLoaderVersion(version)
+    }, [])
+
+    const handleInstallerVersionChange = useCallback((version: string) => {
+        setSelectedInstallerVersion(version)
     }, [])
 
     if (!isOpen) return null
@@ -268,26 +296,70 @@ export const CreateServerModal = React.memo(function CreateServerModal({
 
                     {/* STEP 3: Details Form */}
                     {step === 'details' && selectedType && (
-                        <div className="space-y-6 animate-in slide-in-from-right-4 duration-200">
+                        <div className="space-y-4 animate-in slide-in-from-right-4 duration-200">
 
-                            <div className="space-y-2">
-                                <label htmlFor="serverName" className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Server Name</label>
-                                <input
-                                    type="text"
-                                    id="serverName"
-                                    value={serverName}
-                                    onChange={(e) => setServerName(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900 outline-none transition-all text-slate-800 dark:text-slate-100 font-medium placeholder-slate-400 dark:placeholder-slate-500"
-                                    placeholder="e.g. My Survival World"
-                                />
+                            {/* Row 1: Server Name + Minecraft Version — side by side */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label htmlFor="serverName" className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Server Name</label>
+                                    <input
+                                        type="text"
+                                        id="serverName"
+                                        value={serverName}
+                                        onChange={(e) => setServerName(e.target.value)}
+                                        className="w-full px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900 outline-none transition-all text-slate-800 dark:text-slate-100 font-medium placeholder-slate-400 dark:placeholder-slate-500"
+                                        placeholder="e.g. My Survival World"
+                                    />
+                                </div>
+                                {selectedType === 'Fabric' ? (
+                                    (fabricGameLoading || fabricLoaderLoading || fabricInstallerLoading) ? (
+                                        <div className="flex items-center justify-center text-slate-500 dark:text-slate-400">
+                                            <Loader2 size={18} className="animate-spin" />
+                                        </div>
+                                    ) : (fabricGameError || fabricLoaderError || fabricInstallerError) ? (
+                                        <div className="flex items-center justify-center">
+                                            <button
+                                                onClick={() => { refetchFabricGame(); refetchFabricLoader(); refetchFabricInstaller() }}
+                                                className="text-sm text-blue-600 dark:text-blue-400 hover:underline cursor-pointer font-medium"
+                                            >
+                                                Retry
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <CustomSelect
+                                            label="Minecraft Version"
+                                            options={fabricGameVersions}
+                                            value={selectedVersion}
+                                            onChange={handleVersionChange}
+                                        />
+                                    )
+                                ) : (
+                                    <CustomSelect
+                                        label="Minecraft Version"
+                                        options={versions}
+                                        value={selectedVersion}
+                                        onChange={handleVersionChange}
+                                    />
+                                )}
                             </div>
 
-                            <CustomSelect
-                                label="Minecraft Version"
-                                options={versions}
-                                value={selectedVersion}
-                                onChange={handleVersionChange}
-                            />
+                            {/* Row 2 (Fabric only): Loader Version + Installer Version — side by side */}
+                            {selectedType === 'Fabric' && !fabricGameLoading && !fabricLoaderLoading && !fabricInstallerLoading && !fabricGameError && !fabricLoaderError && !fabricInstallerError && (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <CustomSelect
+                                        label="Fabric Loader Version"
+                                        options={fabricLoaderVersions}
+                                        value={selectedLoaderVersion}
+                                        onChange={handleLoaderVersionChange}
+                                    />
+                                    <CustomSelect
+                                        label="Fabric Installer Version"
+                                        options={fabricInstallerVersions}
+                                        value={selectedInstallerVersion}
+                                        onChange={handleInstallerVersionChange}
+                                    />
+                                </div>
+                            )}
 
                             <div className="pt-4 border-t border-slate-100 dark:border-slate-700">
                                 <label className="flex items-start gap-3 cursor-pointer group">

@@ -8,6 +8,8 @@ import subprocess
 import threading
 import time
 import uuid
+import urllib.error
+import urllib.parse
 import urllib.request
 
 import psutil
@@ -515,6 +517,45 @@ def list_servers():
     return jsonify({"servers": servers}), 200
 
 
+@servers_bp.route("/fabric/game-versions", methods=["GET"])
+def get_fabric_game_versions():
+    """Fetch Fabric-supported Minecraft game versions from Fabric Meta API."""
+    try:
+        url = f"{config.fabric_meta_url}/v2/versions/game"
+        with urllib.request.urlopen(url, timeout=10) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        return jsonify(data), 200
+    except Exception as e:
+        logger.error("Failed to fetch Fabric game versions: %s", e)
+        return jsonify({"error": f"Failed to fetch Fabric game versions: {str(e)}"}), 500
+
+
+@servers_bp.route("/fabric/loader-versions", methods=["GET"])
+def get_fabric_loader_versions():
+    """Fetch available Fabric loader versions from Fabric Meta API."""
+    try:
+        url = f"{config.fabric_meta_url}/v2/versions/loader"
+        with urllib.request.urlopen(url, timeout=10) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        return jsonify(data), 200
+    except Exception as e:
+        logger.error("Failed to fetch Fabric loader versions: %s", e)
+        return jsonify({"error": f"Failed to fetch Fabric loader versions: {str(e)}"}), 500
+
+
+@servers_bp.route("/fabric/installer-versions", methods=["GET"])
+def get_fabric_installer_versions():
+    """Fetch available Fabric installer versions from Fabric Meta API."""
+    try:
+        url = f"{config.fabric_meta_url}/v2/versions/installer"
+        with urllib.request.urlopen(url, timeout=10) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        return jsonify(data), 200
+    except Exception as e:
+        logger.error("Failed to fetch Fabric installer versions: %s", e)
+        return jsonify({"error": f"Failed to fetch Fabric installer versions: {str(e)}"}), 500
+
+
 @servers_bp.route("/servers", methods=["POST"])
 def create_server_instance():
     """Create a new server instance with folder and server.jar download."""
@@ -527,6 +568,8 @@ def create_server_instance():
     server_type = data.get("type")
     version = data.get("version")
     version_url = data.get("version_url")
+    loader_version = data.get("loader_version")
+    installer_version = data.get("installer_version")
     port = data.get("port")
 
     server_dir = config.get_server_dir(name)
@@ -535,6 +578,16 @@ def create_server_instance():
 
     try:
         os.makedirs(server_dir, exist_ok=True)
+
+        def report_progress(block_num: int, block_size: int, total_size: int) -> None:
+            if total_size > 0 and socketio:
+                progress = min(100, int(block_num * block_size * 100 / total_size))
+                socketio.emit("download_progress", {
+                    "server_name": name,
+                    "progress": progress,
+                    "downloaded": min(block_num * block_size, total_size),
+                    "total": total_size
+                })
 
         if version_url and server_type == "vanilla":
             try:
@@ -556,20 +609,57 @@ def create_server_instance():
 
             jar_path = os.path.join(str(server_dir), "server.jar")
             try:
-                def report_progress(block_num, block_size, total_size):
-                    if total_size > 0 and socketio:
-                        progress = min(100, int(block_num * block_size * 100 / total_size))
-                        socketio.emit("download_progress", {
-                            "server_name": name,
-                            "progress": progress,
-                            "downloaded": min(block_num * block_size, total_size),
-                            "total": total_size
-                        })
-
                 urllib.request.urlretrieve(server_jar_url, jar_path, report_progress)
             except Exception as e:
                 shutil.rmtree(server_dir)
                 return jsonify({"error": f"Failed to download server.jar: {str(e)}"}), 500
+
+        elif server_type == "fabric":
+            if not version:
+                shutil.rmtree(server_dir)
+                return jsonify({"error": "Minecraft version is required for Fabric server"}), 400
+
+            try:
+                # Resolve loader version if not provided
+                if not loader_version:
+                    loader_url = f"{config.fabric_meta_url}/v2/versions/loader"
+                    with urllib.request.urlopen(loader_url, timeout=10) as resp:
+                        loader_data = json.loads(resp.read().decode("utf-8"))
+                    stable_loaders = [v for v in loader_data if v.get("stable")]
+                    if not stable_loaders:
+                        shutil.rmtree(server_dir)
+                        return jsonify({"error": "No stable Fabric loader version found"}), 500
+                    loader_version = stable_loaders[0]["version"]
+
+                # Resolve installer version if not provided
+                if not installer_version:
+                    installer_url = f"{config.fabric_meta_url}/v2/versions/installer"
+                    with urllib.request.urlopen(installer_url, timeout=10) as resp:
+                        installer_data = json.loads(resp.read().decode("utf-8"))
+                    stable_installers = [v for v in installer_data if v.get("stable")]
+                    if not stable_installers:
+                        shutil.rmtree(server_dir)
+                        return jsonify({"error": "No stable Fabric installer version found"}), 500
+                    installer_version = stable_installers[0]["version"]
+
+                # Construct direct server JAR download URL (encode path segments)
+                encoded_version = urllib.parse.quote(version, safe="")
+                encoded_loader = urllib.parse.quote(loader_version, safe="")
+                encoded_installer = urllib.parse.quote(installer_version, safe="")
+                fabric_jar_url = (
+                    f"{config.fabric_meta_url}/v2/versions/loader"
+                    f"/{encoded_version}/{encoded_loader}/{encoded_installer}/server/jar"
+                )
+
+                jar_path = os.path.join(str(server_dir), "fabric-server-launch.jar")
+                urllib.request.urlretrieve(fabric_jar_url, jar_path, report_progress)
+
+            except urllib.error.HTTPError as e:
+                shutil.rmtree(server_dir)
+                return jsonify({"error": f"Failed to download Fabric server JAR: HTTP {e.code}"}), 500
+            except Exception as e:
+                shutil.rmtree(server_dir)
+                return jsonify({"error": f"Failed to download Fabric server JAR: {str(e)}"}), 500
 
         eula_path = os.path.join(str(server_dir), "eula.txt")
         with open(eula_path, "w", encoding="utf-8") as f:

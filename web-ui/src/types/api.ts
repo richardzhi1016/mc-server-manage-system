@@ -278,7 +278,9 @@ export interface CreateServerRequest {
   name: string
   type?: string
   version: string
-  version_url?: string  // URL to version metadata JSON
+  version_url?: string  // URL to version metadata JSON (Vanilla)
+  loader_version?: string  // Fabric loader version
+  installer_version?: string  // Fabric installer version
   port?: number
   // min_memory?: number
   // max_memory?: number
