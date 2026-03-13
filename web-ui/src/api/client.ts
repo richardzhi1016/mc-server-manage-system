@@ -43,6 +43,14 @@ import type {
   CloneServerRequest,
   CloneServerResponse,
   NextAvailablePortResponse,
+  ModSearchResponse,
+  InstalledModsResponse,
+  ModVersion,
+  DependencyCheckResult,
+  ModInstallRequest,
+  ModInstallResponse,
+  ModToggleResponse,
+  ModDeleteResponse,
 } from "@/types/api"
 
 export async function getServers(): Promise<ServerListResponse> {
@@ -249,6 +257,87 @@ export async function deleteServer(serverName: string): Promise<{ message: strin
 export async function getNextAvailablePort(): Promise<NextAvailablePortResponse> {
   const response = await apiClient.get<NextAvailablePortResponse>(
     "/api/servers/next-available-port"
+  )
+  return response.data
+}
+
+// -- Mod Management --
+
+export async function searchMods(
+  query: string,
+  version: string,
+  loader: string,
+  page: number = 0,
+  limit: number = 20
+): Promise<ModSearchResponse> {
+  const response = await apiClient.get<ModSearchResponse>("/api/mods/search", {
+    params: { query, version, loader, page, limit },
+  })
+  return response.data
+}
+
+export async function getModDetails(projectId: string): Promise<Record<string, unknown>> {
+  const response = await apiClient.get(`/api/mods/${encodeURIComponent(projectId)}`)
+  return response.data
+}
+
+export async function getModVersions(
+  projectId: string,
+  gameVersion?: string,
+  loader?: string
+): Promise<ModVersion[]> {
+  const response = await apiClient.get<ModVersion[]>(
+    `/api/mods/${encodeURIComponent(projectId)}/versions`,
+    { params: { game_version: gameVersion, loader } }
+  )
+  return response.data
+}
+
+export async function getInstalledMods(serverName: string): Promise<InstalledModsResponse> {
+  const response = await apiClient.get<InstalledModsResponse>(
+    `/api/servers/${encodeURIComponent(serverName)}/mods`
+  )
+  return response.data
+}
+
+export async function installMod(
+  serverName: string,
+  data: ModInstallRequest
+): Promise<ModInstallResponse> {
+  const response = await apiClient.post<ModInstallResponse>(
+    `/api/servers/${encodeURIComponent(serverName)}/mods/install`,
+    data
+  )
+  return response.data
+}
+
+export async function toggleMod(
+  serverName: string,
+  filename: string
+): Promise<ModToggleResponse> {
+  const response = await apiClient.post<ModToggleResponse>(
+    `/api/servers/${encodeURIComponent(serverName)}/mods/${encodeURIComponent(filename)}/toggle`
+  )
+  return response.data
+}
+
+export async function deleteMod(
+  serverName: string,
+  filename: string
+): Promise<ModDeleteResponse> {
+  const response = await apiClient.delete<ModDeleteResponse>(
+    `/api/servers/${encodeURIComponent(serverName)}/mods/${encodeURIComponent(filename)}`
+  )
+  return response.data
+}
+
+export async function checkModDependencies(
+  serverName: string,
+  versionId: string
+): Promise<DependencyCheckResult> {
+  const response = await apiClient.post<DependencyCheckResult>(
+    `/api/servers/${encodeURIComponent(serverName)}/mods/check-deps`,
+    { version_id: versionId }
   )
   return response.data
 }

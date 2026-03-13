@@ -305,3 +305,95 @@ export interface CloneServerResponse {
 export interface NextAvailablePortResponse {
   port: number
 }
+
+// -- Mod Management --
+
+export interface InstalledMod {
+  filename: string
+  enabled: boolean
+  mod_id: string | null
+  name: string
+  version: string | null
+  description: string | null
+  authors: string[]
+  file_size: number
+  modified_at: string
+  modrinth_project_id: string | null
+}
+
+export interface InstalledModsResponse {
+  mods: InstalledMod[]
+  server_name: string
+}
+
+export interface ModSearchResult {
+  project_id: string
+  slug: string
+  title: string
+  description: string
+  icon_url: string | null
+  downloads: number
+  date_modified: string
+  categories: string[]
+}
+
+export interface ModSearchResponse {
+  hits: ModSearchResult[]
+  total_hits: number
+  limit: number
+  offset: number
+}
+
+export interface ModVersion {
+  id: string
+  name: string
+  version_number: string
+  game_versions: string[]
+  loaders: string[]
+  files: Array<{
+    filename: string
+    size: number
+    url: string
+    primary: boolean
+  }>
+  dependencies: ModDependency[]
+}
+
+export interface ModDependency {
+  project_id: string
+  version_id: string | null
+  dependency_type: "required" | "optional"
+  name: string
+}
+
+export interface DependencyCheckRequest {
+  version_id: string
+}
+
+export interface DependencyCheckResult {
+  missing: ModDependency[]
+  satisfied: string[]
+}
+
+export interface ModInstallRequest {
+  project_id: string
+  version_id: string
+}
+
+export interface ModInstallResponse {
+  success: boolean
+  filename: string
+  restart_required: boolean
+}
+
+export interface ModToggleResponse {
+  success: boolean
+  filename: string
+  enabled: boolean
+  restart_required: boolean
+}
+
+export interface ModDeleteResponse {
+  success: boolean
+  restart_required: boolean
+}
