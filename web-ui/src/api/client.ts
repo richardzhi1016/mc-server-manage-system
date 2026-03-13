@@ -34,6 +34,7 @@ import type {
   CreateBackupRequest,
   CreateBackupResponse,
   RestoreBackupRequest,
+  ScheduledTask,
   ScheduledTaskListResponse,
   CreateScheduledTaskRequest,
   UpdateScheduledTaskRequest,

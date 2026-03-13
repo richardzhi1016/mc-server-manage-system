@@ -12,6 +12,7 @@ const Players = lazy(() => import("@/pages/Players"))
 const FileManager = lazy(() => import("@/pages/FileManager"))
 const Backups = lazy(() => import("@/pages/Backups"))
 const Settings = lazy(() => import("@/pages/Settings"))
+const Mods = lazy(() => import("@/pages/Mods"))
 
 export const appRouter = createBrowserRouter([
     {
@@ -91,6 +92,14 @@ export const appRouter = createBrowserRouter([
           element: (
             <Suspense fallback={<LoadingFallback />}>
               <Settings />
+            </Suspense>
+          ),
+        },
+        {
+          path: "mods",
+          element: (
+            <Suspense fallback={<LoadingFallback />}>
+              <Mods />
             </Suspense>
           ),
         },
