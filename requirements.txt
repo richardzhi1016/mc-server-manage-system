@@ -8,3 +8,4 @@ Werkzeug==2.3.7
 psutil==5.9.8
 pywinpty
 simple-websocket
+requests>=2.31.0
