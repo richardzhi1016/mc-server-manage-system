@@ -4,9 +4,18 @@ import { Sidebar } from './Sidebar'
 import { TopNav } from './TopNav'
 import { MobileNav } from './MobileNav'
 import { cn } from '@/lib/utils'
+import { useServerStore } from '@/store/useServerStore'
+import { getServers } from '@/api/client'
 
 export function Layout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const { servers, setServers } = useServerStore()
+
+  useEffect(() => {
+    if (servers.length === 0) {
+      getServers().then((res) => setServers(res.servers)).catch(() => {})
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isDesktop, setIsDesktop] = useState(true)
 

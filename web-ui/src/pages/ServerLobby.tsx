@@ -3,6 +3,7 @@ import { Moon, Sun } from 'lucide-react'
 import { io, Socket } from 'socket.io-client'
 import { getServers, createServer, cloneServer, deleteServer, getNextAvailablePort } from '@/api/client'
 import { API_BASE_URL } from '@/lib/api'
+import { useServerStore } from '@/store/useServerStore'
 import {
   LobbyServerCard,
   AddServerCard,
@@ -16,6 +17,7 @@ import { useMinecraftVersions } from '@/hooks/useMinecraftVersions'
 import { useToast } from '@/components/ui/Toast'
 
 export default function ServerLobby() {
+  const { setServers: setStoreServers } = useServerStore()
   const [servers, setServers] = useState<LobbyServer[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -49,6 +51,7 @@ export default function ServerLobby() {
       try {
         setIsLoading(true)
         const response = await getServers()
+        setStoreServers(response.servers)
         const lobbyServers: LobbyServer[] = response.servers.map(server => ({
           id: server.id,
           name: server.name,
