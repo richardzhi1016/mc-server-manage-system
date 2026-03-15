@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { MoreHorizontal, Crown, Signal } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { PlayerAvatar } from "./PlayerAvatar"
 import { Button } from "@/components/ui/Button"
 import { cn } from "@/lib/utils"
@@ -11,6 +12,7 @@ interface PlayerCardProps {
 }
 
 export function PlayerCard({ player, onAction }: PlayerCardProps) {
+  const { t } = useTranslation('players')
   const [menuOpen, setMenuOpen] = useState(false)
 
   const latencyColor =
@@ -59,26 +61,26 @@ export function PlayerCard({ player, onAction }: PlayerCardProps) {
                   className="w-full px-3 py-1.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                   onClick={() => handleAction("teleport")}
                 >
-                  传送
+                  {t('actions.teleport')}
                 </button>
                 <button
                   className="w-full px-3 py-1.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                   onClick={() => handleAction("op")}
                 >
-                  {player.isOp ? "取消OP" : "OP"}
+                  {player.isOp ? t('actions.deop') : t('actions.op')}
                 </button>
                 <hr className="my-1 border-gray-200 dark:border-gray-700" />
                 <button
                   className="w-full px-3 py-1.5 text-left text-sm text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20"
                   onClick={() => handleAction("kick")}
                 >
-                  踢出
+                  {t('actions.kick')}
                 </button>
                 <button
                   className="w-full px-3 py-1.5 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
                   onClick={() => handleAction("ban")}
                 >
-                  封禁
+                  {t('actions.ban')}
                 </button>
               </div>
             </>

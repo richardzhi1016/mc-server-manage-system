@@ -1,7 +1,9 @@
 import { useState } from "react"
 import { RotateCcw, Ban } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/Button"
 import { ConfirmModal } from "./ConfirmModal"
+import { currentLocale } from "@/i18n/locale"
 import type { BanEntry } from "@/types/api"
 
 interface BanListManagerProps {
@@ -10,6 +12,7 @@ interface BanListManagerProps {
 }
 
 export function BanListManager({ bans, onUnban }: BanListManagerProps) {
+  const { t } = useTranslation('players')
   const [unbanUsername, setUnbanUsername] = useState<string | null>(null)
 
   const handleUnban = () => {
@@ -23,15 +26,15 @@ export function BanListManager({ bans, onUnban }: BanListManagerProps) {
     <>
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="font-medium text-gray-900 dark:text-white">封禁列表</h3>
-          <span className="text-sm text-gray-500 dark:text-gray-400">{bans.length} 个封禁</span>
+          <h3 className="font-medium text-gray-900 dark:text-white">{t('banList.title')}</h3>
+          <span className="text-sm text-gray-500 dark:text-gray-400">{t('banList.count', { count: bans.length })}</span>
         </div>
 
         {bans.length === 0 ? (
           <div className="text-center py-12 text-gray-500 dark:text-gray-400">
             <Ban className="w-10 h-10 mx-auto mb-3 opacity-50" />
-            <p>没有封禁玩家</p>
-            <p className="text-sm mt-1">被封禁的玩家将显示在这里</p>
+            <p>{t('banList.empty')}</p>
+            <p className="text-sm mt-1">{t('banList.emptyDesc')}</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-200 dark:divide-gray-700 max-h-96 overflow-y-auto">
@@ -46,15 +49,15 @@ export function BanListManager({ bans, onUnban }: BanListManagerProps) {
                       {entry.username}
                     </span>
                     <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
-                      已封禁
+                      {t('banList.banned')}
                     </span>
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{entry.uuid}</p>
                   {entry.reason && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">原因: {entry.reason}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{t('banList.reason', { reason: entry.reason })}</p>
                   )}
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                    封禁于 {new Date(entry.banned_at).toLocaleString()}
+                    {t('banList.bannedAt', { date: new Date(entry.banned_at).toLocaleString(currentLocale()) })}
                   </p>
                 </div>
                 <Button
@@ -62,6 +65,7 @@ export function BanListManager({ bans, onUnban }: BanListManagerProps) {
                   size="sm"
                   className="text-green-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 ml-2"
                   onClick={() => setUnbanUsername(entry.username)}
+                  title={t('banList.unban')}
                 >
                   <RotateCcw className="w-4 h-4" />
                 </Button>
@@ -75,9 +79,8 @@ export function BanListManager({ bans, onUnban }: BanListManagerProps) {
         open={!!unbanUsername}
         onClose={() => setUnbanUsername(null)}
         onConfirm={handleUnban}
-        title="解除封禁"
-        message={`确定要解除对 "${unbanUsername}" 的封禁吗？该玩家将能够再次加入服务器。`}
-        confirmText="解除封禁"
+        title={t('banList.unban')}
+        message={t('banList.unbanConfirm', { username: unbanUsername ?? '' })}
         variant="warning"
       />
     </>

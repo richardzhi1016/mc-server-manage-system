@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { Users } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { Modal } from "./Modal"
 import { Button } from "@/components/ui/Button"
 import { PlayerAvatar } from "./PlayerAvatar"
@@ -15,6 +16,8 @@ interface TeleportModalProps {
 }
 
 export function TeleportModal({ open, onClose, player, availablePlayers, onConfirm }: TeleportModalProps) {
+  const { t } = useTranslation('players')
+  const { t: tc } = useTranslation('common')
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null)
 
   if (!player) return null
@@ -35,14 +38,14 @@ export function TeleportModal({ open, onClose, player, availablePlayers, onConfi
   }
 
   return (
-    <Modal open={open} onClose={handleClose} title={`传送 ${player.username}`} size="md">
+    <Modal open={open} onClose={handleClose} title={t('teleport.title', { username: player.username })} size="md">
       <div className="space-y-4">
-        <p className="text-sm text-gray-500 dark:text-gray-400">选择要将玩家传送到目标玩家身边</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{t('teleport.select')}</p>
 
         {otherPlayers.length === 0 ? (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400">
             <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p>没有其他在线玩家</p>
+            <p>{t('teleport.noOthers')}</p>
           </div>
         ) : (
           <div className="max-h-60 overflow-y-auto space-y-2">
@@ -68,10 +71,10 @@ export function TeleportModal({ open, onClose, player, availablePlayers, onConfi
 
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={handleClose}>
-            取消
+            {tc('actions.cancel')}
           </Button>
           <Button onClick={handleConfirm} disabled={!selectedTarget}>
-            传送
+            {t('actions.teleport')}
           </Button>
         </div>
       </div>

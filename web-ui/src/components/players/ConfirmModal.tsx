@@ -1,4 +1,5 @@
 import { AlertTriangle } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { Modal } from "./Modal"
 import { Button } from "@/components/ui/Button"
 import { cn } from "@/lib/utils"
@@ -20,10 +21,13 @@ export function ConfirmModal({
   onConfirm,
   title,
   message,
-  confirmText = "确认",
-  cancelText = "取消",
+  confirmText,
+  cancelText,
   variant = "danger",
 }: ConfirmModalProps) {
+  const { t } = useTranslation('common')
+  const resolvedConfirmText = confirmText ?? t('actions.confirm')
+  const resolvedCancelText = cancelText ?? t('actions.cancel')
   const iconColor =
     variant === "danger" ? "text-red-500" : variant === "warning" ? "text-yellow-500" : "text-blue-500"
 
@@ -36,7 +40,7 @@ export function ConfirmModal({
         </div>
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={onClose}>
-            {cancelText}
+            {resolvedCancelText}
           </Button>
           <Button
             variant={variant === "danger" ? "destructive" : variant === "warning" ? "default" : "default"}
@@ -45,7 +49,7 @@ export function ConfirmModal({
               onClose()
             }}
           >
-            {confirmText}
+            {resolvedConfirmText}
           </Button>
         </div>
       </div>

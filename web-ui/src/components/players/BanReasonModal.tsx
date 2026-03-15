@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Modal } from "./Modal"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
@@ -11,6 +12,8 @@ interface BanReasonModalProps {
 }
 
 export function BanReasonModal({ open, onClose, username, onConfirm }: BanReasonModalProps) {
+  const { t } = useTranslation('players')
+  const { t: tc } = useTranslation('common')
   const [reason, setReason] = useState("")
 
   const handleConfirm = () => {
@@ -27,13 +30,13 @@ export function BanReasonModal({ open, onClose, username, onConfirm }: BanReason
   }
 
   return (
-    <Modal open={open} onClose={handleClose} title={`封禁玩家 ${username}`} size="md">
+    <Modal open={open} onClose={handleClose} title={t('ban.title', { username })} size="md">
       <div className="space-y-4">
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          请输入封禁原因，这将记录到服务器日志中。
+          {t('ban.reasonLabel')}
         </p>
         <Input
-          placeholder="输入封禁原因..."
+          placeholder={t('ban.placeholder')}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           onKeyDown={(e) => {
@@ -45,10 +48,10 @@ export function BanReasonModal({ open, onClose, username, onConfirm }: BanReason
         />
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={handleClose}>
-            取消
+            {tc('actions.cancel')}
           </Button>
           <Button onClick={handleConfirm} disabled={!reason.trim()}>
-            继续
+            {t('ban.continue')}
           </Button>
         </div>
       </div>

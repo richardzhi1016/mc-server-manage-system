@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { useParams } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { Users, RefreshCw, UserPlus, Ban } from "lucide-react"
 import { PlayerCard } from "@/components/players/PlayerCard"
 import { BanReasonModal } from "@/components/players/BanReasonModal"
@@ -29,6 +30,8 @@ type TabType = "online" | "whitelist" | "bans"
 
 export default function PlayersPage() {
   const { serverName } = useParams<{ serverName: string }>()
+  const { t } = useTranslation('players')
+  const { t: tc } = useTranslation('common')
   const { onlinePlayers, setOnlinePlayers, whitelist, setWhitelist, bans, setBans, setError } =
     usePlayerStore()
   const { addToast } = useUIStore()
@@ -103,11 +106,11 @@ export default function PlayersPage() {
         username: kickTarget.username,
       })
       setOnlinePlayers(onlinePlayers.filter((p) => p.username !== kickTarget.username))
-      addToast({ type: "success", message: `${kickTarget.username} 已被踢出` })
+      addToast({ type: "success", message: t('kick.success', { username: kickTarget.username }) })
     } catch (err) {
       addToast({
         type: "error",
-        message: err instanceof Error ? err.message : "踢出失败",
+        message: err instanceof Error ? err.message : t('kick.fail'),
       })
     }
   }
@@ -121,11 +124,11 @@ export default function PlayersPage() {
         reason,
       })
       setOnlinePlayers(onlinePlayers.filter((p) => p.username !== banTarget.username))
-      addToast({ type: "success", message: `${banTarget.username} 已被封禁` })
+      addToast({ type: "success", message: t('ban.success', { username: banTarget.username }) })
     } catch (err) {
       addToast({
         type: "error",
-        message: err instanceof Error ? err.message : "封禁失败",
+        message: err instanceof Error ? err.message : t('ban.fail'),
       })
     }
   }
@@ -143,7 +146,7 @@ export default function PlayersPage() {
             p.username === opTarget.username ? { ...p, isOp: false } : p
           )
         )
-        addToast({ type: "success", message: `${opTarget.username} 已被取消OP` })
+        addToast({ type: "success", message: t('op.revoked', { username: opTarget.username }) })
       } else {
         await opPlayer({
           server_name: selectedServer || "",
@@ -154,12 +157,12 @@ export default function PlayersPage() {
             p.username === opTarget.username ? { ...p, isOp: true } : p
           )
         )
-        addToast({ type: "success", message: `${opTarget.username} 已成为OP` })
+        addToast({ type: "success", message: t('op.granted', { username: opTarget.username }) })
       }
     } catch (err) {
       addToast({
         type: "error",
-        message: err instanceof Error ? err.message : "操作失败",
+        message: err instanceof Error ? err.message : t('op.fail'),
       })
     }
   }
@@ -174,12 +177,12 @@ export default function PlayersPage() {
       })
       addToast({
         type: "success",
-        message: `${teleportPlayer.username} 已传送到 ${targetUsername}`,
+        message: t('teleport.success', { username: teleportPlayer.username, target: targetUsername }),
       })
     } catch (err) {
       addToast({
         type: "error",
-        message: err instanceof Error ? err.message : "传送失败",
+        message: err instanceof Error ? err.message : t('teleport.fail'),
       })
     }
   }
@@ -190,12 +193,12 @@ export default function PlayersPage() {
         server_name: selectedServer || "",
         username,
       })
-      addToast({ type: "success", message: `${username} 已添加到白名单` })
+      addToast({ type: "success", message: t('whitelist.addSuccess', { username }) })
       fetchData()
     } catch (err) {
       addToast({
         type: "error",
-        message: err instanceof Error ? err.message : "添加失败",
+        message: err instanceof Error ? err.message : t('whitelist.addFail'),
       })
     }
   }
@@ -206,12 +209,12 @@ export default function PlayersPage() {
         server_name: selectedServer || "",
         username,
       })
-      addToast({ type: "success", message: `${username} 已从白名单移除` })
+      addToast({ type: "success", message: t('whitelist.removeSuccess', { username }) })
       fetchData()
     } catch (err) {
       addToast({
         type: "error",
-        message: err instanceof Error ? err.message : "移除失败",
+        message: err instanceof Error ? err.message : t('whitelist.removeFail'),
       })
     }
   }
@@ -222,12 +225,12 @@ export default function PlayersPage() {
         server_name: selectedServer || "",
         username,
       })
-      addToast({ type: "success", message: `${username} 已解除封禁` })
+      addToast({ type: "success", message: t('banList.unbanSuccess', { username }) })
       fetchData()
     } catch (err) {
       addToast({
         type: "error",
-        message: err instanceof Error ? err.message : "解除封禁失败",
+        message: err instanceof Error ? err.message : t('banList.unbanFail'),
       })
     }
   }
@@ -235,10 +238,10 @@ export default function PlayersPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">玩家管理</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('title')}</h1>
         <Button variant="outline" onClick={fetchData} disabled={loading}>
           <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-          刷新
+          {tc('actions.refresh')}
         </Button>
       </div>
 
@@ -252,7 +255,7 @@ export default function PlayersPage() {
           onClick={() => setActiveTab("online")}
         >
           <Users className="w-4 h-4 inline mr-2" />
-          在线 ({onlinePlayers.length})
+          {t('tabs.online', { count: onlinePlayers.length })}
         </button>
         <button
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -263,7 +266,7 @@ export default function PlayersPage() {
           onClick={() => setActiveTab("whitelist")}
         >
           <UserPlus className="w-4 h-4 inline mr-2" />
-          白名单 ({whitelist.length})
+          {t('tabs.whitelist', { count: whitelist.length })}
         </button>
         <button
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -274,7 +277,7 @@ export default function PlayersPage() {
           onClick={() => setActiveTab("bans")}
         >
           <Ban className="w-4 h-4 inline mr-2" />
-          封禁 ({bans.length})
+          {t('tabs.bans', { count: bans.length })}
         </button>
       </div>
 
@@ -284,10 +287,10 @@ export default function PlayersPage() {
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-12 text-center">
               <Users className="w-12 h-12 mx-auto text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                没有在线玩家
+                {t('noOnline')}
               </h3>
               <p className="text-gray-500 dark:text-gray-400">
-                当前没有玩家在线
+                {t('noOnlineDesc')}
               </p>
             </div>
           ) : (
@@ -323,9 +326,9 @@ export default function PlayersPage() {
         open={kickConfirmOpen}
         onClose={() => setKickConfirmOpen(false)}
         onConfirm={handleKick}
-        title="踢出玩家"
-        message={`确定要将 "${kickTarget?.username}" 踢出服务器吗？`}
-        confirmText="踢出"
+        title={t('kick.title')}
+        message={t('kick.confirm', { username: kickTarget?.username })}
+        confirmText={t('actions.kick')}
         variant="warning"
       />
 
@@ -333,9 +336,9 @@ export default function PlayersPage() {
         open={opConfirmOpen}
         onClose={() => setOpConfirmOpen(false)}
         onConfirm={handleOp}
-        title={opTarget?.isOp ? "取消OP权限" : "授予OP权限"}
-        message={`确定要${opTarget?.isOp ? "取消" : "授予"} "${opTarget?.username}" 的OP权限吗？`}
-        confirmText="确认"
+        title={opTarget?.isOp ? t('op.revokeTitle') : t('op.grantTitle')}
+        message={opTarget?.isOp ? t('op.revokeConfirm', { username: opTarget?.username }) : t('op.grantConfirm', { username: opTarget?.username })}
+        confirmText={tc('actions.confirm')}
         variant="info"
       />
 
