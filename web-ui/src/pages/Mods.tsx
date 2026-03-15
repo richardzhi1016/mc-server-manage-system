@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { useParams } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { Package, Search, AlertTriangle, RotateCcw, Loader2 } from "lucide-react"
 import { useModStore } from "@/store/useModStore"
 import { useServerStore } from "@/store/useServerStore"
@@ -20,6 +21,8 @@ import { DependencyModal } from "@/components/mods/DependencyModal"
 import type { ModDependency } from "@/types/api"
 
 export default function Mods() {
+  const { t } = useTranslation('mods')
+  const { t: tc } = useTranslation('common')
   const { serverName } = useParams<{ serverName: string }>()
   const servers = useServerStore((s) => s.servers)
   const server = servers.find((s) => s.name === serverName)
@@ -187,9 +190,9 @@ export default function Mods() {
       <div className="flex items-center gap-3">
         <Package size={24} className="text-blue-500" />
         <div>
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">模组管理</h1>
+          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{t('title')}</h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            管理 {serverName} 的模组
+            {t('manage', { server: serverName })}
           </p>
         </div>
       </div>
@@ -199,14 +202,14 @@ export default function Mods() {
         <div className="flex items-center justify-between rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-700 dark:bg-amber-900/20">
           <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
             <AlertTriangle size={16} />
-            模组已变更，需要重启服务器才能生效
+            {t('changed')}
           </div>
           <button
             onClick={handleRestart}
             className="flex items-center gap-1 rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
           >
             <RotateCcw size={14} />
-            重启服务器
+            {tc('actions.restart')}
           </button>
         </div>
       )}
@@ -217,7 +220,7 @@ export default function Mods() {
         <div>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">
-              已安装 ({installedMods.length})
+              {t('installed', { count: installedMods.length })}
             </h2>
             <div className="flex gap-1">
               {(["all", "enabled", "disabled"] as const).map((f) => (
@@ -230,7 +233,7 @@ export default function Mods() {
                       : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                   }`}
                 >
-                  {f === "all" ? "全部" : f === "enabled" ? "已启用" : "已禁用"}
+                  {f === "all" ? t('filters.all') : f === "enabled" ? t('filters.enabled') : t('filters.disabled')}
                 </button>
               ))}
             </div>
@@ -244,7 +247,7 @@ export default function Mods() {
             <div className="rounded-lg border border-dashed border-zinc-300 py-12 text-center dark:border-zinc-700">
               <Package size={32} className="mx-auto text-zinc-300 dark:text-zinc-600" />
               <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-                暂无安装模组
+                {t('empty')}
               </p>
             </div>
           ) : (
@@ -264,7 +267,7 @@ export default function Mods() {
         {/* Right: Search & Install */}
         <div>
           <h2 className="mb-3 font-semibold text-zinc-900 dark:text-zinc-100">
-            浏览 Modrinth
+            {t('browse')}
           </h2>
 
           {/* Search bar */}
@@ -272,7 +275,7 @@ export default function Mods() {
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
             <input
               type="text"
-              placeholder="搜索模组..."
+              placeholder={t('searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => {
@@ -329,17 +332,17 @@ export default function Mods() {
                   onClick={() => handleSearch(searchQuery, searchPage + 1)}
                   className="w-full rounded-md border border-zinc-300 py-2 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
                 >
-                  加载更多
+                  {tc('actions.loadMore')}
                 </button>
               )}
             </div>
           ) : searchQuery ? (
             <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
-              未找到相关模组
+              {t('noResults')}
             </p>
           ) : (
             <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
-              在 Modrinth 搜索模组以安装
+              {t('browseHint')}
             </p>
           )}
         </div>

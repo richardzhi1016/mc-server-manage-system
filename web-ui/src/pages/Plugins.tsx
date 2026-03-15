@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { useParams } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { Puzzle, Search, AlertTriangle, RotateCcw, Loader2 } from "lucide-react"
 import { usePluginStore } from "@/store/usePluginStore"
 import { useServerStore } from "@/store/useServerStore"
@@ -20,6 +21,8 @@ import { DependencyModal } from "@/components/mods/DependencyModal"
 import type { InstalledMod, InstalledPlugin, ModDependency } from "@/types/api"
 
 export default function Plugins() {
+  const { t } = useTranslation('mods')
+  const { t: tc } = useTranslation('common')
   const { serverName } = useParams<{ serverName: string }>()
   const servers = useServerStore((s) => s.servers)
   const server = servers.find((s) => s.name === serverName)
@@ -188,9 +191,9 @@ export default function Plugins() {
       <div className="flex items-center gap-3">
         <Puzzle size={24} className="text-sky-500" />
         <div>
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">插件管理</h1>
+          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{t('plugins.title')}</h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            管理 {serverName} 的插件
+            {t('plugins.manage', { server: serverName })}
           </p>
         </div>
       </div>
@@ -200,14 +203,14 @@ export default function Plugins() {
         <div className="flex items-center justify-between rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-700 dark:bg-amber-900/20">
           <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
             <AlertTriangle size={16} />
-            插件已变更，需要重启服务器才能生效
+            {t('plugins.changed')}
           </div>
           <button
             onClick={handleRestart}
             className="flex items-center gap-1 rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
           >
             <RotateCcw size={14} />
-            重启服务器
+            {tc('actions.restart')}
           </button>
         </div>
       )}
@@ -218,7 +221,7 @@ export default function Plugins() {
         <div>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">
-              已安装 ({installedPlugins.length})
+              {t('plugins.installed', { count: installedPlugins.length })}
             </h2>
             <div className="flex gap-1">
               {(["all", "enabled", "disabled"] as const).map((f) => (
@@ -231,7 +234,7 @@ export default function Plugins() {
                       : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                   }`}
                 >
-                  {f === "all" ? "全部" : f === "enabled" ? "已启用" : "已禁用"}
+                  {f === "all" ? t('filters.all') : f === "enabled" ? t('filters.enabled') : t('filters.disabled')}
                 </button>
               ))}
             </div>
@@ -245,7 +248,7 @@ export default function Plugins() {
             <div className="rounded-lg border border-dashed border-zinc-300 py-12 text-center dark:border-zinc-700">
               <Puzzle size={32} className="mx-auto text-zinc-300 dark:text-zinc-600" />
               <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-                暂无安装插件
+                {t('plugins.empty')}
               </p>
             </div>
           ) : (
@@ -265,7 +268,7 @@ export default function Plugins() {
         {/* Right: Search & Install */}
         <div>
           <h2 className="mb-3 font-semibold text-zinc-900 dark:text-zinc-100">
-            浏览 Modrinth 插件
+            {t('plugins.browse')}
           </h2>
 
           {/* Search bar */}
@@ -273,7 +276,7 @@ export default function Plugins() {
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
             <input
               type="text"
-              placeholder="搜索插件..."
+              placeholder={t('plugins.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => {
@@ -330,17 +333,17 @@ export default function Plugins() {
                   onClick={() => handleSearch(searchQuery, searchPage + 1)}
                   className="w-full rounded-md border border-zinc-300 py-2 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
                 >
-                  加载更多
+                  {tc('actions.loadMore')}
                 </button>
               )}
             </div>
           ) : searchQuery ? (
             <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
-              未找到相关插件
+              {t('plugins.noResults')}
             </p>
           ) : (
             <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
-              在 Modrinth 搜索插件以安装
+              {t('plugins.browseHint')}
             </p>
           )}
         </div>
