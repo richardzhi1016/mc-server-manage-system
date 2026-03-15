@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { useTranslation } from "react-i18next"
 import { useNotification } from "@/hooks/useNotification"
 import { getStartupSettings, updateStartupSettings, getServers } from "@/api/client"
 import { Slider } from "@/components/ui/Slider"
@@ -6,6 +7,7 @@ import { FormInput } from "@/components/ui/FormInput"
 import { type StartupSettings as StartupSettingsType, type Server } from "@/types/api"
 
 export function StartupParams() {
+  const { t } = useTranslation("settings")
   const [serverName, setServerName] = useState("")
   const [servers, setServers] = useState<Server[]>([])
   const [settings, setSettings] = useState<StartupSettingsType>({
@@ -36,7 +38,7 @@ export function StartupParams() {
         setServerName(response.servers[0].name)
       }
     } catch {
-      notify({ type: "error", message: "Failed to load servers" })
+      notify({ type: "error", message: t("startup.loadError") })
     }
   }
 
@@ -46,7 +48,7 @@ export function StartupParams() {
       const data = await getStartupSettings(serverName)
       setSettings(data)
     } catch {
-      notify({ type: "error", message: "Failed to load startup settings" })
+      notify({ type: "error", message: t("startup.loadError") })
     } finally {
       setLoading(false)
     }
@@ -61,9 +63,9 @@ export function StartupParams() {
         max_memory: settings.max_memory,
         jvm_flags: settings.jvm_flags,
       })
-      notify({ type: "success", message: "Startup settings saved" })
+      notify({ type: "success", message: t("startup.saveSuccess") })
     } catch {
-      notify({ type: "error", message: "Failed to save settings" })
+      notify({ type: "error", message: t("startup.saveError") })
     } finally {
       setSaving(false)
     }
@@ -99,7 +101,7 @@ export function StartupParams() {
     <div className="space-y-6">
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Select Server
+          {t("startup.selectServer")}
         </label>
         <select
           value={serverName}
@@ -116,17 +118,17 @@ export function StartupParams() {
       </div>
 
       {loading ? (
-        <div className="text-center py-8 text-gray-500">Loading...</div>
+        <div className="text-center py-8 text-gray-500">{t("startup.loading")}</div>
       ) : (
         <>
           <div className="card p-6">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-              Memory Allocation
+              {t("startup.memoryAllocation")}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <Slider
-                  label="Minimum Memory"
+                  label={t("startup.minMemory")}
                   min={256}
                   max={16384}
                   step={256}
@@ -155,7 +157,7 @@ export function StartupParams() {
               </div>
               <div>
                 <Slider
-                  label="Maximum Memory"
+                  label={t("startup.maxMemory")}
                   min={512}
                   max={32768}
                   step={256}
@@ -187,12 +189,12 @@ export function StartupParams() {
 
           <div className="card p-6">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-              JVM Flags
+              {t("startup.jvmFlags")}
             </h3>
             <div className="space-y-4">
               <div className="flex gap-2">
                 <FormInput
-                  placeholder="Enter JVM flag (e.g., -XX:+UseG1GC)"
+                  placeholder={t("startup.jvmPlaceholder")}
                   value={newFlag}
                   onChange={(e) => setNewFlag(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addFlag())}
@@ -202,7 +204,7 @@ export function StartupParams() {
                   onClick={addFlag}
                   className="btn btn-secondary whitespace-nowrap"
                 >
-                  Add Flag
+                  {t("startup.addFlag")}
                 </button>
               </div>
               {settings.jvm_flags.length > 0 && (
@@ -234,7 +236,7 @@ export function StartupParams() {
               disabled={saving}
               className="btn btn-primary"
             >
-              {saving ? "Saving..." : "Save Startup Parameters"}
+              {saving ? t("startup.saving") : t("startup.save")}
             </button>
           </div>
         </>

@@ -1,9 +1,11 @@
+import { useTranslation } from "react-i18next"
 import { useTheme } from "@/context/useTheme"
 import { saveTheme } from "@/api/client"
 import { Sun, Moon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export function ThemeSettings() {
+  const { t } = useTranslation("settings")
   const { theme, toggleTheme } = useTheme()
 
   const handleThemeChange = async (newTheme: "light" | "dark") => {
@@ -19,10 +21,10 @@ export function ThemeSettings() {
     <div className="space-y-6">
       <div className="card p-6">
         <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-          Appearance
+          {t("theme.title")}
         </h3>
         <p className="text-gray-500 dark:text-gray-400 mb-6">
-          Choose your preferred theme for the interface
+          {t("theme.description")}
         </p>
 
         <div className="grid grid-cols-2 gap-4">
@@ -42,7 +44,7 @@ export function ThemeSettings() {
                 <Sun className="w-6 h-6 text-amber-500" />
               </div>
               <span className="text-sm font-medium text-gray-900 dark:text-white">
-                Light
+                {t("theme.light")}
               </span>
             </div>
             {theme === "light" && (
@@ -66,7 +68,7 @@ export function ThemeSettings() {
                 <Moon className="w-6 h-6 text-indigo-400" />
               </div>
               <span className="text-sm font-medium text-gray-900 dark:text-white">
-                Dark
+                {t("theme.dark")}
               </span>
             </div>
             {theme === "dark" && (
@@ -78,10 +80,10 @@ export function ThemeSettings() {
 
       <div className="card p-6">
         <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-          System Preference
+          {t("theme.systemPref")}
         </h3>
         <p className="text-gray-500 dark:text-gray-400">
-          If you don't select a theme, the interface will follow your system's color scheme preference.
+          {t("theme.systemPrefDesc")}
         </p>
       </div>
     </div>

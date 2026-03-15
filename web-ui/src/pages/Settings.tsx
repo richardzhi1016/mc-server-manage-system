@@ -1,4 +1,5 @@
-import { useState } from "react"
+import React, { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Settings, Cpu, FileText, Clock, Palette } from "lucide-react"
 import { StartupParams } from "@/components/settings/StartupParams"
 import { ServerProperties } from "@/components/settings/ServerProperties"
@@ -8,22 +9,24 @@ import { cn } from "@/lib/utils"
 
 type SettingsTab = "startup" | "properties" | "scheduler" | "theme"
 
-const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
-  { id: "startup", label: "Startup", icon: <Cpu className="w-5 h-5" /> },
-  { id: "properties", label: "Server Properties", icon: <FileText className="w-5 h-5" /> },
-  { id: "scheduler", label: "Scheduled Tasks", icon: <Clock className="w-5 h-5" /> },
-  { id: "theme", label: "Theme", icon: <Palette className="w-5 h-5" /> },
-]
-
 export default function SettingsPage() {
+  const { t } = useTranslation("settings")
+  const { t: tCommon } = useTranslation("common")
   const [activeTab, setActiveTab] = useState<SettingsTab>("startup")
+
+  const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
+    { id: "startup", label: t("tabs.startup"), icon: <Cpu className="w-5 h-5" /> },
+    { id: "properties", label: t("tabs.properties"), icon: <FileText className="w-5 h-5" /> },
+    { id: "scheduler", label: t("tabs.tasks"), icon: <Clock className="w-5 h-5" /> },
+    { id: "theme", label: t("tabs.theme"), icon: <Palette className="w-5 h-5" /> },
+  ]
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Settings className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Settings
+          {tCommon("nav.settings")}
         </h1>
       </div>
 

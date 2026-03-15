@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { useTranslation } from "react-i18next"
 import { useNotification } from "@/hooks/useNotification"
 import { getServerProperties, updateServerProperties, getServers } from "@/api/client"
 import { FormInput } from "@/components/ui/FormInput"
@@ -6,6 +7,7 @@ import { FormToggle } from "@/components/ui/FormToggle"
 import { type Server, type ServerPropertySchema } from "@/types/api"
 
 export function ServerProperties() {
+  const { t } = useTranslation("settings")
   const [serverName, setServerName] = useState("")
   const [servers, setServers] = useState<Server[]>([])
   const [properties, setProperties] = useState<Record<string, string>>({})
@@ -33,7 +35,7 @@ export function ServerProperties() {
         setServerName(response.servers[0].name)
       }
     } catch {
-      notify({ type: "error", message: "Failed to load servers" })
+      notify({ type: "error", message: t("properties.loadServersError") })
     }
   }
 
@@ -44,7 +46,7 @@ export function ServerProperties() {
       setProperties(data.properties || {})
       setSchema(data.schema || {})
     } catch {
-      notify({ type: "error", message: "Failed to load server properties" })
+      notify({ type: "error", message: t("properties.loadError") })
     } finally {
       setLoading(false)
       setHasChanges(false)
@@ -66,10 +68,10 @@ export function ServerProperties() {
         server_name: serverName,
         properties,
       })
-      notify({ type: "success", message: "Server properties saved" })
+      notify({ type: "success", message: t("properties.saveSuccess") })
       setHasChanges(false)
     } catch {
-      notify({ type: "error", message: "Failed to save server properties" })
+      notify({ type: "error", message: t("properties.saveError") })
     } finally {
       setSaving(false)
     }
@@ -77,7 +79,7 @@ export function ServerProperties() {
 
   const handleReset = () => {
     loadProperties()
-    notify({ type: "info", message: "Changes reset to last saved state" })
+    notify({ type: "info", message: t("properties.resetInfo") })
   }
 
   const renderPropertyInput = (key: string, field: ServerPropertySchema) => {
@@ -133,7 +135,7 @@ export function ServerProperties() {
     <div className="space-y-6">
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Select Server
+          {t("properties.selectServer")}
         </label>
         <select
           value={serverName}
@@ -150,13 +152,13 @@ export function ServerProperties() {
       </div>
 
       {loading ? (
-        <div className="text-center py-8 text-gray-500">Loading...</div>
+        <div className="text-center py-8 text-gray-500">{t("properties.loading")}</div>
       ) : (
         <>
           {booleanFields.length > 0 && (
             <div className="card p-6">
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                Boolean Settings
+                {t("properties.booleanSettings")}
               </h3>
               <div className="space-y-4">
                 {booleanFields.map(([key, field]) => (
@@ -171,7 +173,7 @@ export function ServerProperties() {
           {selectFields.length > 0 && (
             <div className="card p-6">
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                Game Mode & Settings
+                {t("properties.gameModeSettings")}
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {selectFields.map(([key, field]) => (
@@ -189,7 +191,7 @@ export function ServerProperties() {
           {numberFields.length > 0 && (
             <div className="card p-6">
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                Network & Limits
+                {t("properties.networkLimits")}
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {numberFields.map(([key, field]) => (
@@ -207,7 +209,7 @@ export function ServerProperties() {
           {textFields.length > 0 && (
             <div className="card p-6">
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                Server Information
+                {t("properties.serverInfo")}
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {textFields.map(([key, field]) => (
@@ -229,7 +231,7 @@ export function ServerProperties() {
               disabled={!hasChanges || saving}
               className="btn btn-secondary"
             >
-              Reset to Current
+              {t("properties.resetToCurrent")}
             </button>
             <button
               type="button"
@@ -237,7 +239,7 @@ export function ServerProperties() {
               disabled={!hasChanges || saving}
               className="btn btn-primary"
             >
-              {saving ? "Saving..." : "Save Server Properties"}
+              {saving ? t("properties.saving") : t("properties.save")}
             </button>
           </div>
         </>
