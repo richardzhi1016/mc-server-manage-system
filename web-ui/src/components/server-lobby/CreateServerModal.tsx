@@ -178,11 +178,12 @@ export const CreateServerModal = React.memo(function CreateServerModal({
 
             try {
                 const isFabric = selectedType === 'Fabric'
+                const isPaper = selectedType === 'Paper'
                 await onCreateServer({
                     type: selectedType,
                     name: serverName,
                     version: selectedVersion,
-                    version_url: isFabric ? undefined : versionsMap.get(selectedVersion),
+                    version_url: (!isFabric && !isPaper) ? versionsMap.get(selectedVersion) : undefined,
                     loader_version: isFabric ? selectedLoaderVersion : undefined,
                     installer_version: isFabric ? selectedInstallerVersion : undefined,
                 })
