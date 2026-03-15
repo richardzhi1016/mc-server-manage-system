@@ -249,7 +249,18 @@
     },
     "toast": {
       "uploadSuccess": "服务器包上传成功",
-      "createSuccess": "服务器创建成功"
+      "createSuccess": "服务器创建成功",
+      "uploadError": "上传服务器包失败",
+      "createError": "创建服务器失败",
+      "configError": "配置服务器属性失败",
+      "fileTypeError": "请上传 .7z 或 .7zip 文件"
+    },
+    "validation": {
+      "nameRequired": "请输入服务器名称",
+      "nameLength": "名称不能超过 50 个字符",
+      "nameSpaceError": "名称不能包含空格",
+      "maxPlayersRange": "最大玩家数须介于 1 到 100 之间",
+      "portRange": "端口须介于 1024 到 65535 之间"
     },
     "lobby": {
       "title": "仪表盘",

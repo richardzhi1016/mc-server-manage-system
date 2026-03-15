@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { FormInput } from '@/components/ui/FormInput'
@@ -84,7 +85,7 @@ export default function ServerCreate() {
 
   const processFile = async (file: File) => {
     if (file.type !== 'application/x-7z-compressed' && !file.name.endsWith('.7z') && !file.name.endsWith('.7zip')) {
-      showNotification('error', 'Please upload a .7z or .7zip file')
+      showNotification('error', t('toast.fileTypeError'))
       return
     }
 
@@ -102,7 +103,7 @@ export default function ServerCreate() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to upload server package')
+        throw new Error(errorData.error || t('toast.uploadError'))
       }
 
         await response.json()
@@ -120,7 +121,7 @@ export default function ServerCreate() {
       setCurrentStep('config')
 
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to upload file'
+      const message = error instanceof Error ? error.message : t('toast.uploadError')
       showNotification('error', message)
     } finally {
       setIsLoading(false)
@@ -150,17 +151,17 @@ export default function ServerCreate() {
     }
   }
 
-  const validateConfig = (): string | null => {
-    if (!config.name.trim()) return 'Server name is required'
-    if (config.name.length < 3) return 'Server name must be at least 3 characters'
-    if (config.name.includes(' ')) return 'Server name cannot contain spaces'
-    if (config.maxPlayers < 1 || config.maxPlayers > 100) return 'Max players must be between 1 and 100'
-    if (config.port < 1024 || config.port > 65535) return 'Port must be between 1024 and 65535'
+  const validateConfig = (t: TFunction): string | null => {
+    if (!config.name.trim()) return t('validation.nameRequired')
+    if (config.name.length > 50) return t('validation.nameLength')
+    if (config.name.includes(' ')) return t('validation.nameSpaceError')
+    if (config.maxPlayers < 1 || config.maxPlayers > 100) return t('validation.maxPlayersRange')
+    if (config.port < 1024 || config.port > 65535) return t('validation.portRange')
     return null
   }
 
   const handleCreateServer = async () => {
-    const validationError = validateConfig()
+    const validationError = validateConfig(t)
     if (validationError) {
       showNotification('error', validationError)
       return
@@ -190,7 +191,7 @@ export default function ServerCreate() {
 
         if (!propertiesResponse.ok) {
           const errorData = await propertiesResponse.json()
-          throw new Error(errorData.error || 'Failed to configure server properties')
+          throw new Error(errorData.error || t('toast.configError'))
         }
 
       } else if (creationMethod === 'auto') {
@@ -212,7 +213,7 @@ export default function ServerCreate() {
 
         if (!createResponse.ok) {
           const errorData = await createResponse.json()
-          throw new Error(errorData.error || 'Failed to create server')
+          throw new Error(errorData.error || t('toast.createError'))
         }
 
         await createResponse.json()
@@ -224,7 +225,7 @@ export default function ServerCreate() {
       navigate('/panel')
 
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to create server'
+      const message = error instanceof Error ? error.message : t('toast.createError')
       showNotification('error', message)
     } finally {
       setIsLoading(false)
@@ -342,7 +343,7 @@ export default function ServerCreate() {
           value={config.name}
           onChange={(e) => setConfig(prev => ({ ...prev, name: e.target.value }))}
           placeholder="my-awesome-server"
-          error={config.name && config.name.includes(' ') ? '不能包含空格' : undefined}
+          error={config.name && config.name.includes(' ') ? t('validation.nameSpaceError') : undefined}
         />
 
         <FormInput

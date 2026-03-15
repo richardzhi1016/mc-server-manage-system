@@ -249,7 +249,18 @@
     },
     "toast": {
       "uploadSuccess": "Server package uploaded successfully",
-      "createSuccess": "Server created successfully"
+      "createSuccess": "Server created successfully",
+      "uploadError": "Failed to upload server package",
+      "createError": "Failed to create server",
+      "configError": "Failed to configure server properties",
+      "fileTypeError": "Please upload a .7z or .7zip file"
+    },
+    "validation": {
+      "nameRequired": "Server name is required",
+      "nameLength": "Name cannot exceed 50 characters",
+      "nameSpaceError": "Name cannot contain spaces",
+      "maxPlayersRange": "Max players must be between 1 and 100",
+      "portRange": "Port must be between 1024 and 65535"
     },
     "lobby": {
       "title": "Dashboard",
