@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { useTranslation } from "react-i18next"
+import { currentLocale } from "@/i18n/locale"
 import { useNotification } from "@/hooks/useNotification"
 import {
   listScheduledTasks,
@@ -78,12 +79,12 @@ export function ScheduledTasks() {
   }
 
   const formatNextRun = (isoString: string | undefined) => {
-    if (!isoString) return "Unknown"
+    if (!isoString) return t("tasks.nextUnknown")
     try {
       const date = new Date(isoString)
-      return date.toLocaleString()
+      return date.toLocaleString(currentLocale())
     } catch {
-      return "Unknown"
+      return t("tasks.nextUnknown")
     }
   }
 
