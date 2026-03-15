@@ -7,7 +7,6 @@ interface DiskStatusCardProps {
   used: number
   total: number
   trend?: 'up' | 'down' | 'stable'
-  trendValue?: string
 }
 
 export function DiskStatusCard({ used, total, trend }: DiskStatusCardProps) {

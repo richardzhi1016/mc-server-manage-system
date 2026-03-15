@@ -23,8 +23,8 @@ const METRIC_STATIC: Record<string, { color: string; gradientId: string; unit?: 
 
 function CustomTooltip({ active, payload, label, metric }: {
   active?: boolean
-  payload?: Array<{ value: number; dataKey: string }>
-  label?: string
+  payload?: ReadonlyArray<{ value: number; dataKey: string }>
+  label?: string | number
   metric: 'cpu' | 'memory' | 'players'
 }) {
   const { t } = useTranslation('dashboard')
@@ -154,12 +154,7 @@ export function ResourceChart({
                 domain={[0, 'auto']}
               />
               <Tooltip
-                content={
-                  <CustomTooltip
-                    payload={[{ value: 0, dataKey: staticCfg.dataKey }]}
-                    metric={selectedMetric}
-                  />
-                }
+                content={(props) => <CustomTooltip {...props} metric={selectedMetric} />}
                 labelFormatter={formatXAxis}
               />
               <Area
