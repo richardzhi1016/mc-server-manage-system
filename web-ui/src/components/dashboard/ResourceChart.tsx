@@ -8,6 +8,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { useTranslation } from 'react-i18next'
+import { currentLocale } from '@/i18n/locale'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
@@ -69,7 +70,7 @@ export function ResourceChart({
 
   const formatXAxis = (value: string) => {
     const date = new Date(value)
-    return date.toLocaleTimeString(undefined, {
+    return date.toLocaleTimeString(currentLocale(), {
       hour: '2-digit',
       minute: '2-digit',
     })

@@ -13,6 +13,7 @@ import { currentLocale } from '@/i18n/locale'
 
 export default function Dashboard() {
   const { t } = useTranslation('dashboard')
+  const { t: tc } = useTranslation('common')
   const navigate = useNavigate()
   const { serverName: selectedServerName } = useParams<{ serverName: string }>()
   const { metrics, history, isLoading, error, lastUpdated, refresh } = useServerMetrics(selectedServerName)
@@ -86,13 +87,13 @@ export default function Dashboard() {
             <CpuStatusCard
               usage={metrics.cpu}
               trend="stable"
-              trendValue="较稳定"
+              trendValue={tc('status.stable')}
             />
             <MemoryStatusCard
               used={metrics.memory_used}
               total={metrics.memory_total}
               trend="stable"
-              trendValue="较稳定"
+              trendValue={tc('status.stable')}
             />
             <PlayersStatusCard
               online={metrics.players_online}
