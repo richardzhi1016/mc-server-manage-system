@@ -16,23 +16,10 @@ i18next
       caches: ['localStorage'],
       lookupLocalStorage: 'i18nextLng',
     },
+    ns: ['common', 'dashboard', 'players', 'servers', 'mods', 'backups'],
     resources: {
-      'zh-CN': {
-        common: zhCN.common,
-        dashboard: zhCN.dashboard,
-        players: zhCN.players,
-        servers: zhCN.servers,
-        mods: zhCN.mods,
-        backups: zhCN.backups,
-      },
-      'en-US': {
-        common: enUS.common,
-        dashboard: enUS.dashboard,
-        players: enUS.players,
-        servers: enUS.servers,
-        mods: enUS.mods,
-        backups: enUS.backups,
-      },
+      'zh-CN': zhCN,
+      'en-US': enUS,
     },
     defaultNS: 'common',
     interpolation: {
