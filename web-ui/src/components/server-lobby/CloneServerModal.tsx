@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { X, Copy, AlertTriangle, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { getNextAvailablePort } from '@/api/client'
 import type { LobbyServer } from './LobbyServerCard'
 
@@ -16,6 +17,7 @@ export const CloneServerModal = React.memo(function CloneServerModal({
     onClone,
     sourceServer,
 }: CloneServerModalProps) {
+    const { t } = useTranslation('servers')
     const [newName, setNewName] = useState('')
     const [newPort, setNewPort] = useState(25566)
     const [isCloning, setIsCloning] = useState(false)
@@ -39,16 +41,16 @@ export const CloneServerModal = React.memo(function CloneServerModal({
 
     const validateName = useCallback((name: string): string | null => {
         const trimmed = name.trim()
-        if (!trimmed) return 'Server name is required'
-        if (/[<>:"/\\|?*\s]/.test(trimmed)) return 'Name contains invalid characters (no spaces or special chars)'
+        if (!trimmed) return t('cloneModal.nameRequired')
+        if (/[<>:"/\\|?*\s]/.test(trimmed)) return t('cloneModal.nameInvalidChars')
         return null
-    }, [])
+    }, [t])
 
     const validatePort = useCallback((port: number): string | null => {
-        if (isNaN(port)) return 'Port must be a number'
-        if (port < 1024 || port > 65535) return 'Port must be between 1024 and 65535'
+        if (isNaN(port)) return t('cloneModal.portMustBeNumber')
+        if (port < 1024 || port > 65535) return t('cloneModal.portRange')
         return null
-    }, [])
+    }, [t])
 
     const handleClone = useCallback(async () => {
         if (!sourceServer || isCloning) return
@@ -74,7 +76,7 @@ export const CloneServerModal = React.memo(function CloneServerModal({
             if (err instanceof Error) {
                 setError(err.message)
             } else {
-                setError('Clone failed. Please try again.')
+                setError(t('cloneModal.cloneFailed'))
             }
         } finally {
             setIsCloning(false)
@@ -98,7 +100,7 @@ export const CloneServerModal = React.memo(function CloneServerModal({
                             <Copy size={18} />
                         </div>
                         <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
-                            Clone Server
+                            {t('cloneModal.title')}
                         </h2>
                     </div>
                     <button
@@ -114,7 +116,7 @@ export const CloneServerModal = React.memo(function CloneServerModal({
                     {/* Source server info */}
                     <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
                         <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                            Source Server
+                            {t('cloneModal.sourceServer')}
                         </p>
                         <p className="font-semibold text-slate-800 dark:text-slate-100">
                             {sourceServer.name}
@@ -129,7 +131,7 @@ export const CloneServerModal = React.memo(function CloneServerModal({
                         <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-xl p-3">
                             <AlertTriangle size={18} className="text-amber-500 dark:text-amber-400 mt-0.5 shrink-0" />
                             <p className="text-sm text-amber-700 dark:text-amber-300">
-                                Server is running. World data in the clone may be inconsistent.
+                                {t('cloneModal.runningWarning')}
                             </p>
                         </div>
                     )}
@@ -137,7 +139,7 @@ export const CloneServerModal = React.memo(function CloneServerModal({
                     {/* New server name */}
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                            New Server Name
+                            {t('cloneModal.newServerName')}
                         </label>
                         <input
                             type="text"
@@ -146,7 +148,7 @@ export const CloneServerModal = React.memo(function CloneServerModal({
                                 setNewName(e.target.value)
                                 setError(null)
                             }}
-                            placeholder="my-server-clone"
+                            placeholder={t('cloneModal.newServerNamePlaceholder')}
                             className="w-full px-3 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-colors text-sm"
                             disabled={isCloning}
                         />
@@ -155,7 +157,7 @@ export const CloneServerModal = React.memo(function CloneServerModal({
                     {/* Port */}
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                            Port
+                            {t('cloneModal.port')}
                         </label>
                         <input
                             type="number"
@@ -165,7 +167,7 @@ export const CloneServerModal = React.memo(function CloneServerModal({
                                 setNewPort(isNaN(parsed) ? 0 : parsed)
                                 setError(null)
                             }}
-                            placeholder={isLoadingPort ? 'Loading...' : '25565'}
+                            placeholder={isLoadingPort ? t('cloneModal.portLoading') : t('cloneModal.portPlaceholder')}
                             min={1024}
                             max={65535}
                             className="w-full px-3 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-colors text-sm"
@@ -188,7 +190,7 @@ export const CloneServerModal = React.memo(function CloneServerModal({
                         disabled={isCloning}
                         className="cursor-pointer px-4 py-2.5 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
                     >
-                        Cancel
+                        {t('cloneModal.cancel')}
                     </button>
                     <button
                         onClick={handleClone}
@@ -198,12 +200,12 @@ export const CloneServerModal = React.memo(function CloneServerModal({
                         {isCloning ? (
                             <>
                                 <Loader2 size={16} className="animate-spin" />
-                                Cloning...
+                                {t('cloneModal.cloning')}
                             </>
                         ) : (
                             <>
                                 <Copy size={16} />
-                                Clone Server
+                                {t('cloneModal.clone')}
                             </>
                         )}
                     </button>

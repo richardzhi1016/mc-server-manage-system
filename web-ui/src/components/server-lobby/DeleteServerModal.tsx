@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react'
 import { X, Trash2, AlertTriangle, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { LobbyServer } from './LobbyServerCard'
 
 interface DeleteServerModalProps {
@@ -15,6 +16,7 @@ export const DeleteServerModal = React.memo(function DeleteServerModal({
     onDelete,
     server,
 }: DeleteServerModalProps) {
+    const { t } = useTranslation('servers')
     const [isDeleting, setIsDeleting] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
@@ -30,11 +32,11 @@ export const DeleteServerModal = React.memo(function DeleteServerModal({
             if (err instanceof Error) {
                 setError(err.message)
             } else {
-                setError('Failed to delete server. Please try again.')
+                setError(t('deleteModal.deleteFailed'))
             }
             setIsDeleting(false)
         }
-    }, [server, isDeleting, onDelete])
+    }, [server, isDeleting, onDelete, t])
 
     if (!isOpen || !server) return null
 
@@ -53,7 +55,7 @@ export const DeleteServerModal = React.memo(function DeleteServerModal({
                             <Trash2 size={18} />
                         </div>
                         <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
-                            Delete Server
+                            {t('deleteModal.title')}
                         </h2>
                     </div>
                     <button
@@ -69,7 +71,7 @@ export const DeleteServerModal = React.memo(function DeleteServerModal({
                     {/* Server info */}
                     <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
                         <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                            Server
+                            {t('deleteModal.server')}
                         </p>
                         <p className="font-semibold text-slate-800 dark:text-slate-100">
                             {server.name}
@@ -83,7 +85,7 @@ export const DeleteServerModal = React.memo(function DeleteServerModal({
                     <div className="flex items-start gap-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/50 rounded-xl p-3">
                         <AlertTriangle size={18} className="text-red-500 dark:text-red-400 mt-0.5 shrink-0" />
                         <p className="text-sm text-red-700 dark:text-red-300">
-                            This will permanently delete all server files, worlds, and configurations. This action cannot be undone.
+                            {t('deleteModal.permanentWarning')}
                         </p>
                     </div>
 
@@ -92,7 +94,7 @@ export const DeleteServerModal = React.memo(function DeleteServerModal({
                         <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-xl p-3">
                             <AlertTriangle size={18} className="text-amber-500 dark:text-amber-400 mt-0.5 shrink-0" />
                             <p className="text-sm text-amber-700 dark:text-amber-300">
-                                Server is currently running. You must stop it before deleting.
+                                {t('deleteModal.runningWarning')}
                             </p>
                         </div>
                     )}
@@ -112,7 +114,7 @@ export const DeleteServerModal = React.memo(function DeleteServerModal({
                         disabled={isDeleting}
                         className="cursor-pointer px-4 py-2.5 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
                     >
-                        Cancel
+                        {t('deleteModal.cancel')}
                     </button>
                     <button
                         onClick={handleDelete}
@@ -122,12 +124,12 @@ export const DeleteServerModal = React.memo(function DeleteServerModal({
                         {isDeleting ? (
                             <>
                                 <Loader2 size={16} className="animate-spin" />
-                                Deleting...
+                                {t('deleteModal.deleting')}
                             </>
                         ) : (
                             <>
                                 <Trash2 size={16} />
-                                Delete Server
+                                {t('deleteModal.delete')}
                             </>
                         )}
                     </button>

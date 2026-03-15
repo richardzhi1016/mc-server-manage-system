@@ -272,6 +272,72 @@
       "createFail": "创建服务器失败，请重试。",
       "cloneSuccess": "服务器 \"{{name}}\" 克隆成功！",
       "deleteSuccess": "服务器 \"{{name}}\" 已删除。"
+    },
+    "addCard": {
+      "createNew": "创建新服务器"
+    },
+    "card": {
+      "clone": "克隆",
+      "delete": "删除"
+    },
+    "createModal": {
+      "stepOf": "第 {{step}} 步，共 3 步",
+      "selectCategory": "选择类型",
+      "selectSoftware": "选择 {{category}} 软件",
+      "configure": "配置服务器",
+      "categories": {
+        "official": "官方",
+        "officialDesc": "标准原版体验",
+        "plugins": "插件",
+        "pluginsDesc": "针对插件优化 (Spigot/Paper)",
+        "mods": "模组",
+        "modsDesc": "适合模组包 (Forge/Fabric)"
+      },
+      "types": {
+        "vanillaDesc": "来自 Mojang 的原版 Minecraft 服务器软件",
+        "paperDesc": "高性能 Spigot 分支，支持插件",
+        "forgeDesc": "最流行的重型模组包加载器",
+        "fabricDesc": "轻量、模块化、快速的模组加载器"
+      },
+      "serverName": "服务器名称",
+      "serverNamePlaceholder": "如 我的生存世界",
+      "minecraftVersion": "Minecraft 版本",
+      "fabricLoaderVersion": "Fabric Loader 版本",
+      "fabricInstallerVersion": "Fabric Installer 版本",
+      "stableOnly": "仅显示稳定版本",
+      "eulaText": "我同意 Minecraft 最终用户许可协议 (EULA)。",
+      "eulaNote": "运行服务器必须同意 EULA。",
+      "downloading": "下载中... {{progress}}%",
+      "createServer": "创建服务器",
+      "retry": "重试"
+    },
+    "cloneModal": {
+      "title": "克隆服务器",
+      "sourceServer": "源服务器",
+      "runningWarning": "服务器正在运行，克隆的存档数据可能不一致。",
+      "newServerName": "新服务器名称",
+      "newServerNamePlaceholder": "my-server-clone",
+      "port": "端口",
+      "portPlaceholder": "25565",
+      "portLoading": "加载中...",
+      "cancel": "取消",
+      "cloning": "克隆中...",
+      "clone": "克隆服务器",
+      "nameRequired": "服务器名称不能为空",
+      "nameInvalidChars": "名称包含无效字符（不允许空格或特殊字符）",
+      "portMustBeNumber": "端口必须是数字",
+      "portRange": "端口须介于 1024 到 65535 之间",
+      "cloneFailed": "克隆失败，请重试。"
+    },
+    "deleteModal": {
+      "title": "删除服务器",
+      "server": "服务器",
+      "permanentWarning": "此操作将永久删除所有服务器文件、世界和配置，无法撤销。",
+      "runningWarning": "服务器正在运行，必须先停止才能删除。",
+      "cancel": "取消",
+      "deleting": "删除中...",
+      "delete": "删除服务器",
+      "deleteFailed": "删除服务器失败，请重试。"
     }
   },
   "mods": {
@@ -364,6 +430,96 @@
       "delete": "删除失败",
       "createFolder": "创建文件夹失败",
       "upload": "上传失败"
+    }
+  },
+  "settings": {
+    "tabs": {
+      "startup": "启动参数",
+      "properties": "服务器属性",
+      "tasks": "计划任务",
+      "theme": "主题"
+    },
+    "startup": {
+      "title": "启动参数",
+      "selectServer": "选择服务器",
+      "memoryAllocation": "内存分配",
+      "minMemory": "最小内存",
+      "maxMemory": "最大内存",
+      "jvmFlags": "JVM 参数",
+      "jvmPlaceholder": "输入 JVM 参数 (如 -XX:+UseG1GC)",
+      "addFlag": "添加参数",
+      "saving": "保存中...",
+      "save": "保存启动参数",
+      "saveSuccess": "启动参数已保存",
+      "saveError": "保存设置失败",
+      "loadError": "加载服务器失败",
+      "loading": "加载中..."
+    },
+    "properties": {
+      "title": "服务器属性",
+      "selectServer": "选择服务器",
+      "loading": "加载中...",
+      "saving": "保存中...",
+      "save": "保存服务器属性",
+      "saveSuccess": "服务器属性已保存",
+      "saveError": "保存服务器属性失败",
+      "loadError": "加载服务器属性失败",
+      "loadServersError": "加载服务器失败",
+      "description": "直接编辑服务器属性文件",
+      "booleanSettings": "布尔设置",
+      "gameModeSettings": "游戏模式与设置",
+      "networkLimits": "网络与限制",
+      "serverInfo": "服务器信息",
+      "resetToCurrent": "重置为当前值",
+      "resetInfo": "已重置为上次保存的状态"
+    },
+    "tasks": {
+      "title": "计划任务",
+      "add": "添加任务",
+      "empty": "暂无计划任务",
+      "emptyDesc": "点击「添加任务」创建第一个计划任务",
+      "command": "命令",
+      "commandPlaceholder": "输入服务器命令",
+      "interval": "间隔（分钟）",
+      "enabled": "启用",
+      "disabled": "禁用",
+      "save": "保存",
+      "cancel": "取消",
+      "delete": "删除",
+      "saveSuccess": "计划任务已保存",
+      "saveError": "保存计划任务失败",
+      "loadError": "加载计划任务失败",
+      "deleteSuccess": "计划任务已删除",
+      "deleteError": "删除计划任务失败",
+      "loading": "加载任务中...",
+      "noTasks": "暂无计划任务",
+      "noTasksDesc": "点击「添加任务」创建计划任务",
+      "createTask": "创建计划任务",
+      "taskType": "任务类型",
+      "hour": "小时 (0-23)",
+      "minute": "分钟 (0-59)",
+      "frequency": "频率",
+      "daysOfWeek": "星期",
+      "typeRestart": "重启服务器",
+      "typeBackup": "创建备份",
+      "daily": "每天",
+      "weekly": "每周",
+      "weekly_on": "每周 {{days}}",
+      "at": "于",
+      "next": "下次：{{time}}",
+      "nextUnknown": "未知",
+      "creating": "创建中...",
+      "createSuccess": "任务创建成功",
+      "createError": "创建任务失败",
+      "updateError": "更新任务失败"
+    },
+    "theme": {
+      "title": "外观",
+      "description": "选择您偏好的界面主题",
+      "light": "浅色",
+      "dark": "深色",
+      "systemPref": "系统偏好",
+      "systemPrefDesc": "如果您未选择主题，界面将跟随系统颜色方案。"
     }
   }
 }

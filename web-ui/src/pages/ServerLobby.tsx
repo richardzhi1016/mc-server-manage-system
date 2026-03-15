@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Moon, Sun } from 'lucide-react'
 import { io, Socket } from 'socket.io-client'
+import { useTranslation } from 'react-i18next'
 import { getServers, createServer, cloneServer, deleteServer, getNextAvailablePort } from '@/api/client'
 import { API_BASE_URL } from '@/lib/api'
 import { useServerStore } from '@/store/useServerStore'
@@ -17,6 +18,7 @@ import { useMinecraftVersions } from '@/hooks/useMinecraftVersions'
 import { useToast } from '@/components/ui/Toast'
 
 export default function ServerLobby() {
+  const { t } = useTranslation('servers')
   const { setServers: setStoreServers } = useServerStore()
   const [servers, setServers] = useState<LobbyServer[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -120,13 +122,13 @@ export default function ServerLobby() {
       }
       setServers(prev => [...prev, newServer])
       setCreateModalOpen(false)
-      showToast('success', `Server "${data.name}" created successfully!`)
+      showToast('success', t('lobby.createSuccess', { name: data.name }))
     } catch (error) {
       console.error('Failed to create server:', error)
-      showToast('error', 'Failed to create server. Please try again.')
+      showToast('error', t('lobby.createFail'))
       throw error // Re-throw to let modal know creation failed
     }
-  }, [showToast])
+  }, [showToast, t])
 
   const handleOpenCloneModal = useCallback((server: LobbyServer) => {
     setCloneSourceServer(server)
@@ -166,13 +168,13 @@ export default function ServerLobby() {
       if (response.warning) {
         showToast('warning', response.warning)
       }
-      showToast('success', `Server "${newName}" cloned successfully!`)
+      showToast('success', t('lobby.cloneSuccess', { name: newName }))
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { error?: string } } }
       const serverMessage = axiosError?.response?.data?.error
       throw new Error(serverMessage || 'Clone failed. Please try again.')
     }
-  }, [showToast])
+  }, [showToast, t])
 
   const handleOpenDeleteModal = useCallback((server: LobbyServer) => {
     setDeleteTargetServer(server)
@@ -190,13 +192,13 @@ export default function ServerLobby() {
       setServers(prev => prev.filter(s => s.name !== serverName))
       setDeleteModalOpen(false)
       setDeleteTargetServer(null)
-      showToast('success', `Server "${serverName}" deleted successfully!`)
+      showToast('success', t('lobby.deleteSuccess', { name: serverName }))
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { error?: string } } }
       const serverMessage = axiosError?.response?.data?.error
       throw new Error(serverMessage || 'Failed to delete server. Please try again.')
     }
-  }, [showToast])
+  }, [showToast, t])
 
   const toggleDarkMode = useCallback(() => {
     setIsDarkMode(prev => !prev)
@@ -207,8 +209,8 @@ export default function ServerLobby() {
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-end mb-8">
           <div>
-            <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight transition-colors">Dashboard</h1>
-            <p className="text-slate-500 dark:text-slate-400 mt-1 transition-colors">Manage your Minecraft server instances</p>
+            <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight transition-colors">{t('lobby.title')}</h1>
+            <p className="text-slate-500 dark:text-slate-400 mt-1 transition-colors">{t('lobby.subtitle')}</p>
           </div>
           <div className="hidden sm:flex items-center gap-4">
             <button
@@ -221,7 +223,7 @@ export default function ServerLobby() {
 
             <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm transition-colors">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-              System Normal
+              {t('lobby.systemNormal')}
             </div>
           </div>
         </div>
@@ -242,12 +244,12 @@ export default function ServerLobby() {
           ) : error ? (
             // Error state
             <div className="col-span-full text-center py-12">
-              <p className="text-red-500 dark:text-red-400 mb-4">{error}</p>
+              <p className="text-red-500 dark:text-red-400 mb-4">{t('lobby.loadError')}</p>
               <button
                 onClick={() => window.location.reload()}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
-                Retry
+                {t('lobby.retry')}
               </button>
             </div>
           ) : (

@@ -1,11 +1,13 @@
 import React from 'react'
 import { Plus } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface AddServerCardProps {
     onClick: () => void
 }
 
 export const AddServerCard = React.memo(function AddServerCard({ onClick }: AddServerCardProps) {
+    const { t } = useTranslation('servers')
     return (
         <button
             onClick={onClick}
@@ -14,7 +16,7 @@ export const AddServerCard = React.memo(function AddServerCard({ onClick }: AddS
             <div className="w-14 h-14 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 group-hover:bg-white dark:group-hover:bg-slate-700 group-hover:border-blue-200 dark:group-hover:border-blue-700 group-hover:shadow-md flex items-center justify-center transition-all duration-200">
                 <Plus size={28} />
             </div>
-            <span className="font-semibold">Create New Server</span>
+            <span className="font-semibold">{t('addCard.createNew')}</span>
         </button>
     )
 })

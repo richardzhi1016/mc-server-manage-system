@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Server as ServerIcon, MoreVertical, Copy, Trash2 } from 'lucide-react'
 import { StatusBadge } from './StatusBadge'
 import { TypeBadge, type ServerType } from './TypeBadge'
@@ -21,6 +22,7 @@ interface LobbyServerCardProps {
 
 export const LobbyServerCard = React.memo(function LobbyServerCard({ server, onClone, onDelete }: LobbyServerCardProps) {
     const navigate = useNavigate()
+    const { t } = useTranslation('servers')
     const [isMenuOpen, setIsMenuOpen] = useState(false)
     const menuRef = useRef<HTMLDivElement>(null)
 
@@ -97,7 +99,7 @@ export const LobbyServerCard = React.memo(function LobbyServerCard({ server, onC
                                     className="cursor-pointer w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
                                 >
                                     <Copy size={14} />
-                                    Clone
+                                    {t('card.clone')}
                                 </button>
                                 <div className="my-1 border-t border-slate-200 dark:border-slate-600" />
                                 <button
@@ -105,7 +107,7 @@ export const LobbyServerCard = React.memo(function LobbyServerCard({ server, onC
                                     className="cursor-pointer w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                                 >
                                     <Trash2 size={14} />
-                                    Delete
+                                    {t('card.delete')}
                                 </button>
                             </div>
                         )}

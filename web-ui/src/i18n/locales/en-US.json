@@ -272,6 +272,72 @@
       "createFail": "Failed to create server. Please try again.",
       "cloneSuccess": "Server \"{{name}}\" cloned successfully!",
       "deleteSuccess": "Server \"{{name}}\" deleted."
+    },
+    "addCard": {
+      "createNew": "Create New Server"
+    },
+    "card": {
+      "clone": "Clone",
+      "delete": "Delete"
+    },
+    "createModal": {
+      "stepOf": "Step {{step}} of 3",
+      "selectCategory": "Select Category",
+      "selectSoftware": "Select {{category}} Software",
+      "configure": "Configure Server",
+      "categories": {
+        "official": "Official",
+        "officialDesc": "Standard vanilla experience",
+        "plugins": "Plugins",
+        "pluginsDesc": "Optimized for plugins (Spigot/Paper)",
+        "mods": "Mods",
+        "modsDesc": "For modpacks (Forge/Fabric)"
+      },
+      "types": {
+        "vanillaDesc": "The original Minecraft server software from Mojang",
+        "paperDesc": "High performance Spigot fork, supports plugins",
+        "forgeDesc": "The most popular mod loader for heavy modpacks",
+        "fabricDesc": "Lightweight, modular, and fast mod loader"
+      },
+      "serverName": "Server Name",
+      "serverNamePlaceholder": "e.g. My Survival World",
+      "minecraftVersion": "Minecraft Version",
+      "fabricLoaderVersion": "Fabric Loader Version",
+      "fabricInstallerVersion": "Fabric Installer Version",
+      "stableOnly": "Show stable versions only",
+      "eulaText": "I agree to the Minecraft EULA.",
+      "eulaNote": "You must agree to the EULA to run a server.",
+      "downloading": "Downloading... {{progress}}%",
+      "createServer": "Create Server",
+      "retry": "Retry"
+    },
+    "cloneModal": {
+      "title": "Clone Server",
+      "sourceServer": "Source Server",
+      "runningWarning": "Server is running. World data in the clone may be inconsistent.",
+      "newServerName": "New Server Name",
+      "newServerNamePlaceholder": "my-server-clone",
+      "port": "Port",
+      "portPlaceholder": "25565",
+      "portLoading": "Loading...",
+      "cancel": "Cancel",
+      "cloning": "Cloning...",
+      "clone": "Clone Server",
+      "nameRequired": "Server name is required",
+      "nameInvalidChars": "Name contains invalid characters (no spaces or special chars)",
+      "portMustBeNumber": "Port must be a number",
+      "portRange": "Port must be between 1024 and 65535",
+      "cloneFailed": "Clone failed. Please try again."
+    },
+    "deleteModal": {
+      "title": "Delete Server",
+      "server": "Server",
+      "permanentWarning": "This will permanently delete all server files, worlds, and configurations. This action cannot be undone.",
+      "runningWarning": "Server is currently running. You must stop it before deleting.",
+      "cancel": "Cancel",
+      "deleting": "Deleting...",
+      "delete": "Delete Server",
+      "deleteFailed": "Failed to delete server. Please try again."
     }
   },
   "mods": {
@@ -364,6 +430,96 @@
       "delete": "Failed to delete",
       "createFolder": "Failed to create folder",
       "upload": "Failed to upload"
+    }
+  },
+  "settings": {
+    "tabs": {
+      "startup": "Startup",
+      "properties": "Server Properties",
+      "tasks": "Scheduled Tasks",
+      "theme": "Theme"
+    },
+    "startup": {
+      "title": "Startup Parameters",
+      "selectServer": "Select Server",
+      "memoryAllocation": "Memory Allocation",
+      "minMemory": "Minimum Memory",
+      "maxMemory": "Maximum Memory",
+      "jvmFlags": "JVM Flags",
+      "jvmPlaceholder": "Enter JVM flag (e.g., -XX:+UseG1GC)",
+      "addFlag": "Add Flag",
+      "saving": "Saving...",
+      "save": "Save Startup Parameters",
+      "saveSuccess": "Startup settings saved",
+      "saveError": "Failed to save settings",
+      "loadError": "Failed to load servers",
+      "loading": "Loading..."
+    },
+    "properties": {
+      "title": "Server Properties",
+      "selectServer": "Select Server",
+      "loading": "Loading...",
+      "saving": "Saving...",
+      "save": "Save Server Properties",
+      "saveSuccess": "Server properties saved",
+      "saveError": "Failed to save server properties",
+      "loadError": "Failed to load server properties",
+      "loadServersError": "Failed to load servers",
+      "description": "Edit the server properties file directly",
+      "booleanSettings": "Boolean Settings",
+      "gameModeSettings": "Game Mode & Settings",
+      "networkLimits": "Network & Limits",
+      "serverInfo": "Server Information",
+      "resetToCurrent": "Reset to Current",
+      "resetInfo": "Changes reset to last saved state"
+    },
+    "tasks": {
+      "title": "Scheduled Tasks",
+      "add": "Add Task",
+      "empty": "No scheduled tasks",
+      "emptyDesc": "Click \"Add Task\" to create your first scheduled task",
+      "command": "Command",
+      "commandPlaceholder": "Enter server command",
+      "interval": "Interval (minutes)",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "saveSuccess": "Scheduled task saved",
+      "saveError": "Failed to save scheduled task",
+      "loadError": "Failed to load scheduled tasks",
+      "deleteSuccess": "Scheduled task deleted",
+      "deleteError": "Failed to delete scheduled task",
+      "loading": "Loading tasks...",
+      "noTasks": "No scheduled tasks",
+      "noTasksDesc": "Click \"Add Task\" to create a scheduled task",
+      "createTask": "Create Scheduled Task",
+      "taskType": "Task Type",
+      "hour": "Hour (0-23)",
+      "minute": "Minute (0-59)",
+      "frequency": "Frequency",
+      "daysOfWeek": "Days of Week",
+      "typeRestart": "Server Restart",
+      "typeBackup": "Create Backup",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "weekly_on": "Weekly on {{days}}",
+      "at": "at",
+      "next": "Next: {{time}}",
+      "nextUnknown": "Unknown",
+      "creating": "Creating...",
+      "createSuccess": "Task created successfully",
+      "createError": "Failed to create task",
+      "updateError": "Failed to update task"
+    },
+    "theme": {
+      "title": "Appearance",
+      "description": "Choose your preferred theme for the interface",
+      "light": "Light",
+      "dark": "Dark",
+      "systemPref": "System Preference",
+      "systemPrefDesc": "If you don't select a theme, the interface will follow your system's color scheme preference."
     }
   }
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Plus, X, ArrowLeft, ChevronRight, Check, Box, Layers, Code, ScrollText, Loader2 } from 'lucide-react'
 import { io, Socket } from 'socket.io-client'
+import { useTranslation } from 'react-i18next'
 import { API_BASE_URL } from '@/lib/api'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { useFabricGameVersions, useFabricLoaderVersions, useFabricInstallerVersions } from '@/hooks/useFabricVersions'
@@ -33,43 +34,6 @@ interface ServerTypeData {
     color: string
 }
 
-const categories: CategoryData[] = [
-    {
-        id: 'Official',
-        label: 'Official',
-        icon: <Box size={32} />,
-        desc: 'Standard vanilla experience',
-        color: 'hover:bg-stone-50 dark:hover:bg-stone-900/30 hover:border-stone-300 dark:hover:border-stone-700 text-stone-700 dark:text-stone-300'
-    },
-    {
-        id: 'Plugins',
-        label: 'Plugins',
-        icon: <ScrollText size={32} />,
-        desc: 'Optimized for plugins (Spigot/Paper)',
-        color: 'hover:bg-sky-50 dark:hover:bg-sky-900/30 hover:border-sky-300 dark:hover:border-sky-700 text-sky-700 dark:text-sky-300'
-    },
-    {
-        id: 'Mods',
-        label: 'Mods',
-        icon: <Layers size={32} />,
-        desc: 'For modpacks (Forge/Fabric)',
-        color: 'hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:border-indigo-300 dark:hover:border-indigo-700 text-indigo-700 dark:text-indigo-300'
-    },
-]
-
-const typesByCategory: Record<CategoryType, ServerTypeData[]> = {
-    'Official': [
-        { id: 'Vanilla', icon: <Box size={24} />, desc: 'The original Minecraft server software from Mojang', color: 'hover:bg-stone-50 dark:hover:bg-stone-900/30 hover:border-stone-300 dark:hover:border-stone-700 text-stone-700 dark:text-stone-300' },
-    ],
-    'Plugins': [
-        { id: 'Paper', icon: <ScrollText size={24} />, desc: 'High performance Spigot fork, supports plugins', color: 'hover:bg-sky-50 dark:hover:bg-sky-900/30 hover:border-sky-300 dark:hover:border-sky-700 text-sky-700 dark:text-sky-300' },
-    ],
-    'Mods': [
-        { id: 'Forge', icon: <Layers size={24} />, desc: 'The most popular mod loader for heavy modpacks', color: 'hover:bg-amber-50 dark:hover:bg-amber-900/30 hover:border-amber-300 dark:hover:border-amber-700 text-amber-700 dark:text-amber-300' },
-        { id: 'Fabric', icon: <Code size={24} />, desc: 'Lightweight, modular, and fast mod loader', color: 'hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:border-indigo-300 dark:hover:border-indigo-700 text-indigo-700 dark:text-indigo-300' },
-    ]
-}
-
 export const CreateServerModal = React.memo(function CreateServerModal({
     isOpen,
     onClose,
@@ -78,9 +42,47 @@ export const CreateServerModal = React.memo(function CreateServerModal({
     versionsMap,
     latestRelease
 }: CreateServerModalProps) {
+    const { t } = useTranslation('servers')
     const [step, setStep] = useState<StepType>('category')
     const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(null)
     const [selectedType, setSelectedType] = useState<ServerType | null>(null)
+
+    const categories: CategoryData[] = [
+        {
+            id: 'Official',
+            label: t('createModal.categories.official'),
+            icon: <Box size={32} />,
+            desc: t('createModal.categories.officialDesc'),
+            color: 'hover:bg-stone-50 dark:hover:bg-stone-900/30 hover:border-stone-300 dark:hover:border-stone-700 text-stone-700 dark:text-stone-300'
+        },
+        {
+            id: 'Plugins',
+            label: t('createModal.categories.plugins'),
+            icon: <ScrollText size={32} />,
+            desc: t('createModal.categories.pluginsDesc'),
+            color: 'hover:bg-sky-50 dark:hover:bg-sky-900/30 hover:border-sky-300 dark:hover:border-sky-700 text-sky-700 dark:text-sky-300'
+        },
+        {
+            id: 'Mods',
+            label: t('createModal.categories.mods'),
+            icon: <Layers size={32} />,
+            desc: t('createModal.categories.modsDesc'),
+            color: 'hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:border-indigo-300 dark:hover:border-indigo-700 text-indigo-700 dark:text-indigo-300'
+        },
+    ]
+
+    const typesByCategory: Record<CategoryType, ServerTypeData[]> = {
+        'Official': [
+            { id: 'Vanilla', icon: <Box size={24} />, desc: t('createModal.types.vanillaDesc'), color: 'hover:bg-stone-50 dark:hover:bg-stone-900/30 hover:border-stone-300 dark:hover:border-stone-700 text-stone-700 dark:text-stone-300' },
+        ],
+        'Plugins': [
+            { id: 'Paper', icon: <ScrollText size={24} />, desc: t('createModal.types.paperDesc'), color: 'hover:bg-sky-50 dark:hover:bg-sky-900/30 hover:border-sky-300 dark:hover:border-sky-700 text-sky-700 dark:text-sky-300' },
+        ],
+        'Mods': [
+            { id: 'Forge', icon: <Layers size={24} />, desc: t('createModal.types.forgeDesc'), color: 'hover:bg-amber-50 dark:hover:bg-amber-900/30 hover:border-amber-300 dark:hover:border-amber-700 text-amber-700 dark:text-amber-300' },
+            { id: 'Fabric', icon: <Code size={24} />, desc: t('createModal.types.fabricDesc'), color: 'hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:border-indigo-300 dark:hover:border-indigo-700 text-indigo-700 dark:text-indigo-300' },
+        ]
+    }
 
     const [showStableOnly, setShowStableOnly] = useState(true)
 
@@ -221,9 +223,9 @@ export const CreateServerModal = React.memo(function CreateServerModal({
     }
 
     const getStepTitle = () => {
-        if (step === 'category') return 'Select Category'
-        if (step === 'type') return `Select ${selectedCategory} Software`
-        return 'Configure Server'
+        if (step === 'category') return t('createModal.selectCategory')
+        if (step === 'type') return t('createModal.selectSoftware', { category: selectedCategory })
+        return t('createModal.configure')
     }
 
     return (
@@ -244,7 +246,7 @@ export const CreateServerModal = React.memo(function CreateServerModal({
                                 {getStepTitle()}
                             </h2>
                             <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">
-                                Step {getStepNumber()} of 3
+                                {t('createModal.stepOf', { step: getStepNumber() })}
                             </p>
                         </div>
                     </div>
@@ -305,14 +307,14 @@ export const CreateServerModal = React.memo(function CreateServerModal({
                             {/* Row 1: Server Name + Minecraft Version — side by side */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <label htmlFor="serverName" className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Server Name</label>
+                                    <label htmlFor="serverName" className="block text-sm font-semibold text-slate-700 dark:text-slate-300">{t('createModal.serverName')}</label>
                                     <input
                                         type="text"
                                         id="serverName"
                                         value={serverName}
                                         onChange={(e) => setServerName(e.target.value)}
                                         className="w-full px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900 outline-none transition-all text-slate-800 dark:text-slate-100 font-medium placeholder-slate-400 dark:placeholder-slate-500"
-                                        placeholder="e.g. My Survival World"
+                                        placeholder={t('createModal.serverNamePlaceholder')}
                                     />
                                 </div>
                                 {selectedType === 'Fabric' ? (
@@ -326,12 +328,12 @@ export const CreateServerModal = React.memo(function CreateServerModal({
                                                 onClick={() => { refetchFabricGame(); refetchFabricLoader(); refetchFabricInstaller() }}
                                                 className="text-sm text-blue-600 dark:text-blue-400 hover:underline cursor-pointer font-medium"
                                             >
-                                                Retry
+                                                {t('createModal.retry')}
                                             </button>
                                         </div>
                                     ) : (
                                         <CustomSelect
-                                            label="Minecraft Version"
+                                            label={t('createModal.minecraftVersion')}
                                             options={fabricGameVersions}
                                             value={selectedVersion}
                                             onChange={handleVersionChange}
@@ -339,7 +341,7 @@ export const CreateServerModal = React.memo(function CreateServerModal({
                                     )
                                 ) : (
                                     <CustomSelect
-                                        label="Minecraft Version"
+                                        label={t('createModal.minecraftVersion')}
                                         options={versions}
                                         value={selectedVersion}
                                         onChange={handleVersionChange}
@@ -352,13 +354,13 @@ export const CreateServerModal = React.memo(function CreateServerModal({
                                 <>
                                     <div className="grid grid-cols-2 gap-4">
                                         <CustomSelect
-                                            label="Fabric Loader Version"
+                                            label={t('createModal.fabricLoaderVersion')}
                                             options={fabricLoaderVersions}
                                             value={selectedLoaderVersion}
                                             onChange={handleLoaderVersionChange}
                                         />
                                         <CustomSelect
-                                            label="Fabric Installer Version"
+                                            label={t('createModal.fabricInstallerVersion')}
                                             options={fabricInstallerVersions}
                                             value={selectedInstallerVersion}
                                             onChange={handleInstallerVersionChange}
@@ -375,7 +377,7 @@ export const CreateServerModal = React.memo(function CreateServerModal({
                                             <div className="w-4 h-4 border-2 border-slate-300 dark:border-slate-500 rounded peer-checked:bg-blue-600 peer-checked:border-blue-600 transition-all"></div>
                                             <Check size={10} className="absolute left-[3px] text-white opacity-0 peer-checked:opacity-100 transition-opacity" strokeWidth={3} />
                                         </div>
-                                        <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Show stable versions only</span>
+                                        <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{t('createModal.stableOnly')}</span>
                                     </label>
                                 </>
                             )}
@@ -393,8 +395,8 @@ export const CreateServerModal = React.memo(function CreateServerModal({
                                         <Check size={14} className="absolute left-0.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity" strokeWidth={3} />
                                     </div>
                                     <div className="text-sm text-slate-600 dark:text-slate-400 leading-snug select-none transition-colors">
-                                        I agree to the <span className="text-blue-600 dark:text-blue-400 font-semibold hover:underline">Minecraft EULA</span>.
-                                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">You must agree to the EULA to run a server.</p>
+                                        {t('createModal.eulaText')}
+                                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{t('createModal.eulaNote')}</p>
                                     </div>
                                 </label>
                             </div>
@@ -406,7 +408,7 @@ export const CreateServerModal = React.memo(function CreateServerModal({
                             >
                                 {isCreating ? (
                                     <div className="flex flex-col items-center gap-1">
-                                        <span className="text-sm">Downloading... {downloadProgress}%</span>
+                                        <span className="text-sm">{t('createModal.downloading', { progress: downloadProgress })}</span>
                                         <div className="w-full h-2 bg-blue-400/30 rounded-full overflow-hidden">
                                             <div
                                                 className="h-full bg-white rounded-full transition-all duration-300 ease-out"
@@ -417,7 +419,7 @@ export const CreateServerModal = React.memo(function CreateServerModal({
                                 ) : (
                                     <div className="flex items-center justify-center gap-2">
                                         <Plus size={20} strokeWidth={3} />
-                                        Create Server
+                                        {t('createModal.createServer')}
                                     </div>
                                 )}
                             </button>
