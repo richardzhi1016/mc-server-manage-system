@@ -1,0 +1,326 @@
+{
+  "common": {
+    "nav": {
+      "dashboard": "仪表盘",
+      "console": "控制台",
+      "players": "玩家",
+      "files": "文件",
+      "mods": "模组",
+      "plugins": "插件",
+      "backups": "备份",
+      "settings": "设置",
+      "backToLobby": "返回大厅",
+      "server": "服务器"
+    },
+    "status": {
+      "running": "运行中",
+      "stopped": "已停止",
+      "starting": "启动中",
+      "stopping": "停止中",
+      "restarting": "重启中",
+      "stable": "较稳定"
+    },
+    "actions": {
+      "confirm": "确认",
+      "cancel": "取消",
+      "delete": "删除",
+      "save": "保存",
+      "refresh": "刷新",
+      "next": "下一步",
+      "previous": "上一步",
+      "add": "添加",
+      "remove": "移除",
+      "restart": "重启服务器",
+      "loadMore": "加载更多",
+      "download": "下载",
+      "restore": "恢复",
+      "creating": "创建中...",
+      "uploading": "上传中...",
+      "restoring": "恢复中...",
+      "installing": "安装中...",
+      "saving": "保存中...",
+      "start": "启动",
+      "stop": "停止"
+    },
+    "console": {
+      "connecting": "连接中...",
+      "connected": "已连接",
+      "reconnecting": "重连中...",
+      "disconnected": "已断开",
+      "startServer": "启动服务器",
+      "stopServer": "停止服务器",
+      "newLogsBelow": "新日志在下方"
+    },
+    "notFound": {
+      "title": "页面未找到",
+      "desc": "您访问的页面不存在或已被移动。",
+      "back": "返回首页"
+    },
+    "language": {
+      "zh": "中文",
+      "en": "English"
+    }
+  },
+  "dashboard": {
+    "title": "仪表盘",
+    "subtitle": "服务器实时状态监控",
+    "updatedAt": "更新于",
+    "createServer": "创建服务器",
+    "metrics": {
+      "cpu": "CPU 使用率",
+      "memory": "内存使用",
+      "players": "在线玩家",
+      "disk": "磁盘空间",
+      "memoryRate": "内存使用率",
+      "usage": "使用率",
+      "available": "可用 {{bytes}}",
+      "low": "仅剩 {{bytes}}",
+      "playersUnit": "人"
+    },
+    "timeRanges": {
+      "hour1": "1小时",
+      "hour6": "6小时",
+      "hour24": "24小时"
+    },
+    "control": {
+      "title": "服务器控制",
+      "start": "启动",
+      "stop": "停止",
+      "restart": "重启",
+      "operationFailed": "操作失败: {{error}}",
+      "startSuccess": "服务器 {{server}} 已启动",
+      "startFail": "启动失败",
+      "stopSuccess": "服务器 {{server}} 已停止",
+      "stopFail": "停止失败",
+      "restartSuccess": "服务器 {{server}} 已重启",
+      "restartFail": "重启失败"
+    }
+  },
+  "players": {
+    "title": "玩家管理",
+    "tabs": {
+      "online": "在线 ({{count}})",
+      "whitelist": "白名单 ({{count}})",
+      "bans": "封禁 ({{count}})"
+    },
+    "noOnline": "没有在线玩家",
+    "noOnlineDesc": "当前没有玩家在线",
+    "actions": {
+      "kick": "踢出",
+      "ban": "封禁",
+      "deop": "取消OP",
+      "op": "OP",
+      "teleport": "传送"
+    },
+    "kick": {
+      "title": "踢出玩家",
+      "confirm": "确定要将 \"{{username}}\" 踢出服务器吗？",
+      "success": "{{username}} 已被踢出",
+      "fail": "踢出失败"
+    },
+    "ban": {
+      "title": "封禁玩家 {{username}}",
+      "reasonLabel": "请输入封禁原因，这将记录到服务器日志中。",
+      "placeholder": "输入封禁原因...",
+      "continue": "继续",
+      "success": "{{username}} 已被封禁",
+      "fail": "封禁失败"
+    },
+    "op": {
+      "grantTitle": "授予OP权限",
+      "revokeTitle": "取消OP权限",
+      "grantConfirm": "确定要授予 \"{{username}}\" 的OP权限吗？",
+      "revokeConfirm": "确定要取消 \"{{username}}\" 的OP权限吗？",
+      "granted": "{{username}} 已成为OP",
+      "revoked": "{{username}} 已被取消OP",
+      "fail": "操作失败"
+    },
+    "teleport": {
+      "title": "传送 {{username}}",
+      "select": "选择要将玩家传送到目标玩家身边",
+      "noOthers": "没有其他在线玩家",
+      "success": "{{username}} 已传送到 {{target}}",
+      "fail": "传送失败"
+    },
+    "whitelist": {
+      "title": "白名单",
+      "addPlayer": "添加玩家",
+      "empty": "白名单为空",
+      "emptyDesc": "点击\"添加玩家\"将玩家添加到白名单",
+      "addTitle": "添加玩家到白名单",
+      "enterName": "输入玩家名称",
+      "removeTitle": "从白名单移除",
+      "removeConfirm": "确定要将 \"{{username}}\" 从白名单中移除吗？",
+      "addSuccess": "{{username}} 已添加到白名单",
+      "addFail": "添加失败",
+      "removeSuccess": "{{username}} 已从白名单移除",
+      "removeFail": "移除失败"
+    },
+    "banList": {
+      "title": "封禁列表",
+      "count": "{{count}} 个封禁",
+      "empty": "没有封禁玩家",
+      "emptyDesc": "被封禁的玩家将显示在这里",
+      "banned": "已封禁",
+      "reason": "原因: {{reason}}",
+      "bannedAt": "封禁于 {{date}}",
+      "unban": "解除封禁",
+      "unbanConfirm": "确定要解除对 \"{{username}}\" 的封禁吗？该玩家将能够再次加入服务器。",
+      "unbanSuccess": "{{username}} 已解除封禁",
+      "unbanFail": "解除封禁失败"
+    }
+  },
+  "servers": {
+    "steps": {
+      "select": "选择",
+      "configure": "配置",
+      "confirm": "确认",
+      "upload": "上传"
+    },
+    "method": {
+      "title": "选择创建方式",
+      "desc": "请选择您想要的服务器创建方式"
+    },
+    "auto": {
+      "name": "自动创建",
+      "desc": "系统将自动下载 Minecraft 服务器文件并创建基础配置",
+      "feature1": "自动下载指定版本的服务器",
+      "feature2": "生成默认配置文件",
+      "feature3": "一键完成设置"
+    },
+    "upload": {
+      "name": "上传文件",
+      "desc": "上传您已有的 Minecraft 服务器压缩包",
+      "feature1": "支持 .7z 和 .7zip 格式",
+      "feature2": "保留现有配置和世界",
+      "feature3": "完整迁移现有服务器"
+    },
+    "configure": {
+      "title": "服务器配置",
+      "desc": "设置您的新 Minecraft 服务器的基本信息",
+      "uploadDesc": "您已经上传了服务器文件，现在请配置服务器参数"
+    },
+    "fields": {
+      "name": "服务器名称",
+      "description": "服务器描述",
+      "version": "Minecraft 版本",
+      "difficulty": "难度",
+      "maxPlayers": "最大玩家数",
+      "port": "服务器端口",
+      "motd": "服务器消息 (MOTD)"
+    },
+    "defaults": {
+      "description": "我的 Minecraft 服务器",
+      "motd": "欢迎来到我的 Minecraft 服务器！"
+    },
+    "difficulties": {
+      "peaceful": "和平",
+      "easy": "简单",
+      "normal": "普通",
+      "hard": "困难"
+    },
+    "uploadFile": {
+      "title": "上传服务器文件",
+      "subtitle": "上传您的 Minecraft 服务器包 (.7z 或 .7zip 格式)",
+      "dropActive": "释放文件以上传",
+      "dropIdle": "拖拽文件到此处或点击选择",
+      "format": "支持 .7z 和 .7zip 格式"
+    },
+    "confirmCreate": {
+      "title": "确认创建",
+      "subtitle": "请确认以下服务器配置",
+      "info": "服务器信息",
+      "nameLabel": "名称",
+      "method": "创建方式",
+      "version": "版本",
+      "difficulty": "难度",
+      "maxPlayers": "最大玩家数",
+      "port": "端口",
+      "uploadedFile": "上传文件",
+      "motd": "服务器消息 (MOTD)",
+      "confirm": "确认创建"
+    },
+    "success": {
+      "title": "服务器创建成功！",
+      "desc": "您的服务器 \"{{name}}\" 已成功创建",
+      "meta": "创建方式：{{method}} · 版本：{{version}}",
+      "redirect": "即将跳转到管理面板...",
+      "backToDashboard": "返回仪表盘"
+    },
+    "toast": {
+      "uploadSuccess": "服务器包上传成功",
+      "createSuccess": "服务器创建成功"
+    },
+    "lobby": {
+      "title": "仪表盘",
+      "subtitle": "管理您的 Minecraft 服务器实例",
+      "systemNormal": "系统正常",
+      "loadError": "加载服务器失败",
+      "retry": "重试",
+      "createSuccess": "服务器 \"{{name}}\" 创建成功！",
+      "createFail": "创建服务器失败，请重试。",
+      "cloneSuccess": "服务器 \"{{name}}\" 克隆成功！",
+      "deleteSuccess": "服务器 \"{{name}}\" 已删除。"
+    }
+  },
+  "mods": {
+    "title": "模组管理",
+    "manage": "管理 {{server}} 的模组",
+    "changed": "模组已变更，需要重启服务器才能生效",
+    "installed": "已安装 ({{count}})",
+    "empty": "暂无安装模组",
+    "filters": {
+      "all": "全部",
+      "enabled": "已启用",
+      "disabled": "已禁用"
+    },
+    "browse": "浏览 Modrinth",
+    "searchPlaceholder": "搜索模组...",
+    "noResults": "未找到相关模组",
+    "browseHint": "在 Modrinth 搜索模组以安装",
+    "plugins": {
+      "title": "插件管理",
+      "manage": "管理 {{server}} 的插件",
+      "changed": "插件已变更，需要重启服务器才能生效",
+      "installed": "已安装 ({{count}})",
+      "empty": "暂无安装插件",
+      "browse": "浏览 Modrinth 插件",
+      "searchPlaceholder": "搜索插件...",
+      "noResults": "未找到相关插件",
+      "browseHint": "在 Modrinth 搜索插件以安装"
+    }
+  },
+  "backups": {
+    "title": "备份管理",
+    "subtitle": "管理服务器备份，支持创建、恢复和下载",
+    "types": {
+      "startup": "启动备份",
+      "scheduled": "定时备份",
+      "manual": "手动备份"
+    },
+    "actions": {
+      "create": "创建备份",
+      "creating": "创建中...",
+      "download": "下载",
+      "restore": "恢复",
+      "delete": "删除"
+    },
+    "empty": "暂无备份",
+    "emptyDesc": "点击\"创建备份\"为当前服务器创建第一个备份",
+    "confirmRestore": "确认恢复",
+    "confirmDelete": "确认删除",
+    "restoreWarning": "恢复此备份将覆盖当前服务器数据，服务器将在恢复期间停止运行。",
+    "deleteWarning": "确定要删除此备份吗？此操作无法撤销。",
+    "success": {
+      "created": "备份创建成功",
+      "restored": "备份恢复成功",
+      "deleted": "备份已删除"
+    },
+    "errors": {
+      "load": "加载备份列表失败",
+      "create": "创建备份失败",
+      "restore": "恢复备份失败",
+      "delete": "删除备份失败"
+    }
+  }
+}

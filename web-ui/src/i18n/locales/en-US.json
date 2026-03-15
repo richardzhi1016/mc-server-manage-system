@@ -1,0 +1,326 @@
+{
+  "common": {
+    "nav": {
+      "dashboard": "Dashboard",
+      "console": "Console",
+      "players": "Players",
+      "files": "Files",
+      "mods": "Mods",
+      "plugins": "Plugins",
+      "backups": "Backups",
+      "settings": "Settings",
+      "backToLobby": "Back to Lobby",
+      "server": "Server"
+    },
+    "status": {
+      "running": "Running",
+      "stopped": "Stopped",
+      "starting": "Starting",
+      "stopping": "Stopping",
+      "restarting": "Restarting",
+      "stable": "Stable"
+    },
+    "actions": {
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "save": "Save",
+      "refresh": "Refresh",
+      "next": "Next",
+      "previous": "Previous",
+      "add": "Add",
+      "remove": "Remove",
+      "restart": "Restart Server",
+      "loadMore": "Load More",
+      "download": "Download",
+      "restore": "Restore",
+      "creating": "Creating...",
+      "uploading": "Uploading...",
+      "restoring": "Restoring...",
+      "installing": "Installing...",
+      "saving": "Saving...",
+      "start": "Start",
+      "stop": "Stop"
+    },
+    "console": {
+      "connecting": "Connecting...",
+      "connected": "Connected",
+      "reconnecting": "Reconnecting...",
+      "disconnected": "Disconnected",
+      "startServer": "Start Server",
+      "stopServer": "Stop Server",
+      "newLogsBelow": "New logs below"
+    },
+    "notFound": {
+      "title": "Page Not Found",
+      "desc": "The page you visited does not exist or has been moved.",
+      "back": "Back to Home"
+    },
+    "language": {
+      "zh": "中文",
+      "en": "English"
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Real-time server status monitoring",
+    "updatedAt": "Updated at",
+    "createServer": "Create Server",
+    "metrics": {
+      "cpu": "CPU Usage",
+      "memory": "Memory Usage",
+      "players": "Online Players",
+      "disk": "Disk Space",
+      "memoryRate": "Memory Usage Rate",
+      "usage": "Usage",
+      "available": "Available {{bytes}}",
+      "low": "Only {{bytes}} left",
+      "playersUnit": ""
+    },
+    "timeRanges": {
+      "hour1": "1 Hour",
+      "hour6": "6 Hours",
+      "hour24": "24 Hours"
+    },
+    "control": {
+      "title": "Server Control",
+      "start": "Start",
+      "stop": "Stop",
+      "restart": "Restart",
+      "operationFailed": "Operation failed: {{error}}",
+      "startSuccess": "Server {{server}} started",
+      "startFail": "Failed to start server",
+      "stopSuccess": "Server {{server}} stopped",
+      "stopFail": "Failed to stop server",
+      "restartSuccess": "Server {{server}} restarted",
+      "restartFail": "Failed to restart server"
+    }
+  },
+  "players": {
+    "title": "Player Management",
+    "tabs": {
+      "online": "Online ({{count}})",
+      "whitelist": "Whitelist ({{count}})",
+      "bans": "Bans ({{count}})"
+    },
+    "noOnline": "No Online Players",
+    "noOnlineDesc": "No players are currently online",
+    "actions": {
+      "kick": "Kick",
+      "ban": "Ban",
+      "deop": "Deop",
+      "op": "Op",
+      "teleport": "Teleport"
+    },
+    "kick": {
+      "title": "Kick Player",
+      "confirm": "Are you sure you want to kick \"{{username}}\" from the server?",
+      "success": "{{username}} has been kicked",
+      "fail": "Failed to kick player"
+    },
+    "ban": {
+      "title": "Ban Player {{username}}",
+      "reasonLabel": "Please enter a ban reason. This will be recorded in the server log.",
+      "placeholder": "Enter ban reason...",
+      "continue": "Continue",
+      "success": "{{username}} has been banned",
+      "fail": "Failed to ban player"
+    },
+    "op": {
+      "grantTitle": "Grant OP",
+      "revokeTitle": "Revoke OP",
+      "grantConfirm": "Are you sure you want to grant OP to \"{{username}}\"?",
+      "revokeConfirm": "Are you sure you want to revoke OP from \"{{username}}\"?",
+      "granted": "{{username}} is now an operator",
+      "revoked": "{{username}}'s operator status has been revoked",
+      "fail": "Operation failed"
+    },
+    "teleport": {
+      "title": "Teleport {{username}}",
+      "select": "Select a target player to teleport to",
+      "noOthers": "No other online players",
+      "success": "{{username}} has been teleported to {{target}}",
+      "fail": "Failed to teleport player"
+    },
+    "whitelist": {
+      "title": "Whitelist",
+      "addPlayer": "Add Player",
+      "empty": "Whitelist is empty",
+      "emptyDesc": "Click \"Add Player\" to add players to the whitelist",
+      "addTitle": "Add Player to Whitelist",
+      "enterName": "Enter player name",
+      "removeTitle": "Remove from Whitelist",
+      "removeConfirm": "Are you sure you want to remove \"{{username}}\" from the whitelist?",
+      "addSuccess": "{{username}} added to whitelist",
+      "addFail": "Failed to add player",
+      "removeSuccess": "{{username}} removed from whitelist",
+      "removeFail": "Failed to remove player"
+    },
+    "banList": {
+      "title": "Ban List",
+      "count": "{{count}} bans",
+      "empty": "No banned players",
+      "emptyDesc": "Banned players will appear here",
+      "banned": "Banned",
+      "reason": "Reason: {{reason}}",
+      "bannedAt": "Banned at {{date}}",
+      "unban": "Unban",
+      "unbanConfirm": "Are you sure you want to unban \"{{username}}\"? They will be able to rejoin the server.",
+      "unbanSuccess": "{{username}} has been unbanned",
+      "unbanFail": "Failed to unban player"
+    }
+  },
+  "servers": {
+    "steps": {
+      "select": "Select",
+      "configure": "Configure",
+      "confirm": "Confirm",
+      "upload": "Upload"
+    },
+    "method": {
+      "title": "Select Creation Method",
+      "desc": "Please select your desired server creation method"
+    },
+    "auto": {
+      "name": "Auto Create",
+      "desc": "The system will automatically download Minecraft server files and create basic configuration",
+      "feature1": "Auto-download specified server version",
+      "feature2": "Generate default configuration files",
+      "feature3": "One-click setup completion"
+    },
+    "upload": {
+      "name": "Upload File",
+      "desc": "Upload your existing Minecraft server package",
+      "feature1": "Supports .7z and .7zip formats",
+      "feature2": "Keep existing configuration and world",
+      "feature3": "Complete migration of existing servers"
+    },
+    "configure": {
+      "title": "Server Configuration",
+      "desc": "Set up basic information for your new Minecraft server",
+      "uploadDesc": "You have uploaded the server files, now please configure the server parameters"
+    },
+    "fields": {
+      "name": "Server Name",
+      "description": "Server Description",
+      "version": "Minecraft Version",
+      "difficulty": "Difficulty",
+      "maxPlayers": "Max Players",
+      "port": "Server Port",
+      "motd": "Server Message (MOTD)"
+    },
+    "defaults": {
+      "description": "My Minecraft Server",
+      "motd": "Welcome to my Minecraft server!"
+    },
+    "difficulties": {
+      "peaceful": "Peaceful",
+      "easy": "Easy",
+      "normal": "Normal",
+      "hard": "Hard"
+    },
+    "uploadFile": {
+      "title": "Upload Server Files",
+      "subtitle": "Upload your Minecraft server package (.7z or .7zip format)",
+      "dropActive": "Release to upload",
+      "dropIdle": "Drag files here or click to select",
+      "format": "Supports .7z and .7zip formats"
+    },
+    "confirmCreate": {
+      "title": "Confirm Creation",
+      "subtitle": "Please confirm the following server configuration",
+      "info": "Server Information",
+      "nameLabel": "Name",
+      "method": "Creation Method",
+      "version": "Version",
+      "difficulty": "Difficulty",
+      "maxPlayers": "Max Players",
+      "port": "Port",
+      "uploadedFile": "Uploaded File",
+      "motd": "Server Message (MOTD)",
+      "confirm": "Confirm Creation"
+    },
+    "success": {
+      "title": "Server Created Successfully!",
+      "desc": "Your server \"{{name}}\" has been created successfully",
+      "meta": "Method: {{method}} · Version: {{version}}",
+      "redirect": "Redirecting to management panel...",
+      "backToDashboard": "Back to Dashboard"
+    },
+    "toast": {
+      "uploadSuccess": "Server package uploaded successfully",
+      "createSuccess": "Server created successfully"
+    },
+    "lobby": {
+      "title": "Dashboard",
+      "subtitle": "Manage your Minecraft server instances",
+      "systemNormal": "System Normal",
+      "loadError": "Failed to load servers",
+      "retry": "Retry",
+      "createSuccess": "Server \"{{name}}\" created successfully!",
+      "createFail": "Failed to create server. Please try again.",
+      "cloneSuccess": "Server \"{{name}}\" cloned successfully!",
+      "deleteSuccess": "Server \"{{name}}\" deleted."
+    }
+  },
+  "mods": {
+    "title": "Mod Management",
+    "manage": "Manage mods for {{server}}",
+    "changed": "Mods changed, server restart required to take effect",
+    "installed": "Installed ({{count}})",
+    "empty": "No mods installed",
+    "filters": {
+      "all": "All",
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "browse": "Browse Modrinth",
+    "searchPlaceholder": "Search mods...",
+    "noResults": "No relevant mods found",
+    "browseHint": "Search for mods on Modrinth to install",
+    "plugins": {
+      "title": "Plugin Management",
+      "manage": "Manage plugins for {{server}}",
+      "changed": "Plugins changed, server restart required to take effect",
+      "installed": "Installed ({{count}})",
+      "empty": "No plugins installed",
+      "browse": "Browse Modrinth Plugins",
+      "searchPlaceholder": "Search plugins...",
+      "noResults": "No relevant plugins found",
+      "browseHint": "Search for plugins on Modrinth to install"
+    }
+  },
+  "backups": {
+    "title": "Backup Management",
+    "subtitle": "Manage server backups: create, restore, and download",
+    "types": {
+      "startup": "Startup Backup",
+      "scheduled": "Scheduled Backup",
+      "manual": "Manual Backup"
+    },
+    "actions": {
+      "create": "Create Backup",
+      "creating": "Creating...",
+      "download": "Download",
+      "restore": "Restore",
+      "delete": "Delete"
+    },
+    "empty": "No backups",
+    "emptyDesc": "Click \"Create Backup\" to create the first backup for this server",
+    "confirmRestore": "Confirm Restore",
+    "confirmDelete": "Confirm Delete",
+    "restoreWarning": "Restoring this backup will overwrite current server data. The server will stop during the restore process.",
+    "deleteWarning": "Are you sure you want to delete this backup? This action cannot be undone.",
+    "success": {
+      "created": "Backup created successfully",
+      "restored": "Backup restored successfully",
+      "deleted": "Backup deleted"
+    },
+    "errors": {
+      "load": "Failed to load backup list",
+      "create": "Failed to create backup",
+      "restore": "Failed to restore backup",
+      "delete": "Failed to delete backup"
+    }
+  }
+}
