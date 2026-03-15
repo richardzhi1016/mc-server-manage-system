@@ -333,5 +333,32 @@
       "restore": "Failed to restore backup",
       "delete": "Failed to delete backup"
     }
+  },
+  "files": {
+    "title": "File Manager",
+    "root": "Root",
+    "newFolder": "New Folder",
+    "uploadFile": "Upload File",
+    "dropHere": "Drop files here to upload",
+    "folderNamePlaceholder": "Enter folder name",
+    "emptyFolder": "This folder is empty",
+    "confirmDelete": "Are you sure you want to delete \"{{name}}\"?",
+    "actions": {
+      "download": "Download",
+      "rename": "Rename",
+      "delete": "Delete"
+    },
+    "tooltip": {
+      "refresh": "Refresh",
+      "newFolder": "New Folder",
+      "upload": "Upload File"
+    },
+    "errors": {
+      "load": "Failed to load files",
+      "rename": "Failed to rename",
+      "delete": "Failed to delete",
+      "createFolder": "Failed to create folder",
+      "upload": "Failed to upload"
+    }
   }
 }

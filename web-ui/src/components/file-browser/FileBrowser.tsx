@@ -11,9 +11,11 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { listFiles, deleteFile, renameFile, createFolder, getDownloadUrl, uploadFile } from '@/api/file';
 import type { FileItem } from '@/api/file';
 import { FileIcon } from './FileIcon';
+import { currentLocale } from '@/i18n/locale';
 
 interface FileBrowserProps {
   serverName: string;
@@ -34,7 +36,7 @@ function formatFileSize(bytes: number): string {
 function formatDate(timestamp: number): string {
   if (!timestamp) return '-';
   const date = new Date(timestamp * 1000);
-  return date.toLocaleDateString('zh-CN', {
+  return date.toLocaleDateString(currentLocale(), {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -49,6 +51,7 @@ export function FileBrowser({
   onFileSelect,
   selectedFile,
 }: FileBrowserProps) {
+  const { t } = useTranslation('files');
   const [items, setItems] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +71,7 @@ export function FileBrowser({
       const response = await listFiles(serverName, path);
       setItems(response.items);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '加载文件失败');
+      setError(err instanceof Error ? err.message : t('errors.load'));
     } finally {
       setLoading(false);
     }
@@ -97,13 +100,13 @@ export function FileBrowser({
       setContextMenu(null);
       loadFiles(currentPath);
     } catch (err) {
-      alert(err instanceof Error ? err.message : '重命名失败');
+      alert(err instanceof Error ? err.message : t('errors.rename'));
     }
   };
 
   const handleDelete = async () => {
     if (!contextMenu) return;
-    if (!confirm(`确定删除 "${contextMenu.item.name}"？`)) return;
+    if (!confirm(t('confirmDelete', { name: contextMenu.item.name }))) return;
     try {
       await deleteFile(serverName, contextMenu.item.path);
       setContextMenu(null);
@@ -112,7 +115,7 @@ export function FileBrowser({
       }
       loadFiles(currentPath);
     } catch (err) {
-      alert(err instanceof Error ? err.message : '删除失败');
+      alert(err instanceof Error ? err.message : t('errors.delete'));
     }
   };
 
@@ -124,7 +127,7 @@ export function FileBrowser({
       setNewFolderState(null);
       loadFiles(currentPath);
     } catch (err) {
-      alert(err instanceof Error ? err.message : '创建文件夹失败');
+      alert(err instanceof Error ? err.message : t('errors.createFolder'));
     }
   };
 
@@ -139,7 +142,7 @@ export function FileBrowser({
       loadFiles(currentPath);
       setUploadProgress(null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : '上传失败');
+      alert(err instanceof Error ? err.message : t('errors.upload'));
       setUploadProgress(null);
     }
   };
@@ -195,11 +198,11 @@ export function FileBrowser({
   };
 
   const getBreadcrumbs = () => {
-    if (!currentPath) return [{ name: '根目录', path: '' }];
+    if (!currentPath) return [{ name: t('root'), path: '' }];
     const parts = currentPath.split('/');
     let path = '';
     return [
-      { name: '根目录', path: '' },
+      { name: t('root'), path: '' },
       ...parts.map((part) => {
         path = path ? `${path}/${part}` : part;
         return { name: part, path };
@@ -222,26 +225,26 @@ export function FileBrowser({
       {/* Header */}
       <div className="p-3 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="font-medium text-gray-900 dark:text-gray-100">文件管理</h3>
+          <h3 className="font-medium text-gray-900 dark:text-gray-100">{t('title')}</h3>
           <div className="flex items-center gap-1">
             <button
               onClick={() => loadFiles(currentPath)}
               className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded cursor-pointer transition-colors"
-              title="刷新"
+              title={t('tooltip.refresh')}
             >
               <RefreshCw className={clsx('w-4 h-4 text-gray-600 dark:text-gray-400', loading && 'animate-spin')} />
             </button>
             <button
-              onClick={() => setNewFolderState('新建文件夹')}
+              onClick={() => setNewFolderState(t('newFolder'))}
               className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded cursor-pointer transition-colors"
-              title="新建文件夹"
+              title={t('tooltip.newFolder')}
             >
               <FolderPlus className="w-4 h-4 text-gray-600 dark:text-gray-400" />
             </button>
             <button
               onClick={() => fileInputRef.current?.click()}
               className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded cursor-pointer transition-colors"
-              title="上传文件"
+              title={t('tooltip.upload')}
             >
               <Upload className="w-4 h-4 text-gray-600 dark:text-gray-400" />
             </button>
@@ -291,7 +294,7 @@ export function FileBrowser({
         <div className="absolute inset-0 flex items-center justify-center bg-blue-500/10 z-10 pointer-events-none">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg px-6 py-4 border-2 border-dashed border-blue-500">
             <Upload className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-            <p className="text-blue-600 dark:text-blue-400 font-medium">拖放文件到此处上传</p>
+            <p className="text-blue-600 dark:text-blue-400 font-medium">{t('dropHere')}</p>
           </div>
         </div>
       )}
@@ -326,7 +329,7 @@ export function FileBrowser({
               }}
               className="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
               autoFocus
-              placeholder="输入文件夹名称"
+              placeholder={t('folderNamePlaceholder')}
             />
           </div>
         )}
@@ -348,12 +351,12 @@ export function FileBrowser({
         ) : items.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <Folder className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
-            <p className="text-sm mb-2">此文件夹为空</p>
+            <p className="text-sm mb-2">{t('emptyFolder')}</p>
             <button
               onClick={() => fileInputRef.current?.click()}
               className="text-sm text-blue-600 hover:text-blue-700 cursor-pointer"
             >
-              上传文件
+              {t('uploadFile')}
             </button>
           </div>
         ) : (
@@ -430,7 +433,7 @@ export function FileBrowser({
               className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-gray-700 dark:text-gray-300 transition-colors"
             >
               <Download className="w-4 h-4" />
-              下载
+              {t('actions.download')}
             </button>
           )}
           <button
@@ -441,25 +444,25 @@ export function FileBrowser({
             className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-gray-700 dark:text-gray-300 transition-colors"
           >
             <Pencil className="w-4 h-4" />
-            重命名
+            {t('actions.rename')}
           </button>
           <button
             onClick={handleDelete}
             className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer text-red-600 dark:text-red-400 transition-colors"
           >
             <Trash2 className="w-4 h-4" />
-            删除
+            {t('actions.delete')}
           </button>
           <hr className="my-1 border-gray-200 dark:border-gray-700" />
           <button
             onClick={() => {
-              setNewFolderState('新建文件夹');
+              setNewFolderState(t('newFolder'));
               setContextMenu(null);
             }}
             className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-gray-700 dark:text-gray-300 transition-colors"
           >
             <FolderPlus className="w-4 h-4" />
-            新建文件夹
+            {t('newFolder')}
           </button>
         </div>
       )}

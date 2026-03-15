@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useParams } from "react-router-dom"
 import { Database, Plus, Download, RotateCcw, Trash2, Archive, RefreshCw } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { useNotification } from "@/hooks/useNotification"
 import {
   listBackups,
@@ -13,6 +14,7 @@ import { type BackupInfo } from "@/types/api"
 import { Button } from "@/components/ui/Button"
 import { Card, CardContent } from "@/components/ui/Card"
 import { cn } from "@/lib/utils"
+import { currentLocale } from "@/i18n/locale"
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -23,7 +25,7 @@ function formatSize(bytes: number): string {
 
 function formatDate(isoString: string): string {
   const date = new Date(isoString)
-  return date.toLocaleString("zh-CN", {
+  return date.toLocaleString(currentLocale(), {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -33,27 +35,29 @@ function formatDate(isoString: string): string {
   })
 }
 
-function getTypeBadge(filename: string): { label: string; className: string } {
+function getTypeBadge(filename: string): { key: string; className: string } {
   if (filename.includes("_startup")) {
     return {
-      label: "启动备份",
+      key: "types.startup",
       className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
     }
   }
   if (filename.includes("_periodic")) {
     return {
-      label: "定时备份",
+      key: "types.scheduled",
       className: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
     }
   }
   return {
-    label: "手动备份",
+    key: "types.manual",
     className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
   }
 }
 
 export default function Backups() {
   const { serverName } = useParams<{ serverName: string }>()
+  const { t } = useTranslation("backups")
+  const { t: tc } = useTranslation("common")
   const [backups, setBackups] = useState<BackupInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -72,7 +76,7 @@ export default function Backups() {
       const response = await listBackups(serverName)
       setBackups(response.backups ?? [])
     } catch {
-      notify({ type: "error", message: "加载备份列表失败" })
+      notify({ type: "error", message: t("errors.load") })
     } finally {
       setLoading(false)
     }
@@ -87,10 +91,10 @@ export default function Backups() {
     setCreating(true)
     try {
       await createBackup({ server_name: serverName })
-      notify({ type: "success", message: "备份创建成功" })
+      notify({ type: "success", message: t("success.created") })
       loadBackups()
     } catch {
-      notify({ type: "error", message: "创建备份失败" })
+      notify({ type: "error", message: t("errors.create") })
     } finally {
       setCreating(false)
     }
@@ -101,10 +105,10 @@ export default function Backups() {
     setRestoring(backupId)
     try {
       await restoreBackup({ server_name: serverName, backup_id: backupId })
-      notify({ type: "success", message: "备份恢复成功" })
+      notify({ type: "success", message: t("success.restored") })
       setConfirmAction(null)
     } catch {
-      notify({ type: "error", message: "恢复备份失败" })
+      notify({ type: "error", message: t("errors.restore") })
     } finally {
       setRestoring(null)
     }
@@ -114,11 +118,11 @@ export default function Backups() {
     if (!serverName) return
     try {
       await deleteBackup(serverName, backupId)
-      notify({ type: "success", message: "备份已删除" })
+      notify({ type: "success", message: t("success.deleted") })
       setConfirmAction(null)
       loadBackups()
     } catch {
-      notify({ type: "error", message: "删除备份失败" })
+      notify({ type: "error", message: t("errors.delete") })
     }
   }
 
@@ -133,10 +137,10 @@ export default function Backups() {
         <div>
           <div className="flex items-center gap-3">
             <Database className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">备份管理</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t("title")}</h1>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 ml-11">
-            管理服务器备份，支持创建、恢复和下载
+            {t("subtitle")}
           </p>
         </div>
 
@@ -146,7 +150,7 @@ export default function Backups() {
           </Button>
           <Button onClick={handleCreate} disabled={creating || !serverName} className="gap-2">
             <Plus className="w-4 h-4" />
-            {creating ? "创建中..." : "创建备份"}
+            {creating ? t("actions.creating") : t("actions.create")}
           </Button>
         </div>
       </div>
@@ -172,9 +176,9 @@ export default function Backups() {
         <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardContent className="py-12 text-center">
             <Archive className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-500 dark:text-gray-400 font-medium mb-1">暂无备份</p>
+            <p className="text-gray-500 dark:text-gray-400 font-medium mb-1">{t("empty")}</p>
             <p className="text-sm text-gray-400 dark:text-gray-500">
-              点击"创建备份"为当前服务器创建第一个备份
+              {t("emptyDesc")}
             </p>
           </CardContent>
         </Card>
@@ -201,7 +205,7 @@ export default function Backups() {
                             badge.className
                           )}
                         >
-                          {badge.label}
+                          {t(badge.key)}
                         </span>
                       </div>
                       <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
@@ -219,7 +223,7 @@ export default function Backups() {
                         className="gap-1.5 text-gray-600 dark:text-gray-400"
                       >
                         <Download className="w-4 h-4" />
-                        <span className="hidden sm:inline">下载</span>
+                        <span className="hidden sm:inline">{t("actions.download")}</span>
                       </Button>
                       <Button
                         variant="ghost"
@@ -234,7 +238,7 @@ export default function Backups() {
                         className="gap-1.5 text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20"
                       >
                         <RotateCcw className="w-4 h-4" />
-                        <span className="hidden sm:inline">恢复</span>
+                        <span className="hidden sm:inline">{t("actions.restore")}</span>
                       </Button>
                       <Button
                         variant="ghost"
@@ -249,7 +253,7 @@ export default function Backups() {
                         className="gap-1.5 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
                       >
                         <Trash2 className="w-4 h-4" />
-                        <span className="hidden sm:inline">删除</span>
+                        <span className="hidden sm:inline">{t("actions.delete")}</span>
                       </Button>
                     </div>
                   </div>
@@ -265,12 +269,12 @@ export default function Backups() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md mx-4 shadow-xl">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              {confirmAction.type === "restore" ? "确认恢复" : "确认删除"}
+              {confirmAction.type === "restore" ? t("confirmRestore") : t("confirmDelete")}
             </h3>
             <p className="text-gray-500 dark:text-gray-400 mb-1">
               {confirmAction.type === "restore"
-                ? "恢复此备份将覆盖当前服务器数据，服务器将在恢复期间停止运行。"
-                : "确定要删除此备份吗？此操作无法撤销。"}
+                ? t("restoreWarning")
+                : t("deleteWarning")}
             </p>
             <p className="text-sm text-gray-400 dark:text-gray-500 mb-4 break-all">
               {confirmAction.backupName}
@@ -280,21 +284,21 @@ export default function Backups() {
                 variant="outline"
                 onClick={() => setConfirmAction(null)}
               >
-                取消
+                {tc("actions.cancel")}
               </Button>
               {confirmAction.type === "restore" ? (
                 <Button
                   onClick={() => handleRestore(confirmAction.backupId)}
                   disabled={restoring === confirmAction.backupId}
                 >
-                  {restoring === confirmAction.backupId ? "恢复中..." : "确认恢复"}
+                  {restoring === confirmAction.backupId ? t("actions.creating") : t("confirmRestore")}
                 </Button>
               ) : (
                 <Button
                   variant="destructive"
                   onClick={() => handleDelete(confirmAction.backupId)}
                 >
-                  确认删除
+                  {t("confirmDelete")}
                 </Button>
               )}
             </div>

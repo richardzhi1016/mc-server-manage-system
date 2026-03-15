@@ -16,7 +16,7 @@ i18next
       caches: ['localStorage'],
       lookupLocalStorage: 'i18nextLng',
     },
-    ns: ['common', 'dashboard', 'players', 'servers', 'mods', 'backups'],
+    ns: ['common', 'dashboard', 'players', 'servers', 'mods', 'backups', 'files'],
     resources: {
       'zh-CN': zhCN,
       'en-US': enUS,
