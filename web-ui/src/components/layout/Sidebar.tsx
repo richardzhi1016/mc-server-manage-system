@@ -1,4 +1,4 @@
-import { LayoutDashboard, Server, Settings, Users, Terminal, Folder, Database, ArrowLeftCircle, Package } from 'lucide-react'
+import { LayoutDashboard, Server, Settings, Users, Terminal, Folder, Database, ArrowLeftCircle, Package, Puzzle } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 import { SidebarItem } from './SidebarItem'
 import { useServerStore } from '@/store/useServerStore'
@@ -65,11 +65,19 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
           label="文件"
           collapsed={collapsed}
         />
-        {serverType !== "vanilla" && serverType !== "" && (
+        {(serverType === "fabric" || serverType === "forge") && (
           <SidebarItem
             to={`${basePath}/mods`}
             icon={<Package className="w-5 h-5" />}
             label="模组"
+            collapsed={collapsed}
+          />
+        )}
+        {serverType === "paper" && (
+          <SidebarItem
+            to={`${basePath}/plugins`}
+            icon={<Puzzle className="w-5 h-5" />}
+            label="插件"
             collapsed={collapsed}
           />
         )}
