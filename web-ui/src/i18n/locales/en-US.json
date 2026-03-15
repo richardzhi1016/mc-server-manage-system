@@ -314,6 +314,7 @@
       "creating": "Creating...",
       "download": "Download",
       "restore": "Restore",
+      "restoring": "Restoring...",
       "delete": "Delete"
     },
     "empty": "No backups",
@@ -343,6 +344,10 @@
     "folderNamePlaceholder": "Enter folder name",
     "emptyFolder": "This folder is empty",
     "confirmDelete": "Are you sure you want to delete \"{{name}}\"?",
+    "parentDir": "Go up",
+    "retry": "Retry",
+    "uploading": "Uploading {{count}} files...",
+    "uploadingProgress": "Uploading ({{current}}/{{total}}): {{name}}",
     "actions": {
       "download": "Download",
       "rename": "Rename",

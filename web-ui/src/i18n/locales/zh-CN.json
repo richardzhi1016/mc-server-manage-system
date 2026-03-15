@@ -314,6 +314,7 @@
       "creating": "创建中...",
       "download": "下载",
       "restore": "恢复",
+      "restoring": "恢复中...",
       "delete": "删除"
     },
     "empty": "暂无备份",
@@ -343,6 +344,10 @@
     "folderNamePlaceholder": "输入文件夹名称",
     "emptyFolder": "此文件夹为空",
     "confirmDelete": "确定删除 \"{{name}}\"？",
+    "parentDir": "返回上级",
+    "retry": "重试",
+    "uploading": "正在上传 {{count}} 个文件...",
+    "uploadingProgress": "正在上传 ({{current}}/{{total}}): {{name}}",
     "actions": {
       "download": "下载",
       "rename": "重命名",

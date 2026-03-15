@@ -75,7 +75,7 @@ export function FileBrowser({
     } finally {
       setLoading(false);
     }
-  }, [serverName]);
+  }, [serverName, t]);
 
   useEffect(() => {
     loadFiles(currentPath);
@@ -133,10 +133,10 @@ export function FileBrowser({
 
   const handleUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    setUploadProgress(`正在上传 ${files.length} 个文件...`);
+    setUploadProgress(t('uploading', { count: files.length }));
     try {
       for (let i = 0; i < files.length; i++) {
-        setUploadProgress(`正在上传 (${i + 1}/${files.length}): ${files[i].name}`);
+        setUploadProgress(t('uploadingProgress', { current: i + 1, total: files.length, name: files[i].name }));
         await uploadFile(serverName, currentPath, files[i]);
       }
       loadFiles(currentPath);
@@ -307,7 +307,7 @@ export function FileBrowser({
             className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded cursor-pointer mb-1 transition-colors"
           >
             <ChevronRight className="w-4 h-4 rotate-180" />
-            <span>返回上级</span>
+            <span>{t('parentDir')}</span>
           </button>
         )}
 
@@ -345,7 +345,7 @@ export function FileBrowser({
               onClick={() => loadFiles(currentPath)}
               className="text-sm text-blue-600 hover:text-blue-700 cursor-pointer"
             >
-              重试
+              {t('retry')}
             </button>
           </div>
         ) : items.length === 0 ? (

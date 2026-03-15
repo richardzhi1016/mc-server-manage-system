@@ -80,7 +80,7 @@ export default function Backups() {
     } finally {
       setLoading(false)
     }
-  }, [serverName, notify])
+  }, [serverName, notify, t])
 
   useEffect(() => {
     loadBackups()
@@ -291,7 +291,7 @@ export default function Backups() {
                   onClick={() => handleRestore(confirmAction.backupId)}
                   disabled={restoring === confirmAction.backupId}
                 >
-                  {restoring === confirmAction.backupId ? t("actions.creating") : t("confirmRestore")}
+                  {restoring === confirmAction.backupId ? t("actions.restoring") : t("actions.restore")}
                 </Button>
               ) : (
                 <Button
