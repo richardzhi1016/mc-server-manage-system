@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { FormInput } from '@/components/ui/FormInput'
@@ -28,6 +29,8 @@ interface Notification {
 
 export default function ServerCreate() {
   const navigate = useNavigate()
+  const { t } = useTranslation('servers')
+  const { t: tc } = useTranslation('common')
   const [currentStep, setCurrentStep] = useState<CreationStep>('method')
   const [creationMethod, setCreationMethod] = useState<CreationMethod | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -111,7 +114,7 @@ export default function ServerCreate() {
       setConfig(prev => ({ ...prev, name: serverName }))
       setUploadedFile(file)
 
-      showNotification('success', '服务器包上传成功')
+      showNotification('success', t('toast.uploadSuccess'))
 
       // Auto-advance to config step
       setCurrentStep('config')
@@ -213,10 +216,9 @@ export default function ServerCreate() {
         }
 
         await createResponse.json()
-        showNotification('success', '服务器创建成功')
       }
 
-      showNotification('success', '服务器创建成功！')
+      showNotification('success', t('toast.createSuccess'))
 
       // Redirect to panel immediately
       navigate('/panel')
@@ -231,19 +233,19 @@ export default function ServerCreate() {
 
   const getSteps = () => {
     const baseSteps = [
-      { id: 'method', label: '选择', icon: Server },
+      { id: 'method', label: t('steps.select'), icon: Server },
     ]
 
     if (creationMethod === 'auto') {
       baseSteps.push(
-        { id: 'config', label: '配置', icon: Settings },
-        { id: 'confirm', label: '确认', icon: CheckCircle }
+        { id: 'config', label: t('steps.configure'), icon: Settings },
+        { id: 'confirm', label: t('steps.confirm'), icon: CheckCircle }
       )
     } else if (creationMethod === 'upload') {
       baseSteps.push(
-        { id: 'upload', label: '上传', icon: Upload },
-        { id: 'config', label: '配置', icon: Settings },
-        { id: 'confirm', label: '确认', icon: CheckCircle }
+        { id: 'upload', label: t('steps.upload'), icon: Upload },
+        { id: 'config', label: t('steps.configure'), icon: Settings },
+        { id: 'confirm', label: t('steps.confirm'), icon: CheckCircle }
       )
     }
 
@@ -255,8 +257,8 @@ export default function ServerCreate() {
   const renderMethodStep = () => (
     <div className="space-y-8">
       <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold font-heading text-gray-900 dark:text-white mb-2">选择创建方式</h2>
-        <p className="text-gray-600 dark:text-gray-400 font-body">请选择您想要的服务器创建方式</p>
+        <h2 className="text-2xl font-bold font-heading text-gray-900 dark:text-white mb-2">{t('method.title')}</h2>
+        <p className="text-gray-600 dark:text-gray-400 font-body">{t('method.desc')}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -274,14 +276,14 @@ export default function ServerCreate() {
             <div className="mx-auto w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mb-4">
               <Server className="w-8 h-8 text-blue-600 dark:text-blue-400" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">自动创建</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{t('auto.name')}</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              系统将自动下载 Minecraft 服务器文件并创建基础配置
+              {t('auto.desc')}
             </p>
             <ul className="text-left text-sm text-gray-500 dark:text-gray-400 space-y-1">
-              <li>• 自动下载指定版本的服务器</li>
-              <li>• 生成默认配置文件</li>
-              <li>• 一键完成设置</li>
+              <li>• {t('auto.feature1')}</li>
+              <li>• {t('auto.feature2')}</li>
+              <li>• {t('auto.feature3')}</li>
             </ul>
           </CardContent>
         </Card>
@@ -300,14 +302,14 @@ export default function ServerCreate() {
             <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mb-4">
               <Upload className="w-8 h-8 text-green-600 dark:text-green-400" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">上传文件</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{t('upload.name')}</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              上传您已有的 Minecraft 服务器压缩包
+              {t('upload.desc')}
             </p>
             <ul className="text-left text-sm text-gray-500 dark:text-gray-400 space-y-1">
-              <li>• 支持 .7z 和 .7zip 格式</li>
-              <li>• 保留现有配置和世界</li>
-              <li>• 完整迁移现有服务器</li>
+              <li>• {t('upload.feature1')}</li>
+              <li>• {t('upload.feature2')}</li>
+              <li>• {t('upload.feature3')}</li>
             </ul>
           </CardContent>
         </Card>
@@ -319,7 +321,7 @@ export default function ServerCreate() {
           disabled={!creationMethod}
           className="px-8"
         >
-          {creationMethod === 'auto' ? '下一步' : '上传文件'}
+          {tc('actions.next')}
         </Button>
       </div>
     </div>
@@ -328,20 +330,15 @@ export default function ServerCreate() {
   const renderConfigStep = () => (
     <div className="space-y-6">
       <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold font-heading text-gray-900 dark:text-white mb-2">服务器配置</h2>
+        <h2 className="text-2xl font-bold font-heading text-gray-900 dark:text-white mb-2">{t('configure.title')}</h2>
         <p className="text-gray-600 dark:text-gray-400 font-body">
-          设置您的新 Minecraft 服务器的基本信息
-          {creationMethod === 'upload' && (
-            <span className="block text-sm mt-1 text-blue-600 dark:text-blue-400">
-              您已经上传了服务器文件，现在请配置服务器参数
-            </span>
-          )}
+          {creationMethod === 'upload' ? t('configure.uploadDesc') : t('configure.desc')}
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <FormInput
-          label="服务器名称"
+          label={t('fields.name')}
           value={config.name}
           onChange={(e) => setConfig(prev => ({ ...prev, name: e.target.value }))}
           placeholder="my-awesome-server"
@@ -349,14 +346,14 @@ export default function ServerCreate() {
         />
 
         <FormInput
-          label="服务器描述"
+          label={t('fields.description')}
           value={config.description}
           onChange={(e) => setConfig(prev => ({ ...prev, description: e.target.value }))}
-          placeholder="我的 Minecraft 服务器"
+          placeholder="my-awesome-server"
         />
 
         <FormInput
-          label="Minecraft 版本"
+          label={t('fields.version')}
           value={config.version}
           onChange={(e) => setConfig(prev => ({ ...prev, version: e.target.value }))}
           placeholder="1.21.1"
@@ -364,22 +361,22 @@ export default function ServerCreate() {
 
         <div className="space-y-1">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            难度
+            {t('fields.difficulty')}
           </label>
           <select
             value={config.difficulty}
             onChange={(e) => setConfig(prev => ({ ...prev, difficulty: e.target.value }))}
             className="w-full py-3 px-4 text-base font-inherit border-2 border-gray-300 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white cursor-pointer transition-all duration-150 appearance-none bg-no-repeat bg-right-3 bg-center bg-5 pr-10 hover:not(:disabled):border-blue-500 focus:outline-none focus:border-blue-500 focus:shadow-lg"
           >
-            <option value="peaceful">和平</option>
-            <option value="easy">简单</option>
-            <option value="normal">普通</option>
-            <option value="hard">困难</option>
+            <option value="peaceful">{t('difficulties.peaceful')}</option>
+            <option value="easy">{t('difficulties.easy')}</option>
+            <option value="normal">{t('difficulties.normal')}</option>
+            <option value="hard">{t('difficulties.hard')}</option>
           </select>
         </div>
 
         <FormInput
-          label="最大玩家数"
+          label={t('fields.maxPlayers')}
           type="number"
           value={config.maxPlayers}
           onChange={(e) => setConfig(prev => ({ ...prev, maxPlayers: parseInt(e.target.value) || 20 }))}
@@ -388,7 +385,7 @@ export default function ServerCreate() {
         />
 
         <FormInput
-          label="服务器端口"
+          label={t('fields.port')}
           type="number"
           value={config.port}
           onChange={(e) => setConfig(prev => ({ ...prev, port: parseInt(e.target.value) || 25565 }))}
@@ -398,23 +395,23 @@ export default function ServerCreate() {
       </div>
 
       <FormInput
-        label="服务器消息 (MOTD)"
+        label={t('fields.motd')}
         value={config.motd}
         onChange={(e) => setConfig(prev => ({ ...prev, motd: e.target.value }))}
-        placeholder="欢迎来到我的 Minecraft 服务器！"
+        placeholder="A Minecraft Server"
       />
 
       <div className="flex justify-between">
         <Button variant="outline" onClick={handlePreviousStep}>
           <ArrowLeft className="w-4 h-4 mr-2" />
-          上一步
+          {tc('actions.previous')}
         </Button>
         <Button
           onClick={() => setCurrentStep('confirm')}
           disabled={!config.name.trim()}
           className="px-8"
         >
-          下一步
+          {tc('actions.next')}
         </Button>
       </div>
     </div>
@@ -423,8 +420,8 @@ export default function ServerCreate() {
   const renderUploadStep = () => (
     <div className="space-y-6">
       <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold font-heading text-gray-900 dark:text-white mb-2">上传服务器文件</h2>
-        <p className="text-gray-600 dark:text-gray-400 font-body">上传您的 Minecraft 服务器包 (.7z 或 .7zip 格式)</p>
+        <h2 className="text-2xl font-bold font-heading text-gray-900 dark:text-white mb-2">{t('uploadFile.title')}</h2>
+        <p className="text-gray-600 dark:text-gray-400 font-body">{t('uploadFile.subtitle')}</p>
       </div>
 
       <Card
@@ -447,15 +444,15 @@ export default function ServerCreate() {
             <div className="space-y-2">
               <p className="text-lg font-medium text-gray-900 dark:text-white">
                 {isDragOver
-                  ? '释放文件以上传'
+                  ? t('uploadFile.dropActive')
                   : uploadedFile
                     ? uploadedFile.name
-                    : '拖拽文件到此处或点击选择'}
+                    : t('uploadFile.dropIdle')}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {uploadedFile
                   ? `${(uploadedFile.size / 1024 / 1024).toFixed(2)} MB`
-                  : '支持 .7z 和 .7zip 格式'}
+                  : t('uploadFile.format')}
               </p>
             </div>
             <input
@@ -475,7 +472,7 @@ export default function ServerCreate() {
                   : "bg-blue-500 text-white hover:bg-blue-600"
               )}
             >
-              {isLoading ? '上传中...' : '选择文件'}
+              {isLoading ? tc('actions.uploading') : t('upload.name')}
             </label>
           </div>
         </CardContent>
@@ -484,14 +481,14 @@ export default function ServerCreate() {
       <div className="flex justify-between">
         <Button variant="outline" onClick={handlePreviousStep}>
           <ArrowLeft className="w-4 h-4 mr-2" />
-          上一步
+          {tc('actions.previous')}
         </Button>
         <Button
           onClick={() => setCurrentStep('config')}
           disabled={!uploadedFile || isLoading}
           className="px-8"
         >
-          {isLoading ? '上传中...' : '下一步'}
+          {isLoading ? tc('actions.uploading') : tc('actions.next')}
         </Button>
       </div>
     </div>
@@ -500,54 +497,54 @@ export default function ServerCreate() {
   const renderConfirmStep = () => (
     <div className="space-y-6">
       <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold font-heading text-gray-900 dark:text-white mb-2">确认创建</h2>
-        <p className="text-gray-600 dark:text-gray-400 font-body">请确认以下服务器配置</p>
+        <h2 className="text-2xl font-bold font-heading text-gray-900 dark:text-white mb-2">{t('confirmCreate.title')}</h2>
+        <p className="text-gray-600 dark:text-gray-400 font-body">{t('confirmCreate.subtitle')}</p>
       </div>
 
           <Card className="bg-gray-50 dark:bg-gray-800/50">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Server className="w-5 h-5" />
-            服务器信息
+            {t('confirmCreate.info')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">名称</p>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('confirmCreate.nameLabel')}</p>
               <p className="text-gray-900 dark:text-white">{config.name}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">创建方式</p>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('confirmCreate.method')}</p>
               <p className="text-gray-900 dark:text-white">
-                {creationMethod === 'auto' ? '自动创建' : '上传文件'}
+                {creationMethod === 'auto' ? t('auto.name') : t('upload.name')}
               </p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">版本</p>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('confirmCreate.version')}</p>
               <p className="text-gray-900 dark:text-white">{config.version}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">难度</p>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('confirmCreate.difficulty')}</p>
               <p className="text-gray-900 dark:text-white">{config.difficulty}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">最大玩家数</p>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('confirmCreate.maxPlayers')}</p>
               <p className="text-gray-900 dark:text-white">{config.maxPlayers}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">端口</p>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('confirmCreate.port')}</p>
               <p className="text-gray-900 dark:text-white">{config.port}</p>
             </div>
             {creationMethod === 'upload' && (
               <div className="col-span-2">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">上传文件</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('confirmCreate.uploadedFile')}</p>
                 <p className="text-gray-900 dark:text-white">{uploadedFile?.name}</p>
               </div>
             )}
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">服务器消息 (MOTD)</p>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('confirmCreate.motd')}</p>
             <p className="text-gray-900 dark:text-white">{config.motd}</p>
           </div>
         </CardContent>
@@ -556,14 +553,14 @@ export default function ServerCreate() {
       <div className="flex justify-between">
         <Button variant="outline" onClick={handlePreviousStep}>
           <ArrowLeft className="w-4 h-4 mr-2" />
-          上一步
+          {tc('actions.previous')}
         </Button>
         <Button
           onClick={handleCreateServer}
           disabled={isLoading}
           className="px-8"
         >
-          {isLoading ? '创建中...' : '创建服务器'}
+          {isLoading ? tc('actions.creating') : t('confirmCreate.confirm')}
         </Button>
       </div>
     </div>
@@ -575,19 +572,19 @@ export default function ServerCreate() {
         <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
       </div>
       <div>
-        <h2 className="text-2xl font-bold font-heading text-gray-900 dark:text-white mb-2">服务器创建成功！</h2>
+        <h2 className="text-2xl font-bold font-heading text-gray-900 dark:text-white mb-2">{t('success.title')}</h2>
         <p className="text-gray-600 dark:text-gray-400 font-body mb-2">
-          您的服务器 "{config.name}" 已成功创建
+          {t('success.desc', { name: config.name })}
         </p>
         <p className="text-sm text-gray-500 dark:text-gray-500">
-          创建方式：{creationMethod === 'auto' ? '自动创建' : '文件上传'} · 版本：{config.version}
+          {t('success.meta', { method: creationMethod === 'auto' ? t('auto.name') : t('upload.name'), version: config.version })}
         </p>
         <p className="text-gray-600 dark:text-gray-400 font-body mt-4">
-          即将跳转到管理面板...
+          {t('success.redirect')}
         </p>
       </div>
       <Button onClick={() => navigate('/panel')} className="px-8">
-        返回仪表盘
+        {t('success.backToDashboard')}
       </Button>
     </div>
   )
@@ -602,7 +599,7 @@ export default function ServerCreate() {
             className="mb-4"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            返回仪表盘
+            {t('success.backToDashboard')}
           </Button>
 
           {/* Progress Steps */}
