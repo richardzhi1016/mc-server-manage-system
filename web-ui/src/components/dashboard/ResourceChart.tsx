@@ -7,40 +7,17 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import type { ResourceChartProps, TimeRange } from '@/types/metrics'
 
-const TIME_RANGES: { value: TimeRange; label: string }[] = [
-  { value: '1h', label: '1小时' },
-  { value: '6h', label: '6小时' },
-  { value: '24h', label: '24小时' },
-]
-
-const METRIC_CONFIG = {
-  cpu: {
-    label: 'CPU 使用率',
-    color: '#6366f1',
-    gradientId: 'cpuGradient',
-    unit: '%',
-    dataKey: 'cpu',
-  },
-  memory: {
-    label: '内存使用率',
-    color: '#10b981',
-    gradientId: 'memoryGradient',
-    unit: '%',
-    dataKey: 'memory',
-  },
-  players: {
-    label: '在线玩家',
-    color: '#f59e0b',
-    gradientId: 'playersGradient',
-    unit: '人',
-    dataKey: 'players',
-  },
+const METRIC_STATIC: Record<string, { color: string; gradientId: string; unit?: string; dataKey: string }> = {
+  cpu: { color: '#6366f1', gradientId: 'cpuGradient', unit: '%', dataKey: 'cpu' },
+  memory: { color: '#10b981', gradientId: 'memoryGradient', unit: '%', dataKey: 'memory' },
+  players: { color: '#f59e0b', gradientId: 'playersGradient', dataKey: 'players' },
 }
 
 function CustomTooltip({ active, payload, label, metric }: {
@@ -49,17 +26,19 @@ function CustomTooltip({ active, payload, label, metric }: {
   label?: string
   metric: 'cpu' | 'memory' | 'players'
 }) {
+  const { t } = useTranslation('dashboard')
   if (!active || !payload || payload.length === 0) return null
 
-  const config = METRIC_CONFIG[metric]
+  const staticCfg = METRIC_STATIC[metric]
   const data = payload[0]
+  const unit = metric === 'players' ? t('metrics.playersUnit') : staticCfg.unit
 
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3">
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{label}</p>
       <p className="text-lg font-semibold text-gray-900 dark:text-white">
         {data.value.toFixed(1)}
-        {config.unit}
+        {unit}
       </p>
     </div>
   )
@@ -71,13 +50,26 @@ export function ResourceChart({
   timeRange,
   onTimeRangeChange,
 }: ResourceChartProps) {
+  const { t } = useTranslation('dashboard')
   const [selectedMetric, setSelectedMetric] = useState<typeof metric>(metric)
 
-  const config = METRIC_CONFIG[selectedMetric]
+  const staticCfg = METRIC_STATIC[selectedMetric]
+
+  const metricLabels = {
+    cpu: t('metrics.cpu'),
+    memory: t('metrics.memoryRate'),
+    players: t('metrics.players'),
+  }
+
+  const timeRanges: { value: TimeRange; label: string }[] = [
+    { value: '1h', label: t('timeRanges.hour1') },
+    { value: '6h', label: t('timeRanges.hour6') },
+    { value: '24h', label: t('timeRanges.hour24') },
+  ]
 
   const formatXAxis = (value: string) => {
     const date = new Date(value)
-    return date.toLocaleTimeString('zh-CN', {
+    return date.toLocaleTimeString(undefined, {
       hour: '2-digit',
       minute: '2-digit',
     })
@@ -88,7 +80,7 @@ export function ResourceChart({
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base font-medium">
-            {config.label}
+            {metricLabels[selectedMetric]}
           </CardTitle>
           <div className="flex items-center gap-1">
             {(['cpu', 'memory', 'players'] as const).map((m) => (
@@ -102,7 +94,7 @@ export function ResourceChart({
                     : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
                 )}
               >
-                {METRIC_CONFIG[m].label}
+                {metricLabels[m]}
               </button>
             ))}
           </div>
@@ -111,7 +103,7 @@ export function ResourceChart({
       <CardContent>
         {onTimeRangeChange && (
           <div className="flex justify-end gap-1 mb-2">
-            {TIME_RANGES.map((range) => (
+            {timeRanges.map((range) => (
               <Button
                 key={range.value}
                 variant={timeRange === range.value ? 'default' : 'ghost'}
@@ -133,14 +125,14 @@ export function ResourceChart({
             >
               <defs>
                 <linearGradient
-                  id={config.gradientId}
+                  id={staticCfg.gradientId}
                   x1="0"
                   y1="0"
                   x2="0"
                   y2="1"
                 >
-                  <stop offset="5%" stopColor={config.color} stopOpacity={0.3} />
-                  <stop offset="95%" stopColor={config.color} stopOpacity={0} />
+                  <stop offset="5%" stopColor={staticCfg.color} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={staticCfg.color} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid
@@ -163,7 +155,7 @@ export function ResourceChart({
               <Tooltip
                 content={
                   <CustomTooltip
-                    payload={[{ value: 0, dataKey: config.dataKey }]}
+                    payload={[{ value: 0, dataKey: staticCfg.dataKey }]}
                     metric={selectedMetric}
                   />
                 }
@@ -171,12 +163,12 @@ export function ResourceChart({
               />
               <Area
                 type="monotone"
-                dataKey={config.dataKey}
-                stroke={config.color}
+                dataKey={staticCfg.dataKey}
+                stroke={staticCfg.color}
                 strokeWidth={2}
-                fill={`url(#${config.gradientId})`}
+                fill={`url(#${staticCfg.gradientId})`}
                 dot={false}
-                activeDot={{ r: 4, fill: config.color }}
+                activeDot={{ r: 4, fill: staticCfg.color }}
                 isAnimationActive={true}
                 animationDuration={300}
               />

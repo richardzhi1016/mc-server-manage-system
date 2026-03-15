@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent } from '@/components/ui/Card'
 import { cn } from '@/lib/utils'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
@@ -28,6 +29,7 @@ export function StatusCard({
   status = 'healthy',
   threshold,
 }: StatusCardProps) {
+  const { t } = useTranslation('dashboard')
   const statusColors = {
     healthy: 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800',
     warning: 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800',
@@ -79,7 +81,7 @@ export function StatusCard({
         {threshold !== undefined && (
           <div className="mt-3">
             <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-              <span>使用率</span>
+              <span>{t('metrics.usage')}</span>
               <span>{threshold.toFixed(1)}%</span>
             </div>
             <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">

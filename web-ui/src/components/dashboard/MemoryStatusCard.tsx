@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { HardDrive } from 'lucide-react'
 import { StatusCard } from './StatusCard'
 import type { MetricStatus } from '@/types/metrics'
@@ -10,6 +11,7 @@ interface MemoryStatusCardProps {
 }
 
 export function MemoryStatusCard({ used, total, trend, trendValue }: MemoryStatusCardProps) {
+  const { t } = useTranslation('dashboard')
   const percentage = (used / total) * 100
   const status: MetricStatus = percentage >= 90 ? 'critical' : percentage >= 70 ? 'warning' : 'healthy'
 
@@ -22,7 +24,7 @@ export function MemoryStatusCard({ used, total, trend, trendValue }: MemoryStatu
 
   return (
     <StatusCard
-      title="内存使用"
+      title={t('metrics.memory')}
       value={`${formatBytes(used)} / ${formatBytes(total)}`}
       icon={<HardDrive className="w-6 h-6" />}
       trend={trend}

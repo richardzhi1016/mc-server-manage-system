@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { CpuStatusCard, MemoryStatusCard, PlayersStatusCard, DiskStatusCard, ResourceChart, QuickActions } from '@/components/dashboard'
 import { useServerMetrics } from '@/hooks/useServerMetrics'
 import { useDashboardStore } from '@/store/useServerStore'
@@ -8,8 +9,10 @@ import { RefreshCw, AlertCircle, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import { useNavigate, useParams } from 'react-router-dom'
+import { currentLocale } from '@/i18n/locale'
 
 export default function Dashboard() {
+  const { t } = useTranslation('dashboard')
   const navigate = useNavigate()
   const { serverName: selectedServerName } = useParams<{ serverName: string }>()
   const { metrics, history, isLoading, error, lastUpdated, refresh } = useServerMetrics(selectedServerName)
@@ -29,12 +32,12 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">仪表盘</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('title')}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            服务器实时状态监控
+            {t('subtitle')}
             {lastUpdated && (
               <span className="ml-2">
-                · 更新于 {new Date(lastUpdated).toLocaleTimeString('zh-CN')}
+                · {t('updatedAt')} {new Date(lastUpdated).toLocaleTimeString(currentLocale())}
               </span>
             )}
           </p>
@@ -43,7 +46,7 @@ export default function Dashboard() {
         <div className="flex items-center gap-2">
           <Button onClick={() => navigate('/create')} className="gap-2">
             <Plus className="w-4 h-4" />
-            创建服务器
+            {t('createServer')}
           </Button>
 
           {servers.length > 1 && (

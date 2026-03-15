@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Database } from 'lucide-react'
 import { StatusCard } from './StatusCard'
 import type { MetricStatus } from '@/types/metrics'
@@ -10,6 +11,7 @@ interface DiskStatusCardProps {
 }
 
 export function DiskStatusCard({ used, total, trend }: DiskStatusCardProps) {
+  const { t } = useTranslation('dashboard')
   const percentage = (used / total) * 100
   const status: MetricStatus = percentage >= 90 ? 'critical' : percentage >= 70 ? 'warning' : 'healthy'
 
@@ -25,11 +27,11 @@ export function DiskStatusCard({ used, total, trend }: DiskStatusCardProps) {
 
   return (
     <StatusCard
-      title="磁盘空间"
+      title={t('metrics.disk')}
       value={`${formatBytes(used)} / ${formatBytes(total)}`}
       icon={<Database className="w-6 h-6" />}
       trend={trend}
-      trendValue={freePercentage > 20 ? `可用 ${formatBytes(freeBytes)}` : `仅剩 ${formatBytes(freeBytes)}`}
+      trendValue={freePercentage > 20 ? t('metrics.available', { bytes: formatBytes(freeBytes) }) : t('metrics.low', { bytes: formatBytes(freeBytes) })}
       status={status}
       threshold={percentage}
     />

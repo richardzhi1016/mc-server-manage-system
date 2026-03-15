@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { useServerActions } from '@/hooks/useServerActions'
@@ -9,6 +10,8 @@ interface QuickActionsProps {
 }
 
 export function QuickActions({ serverName, serverStatus }: QuickActionsProps) {
+  const { t } = useTranslation('dashboard')
+  const { t: tc } = useTranslation('common')
   const { actionState, start, stop, restart } = useServerActions(serverName)
 
   const isLoading = actionState.loading
@@ -22,8 +25,8 @@ export function QuickActions({ serverName, serverStatus }: QuickActionsProps) {
 
   const getStatusBadge = () => {
     if (isLoading) {
-      const actionText = actionState.action === 'start' ? '启动中' :
-                        actionState.action === 'stop' ? '停止中' : '重启中'
+      const actionText = actionState.action === 'start' ? tc('status.starting') :
+                        actionState.action === 'stop' ? tc('status.stopping') : tc('status.restarting')
       return (
         <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-xs rounded-full">
           <Loader2 className="w-3 h-3 animate-spin" />
@@ -33,7 +36,7 @@ export function QuickActions({ serverName, serverStatus }: QuickActionsProps) {
     }
 
     if (isTransitional) {
-      const statusText = serverStatus === 'starting' ? '启动中' : '停止中'
+      const statusText = serverStatus === 'starting' ? tc('status.starting') : tc('status.stopping')
       return (
         <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 text-xs rounded-full">
           <Loader2 className="w-3 h-3 animate-spin" />
@@ -45,7 +48,7 @@ export function QuickActions({ serverName, serverStatus }: QuickActionsProps) {
     if (isRunning) {
       return (
         <span className="px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs rounded-full">
-          运行中
+          {tc('status.running')}
         </span>
       )
     }
@@ -53,7 +56,7 @@ export function QuickActions({ serverName, serverStatus }: QuickActionsProps) {
     if (isStopped) {
       return (
         <span className="px-2 py-1 bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400 text-xs rounded-full">
-          已停止
+          {tc('status.stopped')}
         </span>
       )
     }
@@ -69,7 +72,7 @@ export function QuickActions({ serverName, serverStatus }: QuickActionsProps) {
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base font-medium">服务器控制</CardTitle>
+          <CardTitle className="text-base font-medium">{t('control.title')}</CardTitle>
           {getStatusBadge()}
         </div>
       </CardHeader>
@@ -81,7 +84,7 @@ export function QuickActions({ serverName, serverStatus }: QuickActionsProps) {
             className="gap-1"
           >
             <Play className="w-4 h-4" />
-            启动
+            {t('control.start')}
           </Button>
 
           <Button
@@ -91,7 +94,7 @@ export function QuickActions({ serverName, serverStatus }: QuickActionsProps) {
             className="gap-1"
           >
             <Square className="w-4 h-4" />
-            停止
+            {t('control.stop')}
           </Button>
 
           <Button
@@ -101,13 +104,13 @@ export function QuickActions({ serverName, serverStatus }: QuickActionsProps) {
             className="gap-1"
           >
             <RotateCcw className="w-4 h-4" />
-            重启
+            {t('control.restart')}
           </Button>
         </div>
 
         {actionState.error && (
           <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-            操作失败: {actionState.error}
+            {t('control.operationFailed', { error: actionState.error })}
           </p>
         )}
       </CardContent>

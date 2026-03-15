@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Cpu } from 'lucide-react'
 import { StatusCard } from './StatusCard'
 import type { MetricStatus } from '@/types/metrics'
@@ -9,11 +10,12 @@ interface CpuStatusCardProps {
 }
 
 export function CpuStatusCard({ usage, trend, trendValue }: CpuStatusCardProps) {
+  const { t } = useTranslation('dashboard')
   const status: MetricStatus = usage >= 90 ? 'critical' : usage >= 70 ? 'warning' : 'healthy'
 
   return (
     <StatusCard
-      title="CPU 使用率"
+      title={t('metrics.cpu')}
       value={usage.toFixed(1)}
       unit="%"
       icon={<Cpu className="w-6 h-6" />}
