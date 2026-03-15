@@ -397,3 +397,22 @@ export interface ModDeleteResponse {
   success: boolean
   restart_required: boolean
 }
+
+// -- Plugin Management --
+
+export interface InstalledPlugin {
+  filename: string
+  enabled: boolean
+  name: string
+  version: string | null
+  description: string | null
+  authors: string[]
+  file_size: number
+  modified_at: string
+  modrinth_project_id: string | null
+}
+
+export interface InstalledPluginsResponse {
+  plugins: InstalledPlugin[]
+  server_name: string
+}

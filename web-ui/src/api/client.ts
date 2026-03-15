@@ -52,6 +52,7 @@ import type {
   ModInstallResponse,
   ModToggleResponse,
   ModDeleteResponse,
+  InstalledPluginsResponse,
 } from "@/types/api"
 
 export async function getServers(): Promise<ServerListResponse> {
@@ -338,6 +339,86 @@ export async function checkModDependencies(
 ): Promise<DependencyCheckResult> {
   const response = await apiClient.post<DependencyCheckResult>(
     `/api/servers/${encodeURIComponent(serverName)}/mods/check-deps`,
+    { version_id: versionId }
+  )
+  return response.data
+}
+
+// -- Plugin Management --
+
+export async function searchPlugins(
+  query: string,
+  version: string,
+  page: number = 0,
+  limit: number = 20
+): Promise<ModSearchResponse> {
+  const response = await apiClient.get<ModSearchResponse>("/api/plugins/search", {
+    params: { query, version, page, limit },
+  })
+  return response.data
+}
+
+export async function getPluginDetails(projectId: string): Promise<Record<string, unknown>> {
+  const response = await apiClient.get(`/api/plugins/${encodeURIComponent(projectId)}`)
+  return response.data
+}
+
+export async function getPluginVersions(
+  projectId: string,
+  gameVersion?: string,
+  loader: string = "paper"
+): Promise<ModVersion[]> {
+  const response = await apiClient.get<ModVersion[]>(
+    `/api/plugins/${encodeURIComponent(projectId)}/versions`,
+    { params: { game_version: gameVersion, loader } }
+  )
+  return response.data
+}
+
+export async function getInstalledPlugins(serverName: string): Promise<InstalledPluginsResponse> {
+  const response = await apiClient.get<InstalledPluginsResponse>(
+    `/api/servers/${encodeURIComponent(serverName)}/plugins`
+  )
+  return response.data
+}
+
+export async function installPlugin(
+  serverName: string,
+  data: ModInstallRequest
+): Promise<ModInstallResponse> {
+  const response = await apiClient.post<ModInstallResponse>(
+    `/api/servers/${encodeURIComponent(serverName)}/plugins/install`,
+    data
+  )
+  return response.data
+}
+
+export async function togglePlugin(
+  serverName: string,
+  filename: string
+): Promise<ModToggleResponse> {
+  const response = await apiClient.post<ModToggleResponse>(
+    `/api/servers/${encodeURIComponent(serverName)}/plugins/${encodeURIComponent(filename)}/toggle`
+  )
+  return response.data
+}
+
+export async function deletePlugin(
+  serverName: string,
+  filename: string
+): Promise<ModDeleteResponse> {
+  const response = await apiClient.delete<ModDeleteResponse>(
+    `/api/servers/${encodeURIComponent(serverName)}/plugins/${encodeURIComponent(filename)}`
+  )
+  return response.data
+}
+
+export async function checkPluginDependencies(
+  serverName: string,
+  versionId: string
+): Promise<DependencyCheckResult> {
+  const response = await apiClient.post<DependencyCheckResult>(
+    `/api/servers/${encodeURIComponent(serverName)}/plugins/check-deps`,
     { version_id: versionId }
   )
   return response.data
