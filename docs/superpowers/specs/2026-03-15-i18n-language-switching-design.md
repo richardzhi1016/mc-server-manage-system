@@ -123,14 +123,70 @@ t('kickSuccess', { username: 'Steve' })
 
 ---
 
+## i18next Config Details
+
+`i18n/config.ts` must specify:
+
+```ts
+i18next
+  .use(LanguageDetector)
+  .use(initReactI18next)
+  .init({
+    fallbackLng: 'zh-CN',          // missing keys fall back to Chinese
+    detection: {
+      order: ['localStorage', 'navigator', 'htmlTag'],
+      caches: ['localStorage'],    // persist manual selection
+    },
+    // ... namespaces, resources
+  })
+```
+
+Detection priority: `localStorage` first (manual override), then `navigator.language` (browser default).
+
+---
+
+## Locale Helper Utility
+
+For `toLocaleString` calls, create a single shared helper `src/i18n/locale.ts`:
+
+```ts
+export function currentLocale(): string {
+  return i18next.language === 'en-US' ? 'en-US' : 'zh-CN'
+}
+```
+
+All date/time formatting calls replace hardcoded `'zh-CN'` with `currentLocale()`.
+
+---
+
+## Namespace Assignment Rule
+
+File-to-namespace mapping follows the feature directory:
+
+| Source Path | Namespace |
+|-------------|-----------|
+| `components/layout/`, `store/useUIStore*` | `common` |
+| `pages/Dashboard*`, `components/dashboard/` | `dashboard` |
+| `pages/Players*`, `components/players/` | `players` |
+| `pages/ServerCreate*`, `components/server-lobby/`, `routes/` | `servers` |
+| `pages/Mods*`, `pages/Plugins*`, `components/mods/` | `mods` |
+| `pages/Backups*` | `backups` |
+| `pages/FileManager*`, `components/file-browser/`, `components/file-editor/` | `files` |
+| `pages/Settings*`, `components/settings/` | `settings` |
+
+Strings shared across namespaces (e.g. "确认", "取消") go in `common`.
+
+---
+
 ## Special Cases
 
 | Case | Handling |
 |------|----------|
-| `toLocaleString('zh-CN')` hardcoded | Replace with `i18n.language` dynamic value |
+| `toLocaleString('zh-CN')` hardcoded | Replace with `currentLocale()` from `i18n/locale.ts` |
 | Console WebSocket logs | **Not translated** — raw Java server output |
 | Mixed strings like `"CPU 使用率"` | Translated as whole unit (`"CPU Usage"` in English) |
-| Already-English strings (`"Connecting..."`) | Added to both locales; Chinese version added |
+| Already-English strings (`"Connecting..."`) | Added to both locales; Chinese translation added |
+| Minecraft-specific terms (`"RCON"`, `"PTY"`, port numbers) | Copy verbatim to both locales unchanged |
 | Flask API error messages | **Out of scope** — remain English, wrapped by frontend try/catch |
 
 ---
