@@ -7,8 +7,10 @@ import type { LogLevel } from "../types/console";
 import { Button } from "../components/ui/Button";
 import { Trash2, Circle, Play, Square } from "lucide-react";
 import { clsx } from "clsx";
+import { useTranslation } from "react-i18next";
 
 export default function Console() {
+  const { t } = useTranslation('common');
   const { serverName } = useParams<{ serverName: string }>();
   const [containerHeight, setContainerHeight] = useState(500);
 
@@ -70,10 +72,10 @@ export default function Console() {
   };
 
   const connectionStatusText = {
-    connecting: "Connecting...",
-    connected: "Connected",
-    reconnecting: "Reconnecting...",
-    disconnected: "Disconnected",
+    connecting: t('console.connecting'),
+    connected: t('console.connected'),
+    reconnecting: t('console.reconnecting'),
+    disconnected: t('console.disconnected'),
   };
 
   return (
@@ -102,7 +104,7 @@ export default function Console() {
               className="flex items-center gap-2 text-green-600 dark:text-green-400 border-green-500 dark:border-green-400 hover:bg-green-500/10 dark:hover:bg-green-400/10 hover:text-green-700 dark:hover:text-green-300"
             >
               <Play className="w-4 h-4" />
-              Start Server
+              {t('console.startServer')}
             </Button>
           ) : (
             <Button
@@ -112,7 +114,7 @@ export default function Console() {
               className="flex items-center gap-2 text-red-600 dark:text-red-400 border-red-500 dark:border-red-400 hover:bg-red-500/10 dark:hover:bg-red-400/10 hover:text-red-700 dark:hover:text-red-300"
             >
               <Square className="w-4 h-4" />
-              Stop Server
+              {t('console.stopServer')}
             </Button>
           )}
           <div className="w-px h-6 bg-gray-300 dark:bg-gray-700 mx-2" />

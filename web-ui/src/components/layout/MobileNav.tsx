@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom'
 import { SidebarItem } from './SidebarItem'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 interface MobileNavProps {
   open: boolean
@@ -11,6 +12,7 @@ interface MobileNavProps {
 }
 
 export function MobileNav({ open, onClose }: MobileNavProps) {
+  const { t } = useTranslation('common')
   const { serverName } = useParams()
 
   const basePath = serverName ? `/${encodeURIComponent(serverName)}/panel` : '/servers'
@@ -49,44 +51,44 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
           <SidebarItem
             to={basePath}
             icon={<LayoutDashboard className="w-5 h-5" />}
-            label="仪表盘"
+            label={t('nav.dashboard')}
             onClick={onClose}
             end
           />
           <SidebarItem
             to="/servers"
             icon={<Server className="w-5 h-5" />}
-            label="服务器"
+            label={t('nav.backToLobby')}
             onClick={onClose}
           />
           <SidebarItem
             to={`${basePath}/console`}
             icon={<Terminal className="w-5 h-5" />}
-            label="控制台"
+            label={t('nav.console')}
             onClick={onClose}
           />
           <SidebarItem
             to={`${basePath}/players`}
             icon={<Users className="w-5 h-5" />}
-            label="玩家"
+            label={t('nav.players')}
             onClick={onClose}
           />
           <SidebarItem
             to={`${basePath}/files`}
             icon={<Folder className="w-5 h-5" />}
-            label="文件"
+            label={t('nav.files')}
             onClick={onClose}
           />
           <SidebarItem
             to={`${basePath}/backups`}
             icon={<Database className="w-5 h-5" />}
-            label="备份"
+            label={t('nav.backups')}
             onClick={onClose}
           />
           <SidebarItem
             to={`${basePath}/settings`}
             icon={<Settings className="w-5 h-5" />}
-            label="设置"
+            label={t('nav.settings')}
             onClick={onClose}
           />
         </nav>

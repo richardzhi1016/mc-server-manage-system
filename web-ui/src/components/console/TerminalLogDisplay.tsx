@@ -3,6 +3,7 @@ import { FixedSizeList as List } from "react-window";
 import type { ListChildComponentProps } from "react-window";
 import type { LogMessage } from "../../types/console";
 import { clsx } from "clsx";
+import { useTranslation } from "react-i18next";
 
 interface TerminalLogDisplayProps {
   logs: LogMessage[];
@@ -43,6 +44,7 @@ function LogLine({ index, style, data }: ListChildComponentProps<{ logs: LogMess
 }
 
 export function TerminalLogDisplay({ logs, autoScroll, onScroll, height = 500 }: TerminalLogDisplayProps) {
+  const { t } = useTranslation('common');
   const listRef = useRef<List>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const logsLengthRef = useRef(logs.length);
@@ -113,7 +115,7 @@ export function TerminalLogDisplay({ logs, autoScroll, onScroll, height = 500 }:
           onClick={scrollToBottom}
           className="absolute bottom-4 right-4 bg-green-600 hover:bg-green-500 text-white text-xs font-medium py-2 px-4 rounded-full shadow-lg transition-colors cursor-pointer"
         >
-          New logs below
+          {t('console.newLogsBelow')}
         </button>
       )}
     </div>

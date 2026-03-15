@@ -3,12 +3,14 @@ import { useParams } from 'react-router-dom'
 import { SidebarItem } from './SidebarItem'
 import { useServerStore } from '@/store/useServerStore'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 interface SidebarProps {
   collapsed?: boolean
 }
 
 export function Sidebar({ collapsed = false }: SidebarProps) {
+  const { t } = useTranslation('common')
   const { serverName } = useParams()
   const servers = useServerStore((s) => s.servers)
   const currentServer = servers.find((s) => s.name === serverName)
@@ -37,39 +39,39 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
         <SidebarItem
           to={basePath}
           icon={<LayoutDashboard className="w-5 h-5" />}
-          label="仪表盘"
+          label={t('nav.dashboard')}
           collapsed={collapsed}
           end
         />
         <SidebarItem
           to="/servers"
           icon={<ArrowLeftCircle className="w-5 h-5" />}
-          label="返回大厅"
+          label={t('nav.backToLobby')}
           collapsed={collapsed}
         />
         <SidebarItem
           to={`${basePath}/console`}
           icon={<Terminal className="w-5 h-5" />}
-          label="控制台"
+          label={t('nav.console')}
           collapsed={collapsed}
         />
         <SidebarItem
           to={`${basePath}/players`}
           icon={<Users className="w-5 h-5" />}
-          label="玩家"
+          label={t('nav.players')}
           collapsed={collapsed}
         />
         <SidebarItem
           to={`${basePath}/files`}
           icon={<Folder className="w-5 h-5" />}
-          label="文件"
+          label={t('nav.files')}
           collapsed={collapsed}
         />
         {(serverType === "fabric" || serverType === "forge") && (
           <SidebarItem
             to={`${basePath}/mods`}
             icon={<Package className="w-5 h-5" />}
-            label="模组"
+            label={t('nav.mods')}
             collapsed={collapsed}
           />
         )}
@@ -77,20 +79,20 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
           <SidebarItem
             to={`${basePath}/plugins`}
             icon={<Puzzle className="w-5 h-5" />}
-            label="插件"
+            label={t('nav.plugins')}
             collapsed={collapsed}
           />
         )}
         <SidebarItem
           to={`${basePath}/backups`}
           icon={<Database className="w-5 h-5" />}
-          label="备份"
+          label={t('nav.backups')}
           collapsed={collapsed}
         />
         <SidebarItem
           to={`${basePath}/settings`}
           icon={<Settings className="w-5 h-5" />}
-          label="设置"
+          label={t('nav.settings')}
           collapsed={collapsed}
         />
       </nav>
