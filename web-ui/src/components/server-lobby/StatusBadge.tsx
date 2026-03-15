@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 
 type ServerStatus = 'online' | 'offline'
 
@@ -17,10 +18,13 @@ const dotStyles = {
 }
 
 export const StatusBadge = React.memo(function StatusBadge({ status }: StatusBadgeProps) {
+    const { t } = useTranslation('servers')
     return (
         <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${styles[status]}`}>
             <span className={`w-2 h-2 rounded-full ${dotStyles[status]}`} />
-            <span className="uppercase tracking-wide">{status}</span>
+            <span className="uppercase tracking-wide">
+                {status === 'online' ? t('card.statusOnline') : t('card.statusOffline')}
+            </span>
         </div>
     )
 })

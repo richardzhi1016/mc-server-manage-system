@@ -94,13 +94,13 @@ export function ScheduledTasks() {
   }
 
   const weekDays = [
-    { value: "mon", label: "Mon" },
-    { value: "tue", label: "Tue" },
-    { value: "wed", label: "Wed" },
-    { value: "thu", label: "Thu" },
-    { value: "fri", label: "Fri" },
-    { value: "sat", label: "Sat" },
-    { value: "sun", label: "Sun" },
+    { value: "mon", label: t("tasks.days.mon") },
+    { value: "tue", label: t("tasks.days.tue") },
+    { value: "wed", label: t("tasks.days.wed") },
+    { value: "thu", label: t("tasks.days.thu") },
+    { value: "fri", label: t("tasks.days.fri") },
+    { value: "sat", label: t("tasks.days.sat") },
+    { value: "sun", label: t("tasks.days.sun") },
   ]
 
   return (
