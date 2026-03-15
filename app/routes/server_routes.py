@@ -699,6 +699,42 @@ def create_server_instance():
                 shutil.rmtree(server_dir)
                 return jsonify({"error": f"Failed to download Fabric server JAR: {str(e)}"}), 500
 
+        elif server_type == "paper":
+            if not version:
+                shutil.rmtree(server_dir)
+                return jsonify({"error": "Minecraft version is required for Paper server"}), 400
+
+            try:
+                encoded_version = urllib.parse.quote(version, safe="")
+                builds_url = f"{config.papermc_api_url}/projects/paper/versions/{encoded_version}/builds"
+
+                with urllib.request.urlopen(builds_url, timeout=10) as resp:
+                    builds_data = json.loads(resp.read().decode("utf-8"))
+
+                builds = builds_data.get("builds", [])
+                if not builds:
+                    shutil.rmtree(server_dir)
+                    return jsonify({"error": f"No Paper builds found for Minecraft {version}"}), 404
+
+                latest_build = builds[-1]
+                build_number = latest_build["build"]
+                jar_filename = latest_build["downloads"]["application"]["name"]
+
+                jar_url = (
+                    f"{config.papermc_api_url}/projects/paper/versions/{encoded_version}"
+                    f"/builds/{build_number}/downloads/{jar_filename}"
+                )
+
+                jar_path = os.path.join(str(server_dir), jar_filename)
+                urllib.request.urlretrieve(jar_url, jar_path, report_progress)
+
+            except urllib.error.HTTPError as e:
+                shutil.rmtree(server_dir)
+                return jsonify({"error": f"Failed to download Paper server JAR: HTTP {e.code}"}), 500
+            except Exception as e:
+                shutil.rmtree(server_dir)
+                return jsonify({"error": f"Failed to download Paper server JAR: {str(e)}"}), 500
+
         eula_path = os.path.join(str(server_dir), "eula.txt")
         with open(eula_path, "w", encoding="utf-8") as f:
             f.write("eula=true\n")

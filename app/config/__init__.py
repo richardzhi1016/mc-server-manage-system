@@ -28,6 +28,7 @@ class Config:
             "default_max_memory": 2048,
             "default_min_memory": 1024,
             "fabric_meta_url": "https://meta.fabricmc.net",
+            "papermc_api_url": "https://api.papermc.io/v2",
             "log_level_patterns": {
                 "ERROR": r"\[.*ERROR.*\]",
                 "WARN": r"\[.*WARN.*\]",
@@ -71,6 +72,10 @@ class Config:
     @property
     def fabric_meta_url(self) -> str:
         return self._config["fabric_meta_url"]
+
+    @property
+    def papermc_api_url(self) -> str:
+        return self._config["papermc_api_url"]
 
     @property
     def log_level_patterns(self) -> dict[str, str]:
