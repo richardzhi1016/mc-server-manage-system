@@ -1,10 +1,11 @@
 import { X } from 'lucide-react'
-import { LayoutDashboard, Server, Users, Settings, Terminal, Folder, Database } from 'lucide-react'
+import { LayoutDashboard, Server, Users, Settings, Terminal, Folder, Database, Package, Puzzle } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 import { SidebarItem } from './SidebarItem'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
+import { useServerStore } from '@/store/useServerStore'
 
 interface MobileNavProps {
   open: boolean
@@ -14,6 +15,9 @@ interface MobileNavProps {
 export function MobileNav({ open, onClose }: MobileNavProps) {
   const { t } = useTranslation('common')
   const { serverName } = useParams()
+  const servers = useServerStore((s) => s.servers)
+  const currentServer = servers.find((s) => s.name === serverName)
+  const serverType = currentServer?.server_type?.toLowerCase() || ""
 
   const basePath = serverName ? `/${encodeURIComponent(serverName)}/panel` : '/servers'
 
@@ -79,6 +83,22 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
             label={t('nav.files')}
             onClick={onClose}
           />
+          {(serverType === "fabric" || serverType === "forge") && (
+            <SidebarItem
+              to={`${basePath}/mods`}
+              icon={<Package className="w-5 h-5" />}
+              label={t('nav.mods')}
+              onClick={onClose}
+            />
+          )}
+          {serverType === "paper" && (
+            <SidebarItem
+              to={`${basePath}/plugins`}
+              icon={<Puzzle className="w-5 h-5" />}
+              label={t('nav.plugins')}
+              onClick={onClose}
+            />
+          )}
           <SidebarItem
             to={`${basePath}/backups`}
             icon={<Database className="w-5 h-5" />}
