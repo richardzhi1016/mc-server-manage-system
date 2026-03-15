@@ -42,11 +42,14 @@ def _validate_mod_filename(filename: str) -> bool:
     return True
 
 
-def _require_modded_server(server_info: dict) -> tuple | None:
-    """Return error response tuple if server is vanilla, else None."""
+_ALLOWED_MOD_LOADERS = {"fabric", "forge"}
+
+
+def _require_mod_loader_server(server_info: dict) -> tuple | None:
+    """Return error response tuple if server type doesn't support mods (fabric/forge only)."""
     server_type = (server_info.get("server_type") or "").lower()
-    if server_type in ("vanilla", ""):
-        return jsonify({"error": "Mods are not supported for vanilla servers"}), 400
+    if server_type not in _ALLOWED_MOD_LOADERS:
+        return jsonify({"error": "Mods are only supported for Fabric/Forge servers"}), 400
     return None
 
 
@@ -115,7 +118,7 @@ def list_installed_mods(name: str):
     if not server_info:
         return jsonify({"error": "Server not found"}), 404
 
-    err = _require_modded_server(server_info)
+    err = _require_mod_loader_server(server_info)
     if err:
         return err
 
@@ -133,7 +136,7 @@ def install_mod(name: str):
     if not server_info:
         return jsonify({"error": "Server not found"}), 404
 
-    err = _require_modded_server(server_info)
+    err = _require_mod_loader_server(server_info)
     if err:
         return err
 
@@ -201,7 +204,7 @@ def toggle_mod(name: str, filename: str):
     if not server_info:
         return jsonify({"error": "Server not found"}), 404
 
-    err = _require_modded_server(server_info)
+    err = _require_mod_loader_server(server_info)
     if err:
         return err
 
@@ -240,7 +243,7 @@ def delete_mod(name: str, filename: str):
     if not server_info:
         return jsonify({"error": "Server not found"}), 404
 
-    err = _require_modded_server(server_info)
+    err = _require_mod_loader_server(server_info)
     if err:
         return err
 
@@ -274,7 +277,7 @@ def check_dependencies(name: str):
     if not server_info:
         return jsonify({"error": "Server not found"}), 404
 
-    err = _require_modded_server(server_info)
+    err = _require_mod_loader_server(server_info)
     if err:
         return err
 
