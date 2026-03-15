@@ -278,7 +278,9 @@
     },
     "card": {
       "clone": "Clone",
-      "delete": "Delete"
+      "delete": "Delete",
+      "statusOnline": "Online",
+      "statusOffline": "Offline"
     },
     "createModal": {
       "stepOf": "Step {{step}} of 3",
@@ -502,6 +504,15 @@
       "daysOfWeek": "Days of Week",
       "typeRestart": "Server Restart",
       "typeBackup": "Create Backup",
+      "days": {
+        "mon": "Mon",
+        "tue": "Tue",
+        "wed": "Wed",
+        "thu": "Thu",
+        "fri": "Fri",
+        "sat": "Sat",
+        "sun": "Sun"
+      },
       "daily": "Daily",
       "weekly": "Weekly",
       "weekly_on": "Weekly on {{days}}",

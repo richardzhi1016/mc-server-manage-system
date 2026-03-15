@@ -278,7 +278,9 @@
     },
     "card": {
       "clone": "克隆",
-      "delete": "删除"
+      "delete": "删除",
+      "statusOnline": "在线",
+      "statusOffline": "离线"
     },
     "createModal": {
       "stepOf": "第 {{step}} 步，共 3 步",
@@ -502,6 +504,15 @@
       "daysOfWeek": "星期",
       "typeRestart": "重启服务器",
       "typeBackup": "创建备份",
+      "days": {
+        "mon": "周一",
+        "tue": "周二",
+        "wed": "周三",
+        "thu": "周四",
+        "fri": "周五",
+        "sat": "周六",
+        "sun": "周日"
+      },
       "daily": "每天",
       "weekly": "每周",
       "weekly_on": "每周 {{days}}",
