@@ -92,6 +92,11 @@ openspec/
 AGENTS.md
 UPLOAD_README.md
 
+# Claude Code / AI tooling artifacts
+docs/superpowers/
+doc/
+=*
+
 app/servers/
 .agent/
 .claude/
