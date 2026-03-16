@@ -1,15 +1,13 @@
 import { useState, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { useNotification } from "@/hooks/useNotification"
-import { getServerProperties, updateServerProperties, getServers } from "@/api/client"
+import { getServerProperties, updateServerProperties } from "@/api/client"
 import { FormInput } from "@/components/ui/FormInput"
 import { FormToggle } from "@/components/ui/FormToggle"
-import { type Server, type ServerPropertySchema } from "@/types/api"
+import { type ServerPropertySchema } from "@/types/api"
 
-export function ServerProperties() {
+export function ServerProperties({ serverName }: { serverName: string }) {
   const { t } = useTranslation("settings")
-  const [serverName, setServerName] = useState("")
-  const [servers, setServers] = useState<Server[]>([])
   const [properties, setProperties] = useState<Record<string, string>>({})
   const [schema, setSchema] = useState<Record<string, ServerPropertySchema>>({})
   const [loading, setLoading] = useState(false)
@@ -18,26 +16,10 @@ export function ServerProperties() {
   const { notify } = useNotification()
 
   useEffect(() => {
-    loadServers()
-  }, [])
-
-  useEffect(() => {
     if (serverName) {
       loadProperties()
     }
   }, [serverName])
-
-  const loadServers = async () => {
-    try {
-      const response = await getServers()
-      setServers(response.servers || [])
-      if (response.servers?.length > 0 && !serverName) {
-        setServerName(response.servers[0].name)
-      }
-    } catch {
-      notify({ type: "error", message: t("properties.loadServersError") })
-    }
-  }
 
   const loadProperties = async () => {
     setLoading(true)
@@ -133,24 +115,6 @@ export function ServerProperties() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          {t("properties.selectServer")}
-        </label>
-        <select
-          value={serverName}
-          onChange={(e) => setServerName(e.target.value)}
-          className="form-select"
-          disabled={loading}
-        >
-          {servers.map((server) => (
-            <option key={server.name} value={server.name}>
-              {server.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
       {loading ? (
         <div className="text-center py-8 text-gray-500">{t("properties.loading")}</div>
       ) : (
@@ -162,7 +126,10 @@ export function ServerProperties() {
               </h3>
               <div className="space-y-4">
                 {booleanFields.map(([key, field]) => (
-                  <div key={key}>
+                  <div key={key} className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {field.label}
+                    </label>
                     {renderPropertyInput(key, field)}
                   </div>
                 ))}

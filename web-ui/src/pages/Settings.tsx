@@ -1,4 +1,5 @@
 import React, { useState } from "react"
+import { useParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Settings, Cpu, FileText, Clock, Palette } from "lucide-react"
 import { StartupParams } from "@/components/settings/StartupParams"
@@ -10,6 +11,7 @@ import { cn } from "@/lib/utils"
 type SettingsTab = "startup" | "properties" | "scheduler" | "theme"
 
 export default function SettingsPage() {
+  const { serverName } = useParams<{ serverName: string }>()
   const { t } = useTranslation("settings")
   const { t: tCommon } = useTranslation("common")
   const [activeTab, setActiveTab] = useState<SettingsTab>("startup")
@@ -57,8 +59,8 @@ export default function SettingsPage() {
 
         <div className="flex-1 min-w-0">
           <div className="card p-6">
-            {activeTab === "startup" && <StartupParams />}
-            {activeTab === "properties" && <ServerProperties />}
+            {activeTab === "startup" && <StartupParams serverName={serverName ?? ""} />}
+            {activeTab === "properties" && <ServerProperties serverName={serverName ?? ""} />}
             {activeTab === "scheduler" && <ScheduledTasks />}
             {activeTab === "theme" && <ThemeSettings />}
           </div>

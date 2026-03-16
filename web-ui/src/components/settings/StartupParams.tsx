@@ -1,15 +1,13 @@
 import { useState, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { useNotification } from "@/hooks/useNotification"
-import { getStartupSettings, updateStartupSettings, getServers } from "@/api/client"
+import { getStartupSettings, updateStartupSettings } from "@/api/client"
 import { Slider } from "@/components/ui/Slider"
 import { FormInput } from "@/components/ui/FormInput"
-import { type StartupSettings as StartupSettingsType, type Server } from "@/types/api"
+import { type StartupSettings as StartupSettingsType } from "@/types/api"
 
-export function StartupParams() {
+export function StartupParams({ serverName }: { serverName: string }) {
   const { t } = useTranslation("settings")
-  const [serverName, setServerName] = useState("")
-  const [servers, setServers] = useState<Server[]>([])
   const [settings, setSettings] = useState<StartupSettingsType>({
     min_memory: 1024,
     max_memory: 2048,
@@ -21,26 +19,10 @@ export function StartupParams() {
   const { notify } = useNotification()
 
   useEffect(() => {
-    loadServers()
-  }, [])
-
-  useEffect(() => {
     if (serverName) {
       loadSettings()
     }
   }, [serverName])
-
-  const loadServers = async () => {
-    try {
-      const response = await getServers()
-      setServers(response.servers || [])
-      if (response.servers?.length > 0 && !serverName) {
-        setServerName(response.servers[0].name)
-      }
-    } catch {
-      notify({ type: "error", message: t("startup.loadError") })
-    }
-  }
 
   const loadSettings = async () => {
     setLoading(true)
@@ -99,24 +81,6 @@ export function StartupParams() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          {t("startup.selectServer")}
-        </label>
-        <select
-          value={serverName}
-          onChange={(e) => setServerName(e.target.value)}
-          className="form-select"
-          disabled={loading}
-        >
-          {servers.map((server) => (
-            <option key={server.name} value={server.name}>
-              {server.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
       {loading ? (
         <div className="text-center py-8 text-gray-500">{t("startup.loading")}</div>
       ) : (
