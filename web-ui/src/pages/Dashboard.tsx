@@ -1,33 +1,25 @@
-import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CpuStatusCard, MemoryStatusCard, PlayersStatusCard, DiskStatusCard, ResourceChart, QuickActions } from '@/components/dashboard'
 import { useServerMetrics } from '@/hooks/useServerMetrics'
 import { useDashboardStore } from '@/store/useServerStore'
 import { useServerStore } from '@/store/useServerStore'
 import { Card, CardContent } from '@/components/ui/Card'
-import { RefreshCw, AlertCircle, Plus } from 'lucide-react'
+import { RefreshCw, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { currentLocale } from '@/i18n/locale'
 
 export default function Dashboard() {
   const { t } = useTranslation('dashboard')
   const { t: tc } = useTranslation('common')
-  const navigate = useNavigate()
   const { serverName: selectedServerName } = useParams<{ serverName: string }>()
   const { metrics, history, isLoading, error, lastUpdated, refresh } = useServerMetrics(selectedServerName)
   const { selectedTimeRange, setSelectedTimeRange } = useDashboardStore()
-  const { servers, selectedServerId, setSelectedServer } = useServerStore()
+  const { servers } = useServerStore()
 
-  const server = servers.find((s) => s.id === selectedServerId) || servers[0]
+  const server = servers.find((s) => s.name === selectedServerName)
   const serverStatus = server?.status || 'stopped'
-
-  useEffect(() => {
-    if (servers.length > 0 && !selectedServerId) {
-      setSelectedServer(servers[0].id)
-    }
-  }, [servers, selectedServerId, setSelectedServer])
 
   return (
     <div className="space-y-6">
@@ -44,30 +36,9 @@ export default function Dashboard() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button onClick={() => navigate('/create')} className="gap-2">
-            <Plus className="w-4 h-4" />
-            {t('createServer')}
-          </Button>
-
-          {servers.length > 1 && (
-            <select
-              value={selectedServerId || servers[0]?.id || ''}
-              onChange={(e) => setSelectedServer(e.target.value)}
-              className="px-3 py-2 border border-gray-300 dark:border-mrinth-border rounded-lg bg-white dark:bg-mrinth-high text-sm text-gray-900 dark:text-mrinth-text focus:outline-none focus:ring-2 focus:ring-mrinth-green"
-            >
-              {servers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          )}
-
-          <Button variant="outline" size="icon" onClick={refresh} disabled={isLoading}>
-            <RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />
-          </Button>
-        </div>
+        <Button variant="outline" size="icon" onClick={refresh} disabled={isLoading}>
+          <RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />
+        </Button>
       </div>
 
       {error && (
@@ -109,9 +80,9 @@ export default function Dashboard() {
             {[1, 2, 3, 4].map((i) => (
               <Card key={i} className="animate-pulse">
                 <CardContent className="p-4">
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-3" />
-                  <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-2/3 mb-2" />
-                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
+                  <div className="h-4 bg-gray-200 dark:bg-mrinth-high rounded w-1/3 mb-3" />
+                  <div className="h-8 bg-gray-200 dark:bg-mrinth-high rounded w-2/3 mb-2" />
+                  <div className="h-3 bg-gray-200 dark:bg-mrinth-high rounded w-1/2" />
                 </CardContent>
               </Card>
             ))}
