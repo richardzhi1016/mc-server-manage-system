@@ -236,18 +236,24 @@ export interface RestoreBackupRequest {
   backup_id: string
 }
 
+export interface ScheduledTaskSchedule {
+  frequency: "daily" | "weekly" | "interval"
+  hour?: number
+  minute?: number
+  days?: string[]
+  interval_value?: number
+  interval_unit?: "minutes" | "hours"
+}
+
 export interface ScheduledTask {
   id: string
+  server_name: string
   type: "restart" | "backup"
-  schedule: {
-    hour: number
-    minute: number
-    days?: string[]
-    frequency?: "daily" | "weekly"
-    day?: number
-  }
+  schedule: ScheduledTaskSchedule
   enabled: boolean
   next_run?: string
+  last_run?: string
+  created_at?: string
 }
 
 export interface ScheduledTaskListResponse {
@@ -255,13 +261,14 @@ export interface ScheduledTaskListResponse {
 }
 
 export interface CreateScheduledTaskRequest {
+  server_name: string
   type: "restart" | "backup"
-  schedule: ScheduledTask["schedule"]
+  schedule: ScheduledTaskSchedule
 }
 
 export interface UpdateScheduledTaskRequest {
   enabled?: boolean
-  schedule?: ScheduledTask["schedule"]
+  schedule?: Partial<ScheduledTaskSchedule>
 }
 
 export interface SchedulerStatusResponse {

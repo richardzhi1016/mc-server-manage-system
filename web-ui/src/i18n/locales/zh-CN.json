@@ -522,7 +522,15 @@
       "creating": "创建中...",
       "createSuccess": "任务创建成功",
       "createError": "创建任务失败",
-      "updateError": "更新任务失败"
+      "updateError": "更新任务失败",
+      "intervalFreq": "按间隔",
+      "intervalValue": "间隔时间",
+      "intervalUnit": "单位",
+      "intervalMinutes": "分钟",
+      "intervalHours": "小时",
+      "everyNMinutes": "每 {{value}} 分钟",
+      "everyNHours": "每 {{value}} 小时",
+      "lastRun": "上次：{{time}}"
     },
     "theme": {
       "title": "外观",

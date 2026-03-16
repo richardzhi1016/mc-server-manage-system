@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { useParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { currentLocale } from "@/i18n/locale"
 import { useNotification } from "@/hooks/useNotification"
@@ -8,35 +9,43 @@ import {
   deleteScheduledTask,
   updateScheduledTask,
 } from "@/api/client"
-import { type ScheduledTask } from "@/types/api"
+import { type ScheduledTask, type ScheduledTaskSchedule } from "@/types/api"
 import { FormInput } from "@/components/ui/FormInput"
 import { FormToggle } from "@/components/ui/FormToggle"
 
+const DEFAULT_SCHEDULE: ScheduledTaskSchedule = {
+  frequency: "daily",
+  hour: 3,
+  minute: 0,
+  days: ["mon"],
+  interval_value: 30,
+  interval_unit: "minutes",
+}
+
 export function ScheduledTasks() {
   const { t } = useTranslation("settings")
+  const { serverName } = useParams<{ serverName: string }>()
   const [tasks, setTasks] = useState<ScheduledTask[]>([])
   const [loading, setLoading] = useState(false)
   const [creating, setCreating] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
-  const [newTask, setNewTask] = useState({
-    type: "restart" as "restart" | "backup",
-    schedule: {
-      hour: 3,
-      minute: 0,
-      days: ["*"] as string[],
-      frequency: "daily" as "daily" | "weekly",
-    },
+  const [newTask, setNewTask] = useState<{
+    type: "restart" | "backup"
+    schedule: ScheduledTaskSchedule
+  }>({
+    type: "restart",
+    schedule: { ...DEFAULT_SCHEDULE },
   })
   const { notify } = useNotification()
 
   useEffect(() => {
     loadTasks()
-  }, [])
+  }, [serverName])
 
   const loadTasks = async () => {
     setLoading(true)
     try {
-      const response = await listScheduledTasks()
+      const response = await listScheduledTasks(serverName)
       setTasks(response.tasks || [])
     } catch {
       notify({ type: "error", message: t("tasks.loadError") })
@@ -46,11 +55,13 @@ export function ScheduledTasks() {
   }
 
   const handleCreateTask = async () => {
+    if (!serverName) return
     setCreating(true)
     try {
-      await createScheduledTask(newTask)
+      await createScheduledTask({ ...newTask, server_name: serverName })
       notify({ type: "success", message: t("tasks.createSuccess") })
       setShowCreateForm(false)
+      setNewTask({ type: "restart", schedule: { ...DEFAULT_SCHEDULE } })
       loadTasks()
     } catch {
       notify({ type: "error", message: t("tasks.createError") })
@@ -78,19 +89,42 @@ export function ScheduledTasks() {
     }
   }
 
-  const formatNextRun = (isoString: string | undefined) => {
+  const formatDateTime = (isoString: string | undefined) => {
     if (!isoString) return t("tasks.nextUnknown")
     try {
-      const date = new Date(isoString)
-      return date.toLocaleString(currentLocale())
+      return new Date(isoString).toLocaleString(currentLocale())
     } catch {
       return t("tasks.nextUnknown")
     }
   }
 
+  const formatScheduleDesc = (task: ScheduledTask) => {
+    const s = task.schedule
+    if (s.frequency === "interval") {
+      if (s.interval_unit === "minutes") {
+        return t("tasks.everyNMinutes", { value: s.interval_value })
+      }
+      return t("tasks.everyNHours", { value: s.interval_value })
+    }
+    if (s.frequency === "weekly") {
+      const daysLabel = (s.days ?? [])
+        .map((d) => t(`tasks.days.${d}`))
+        .join(", ")
+      return `${t("tasks.weekly_on", { days: daysLabel })} ${t("tasks.at")} ${String(s.hour).padStart(2, "0")}:${String(s.minute).padStart(2, "0")}`
+    }
+    return `${t("tasks.daily")} ${t("tasks.at")} ${String(s.hour).padStart(2, "0")}:${String(s.minute).padStart(2, "0")}`
+  }
+
   const taskTypeLabels: Record<string, { label: string; icon: string }> = {
     restart: { label: t("tasks.typeRestart"), icon: "↻" },
     backup: { label: t("tasks.typeBackup"), icon: "💾" },
+  }
+
+  const updateSchedule = (patch: Partial<ScheduledTaskSchedule>) => {
+    setNewTask((prev) => ({
+      ...prev,
+      schedule: { ...prev.schedule, ...patch },
+    }))
   }
 
   const weekDays = [
@@ -102,6 +136,8 @@ export function ScheduledTasks() {
     { value: "sat", label: t("tasks.days.sat") },
     { value: "sun", label: t("tasks.days.sun") },
   ]
+
+  const freq = newTask.schedule.frequency
 
   return (
     <div className="space-y-6">
@@ -139,16 +175,16 @@ export function ScheduledTasks() {
                       {taskTypeLabels[task.type]?.label}
                     </h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {task.schedule.frequency === "weekly"
-                        ? t("tasks.weekly_on", { days: task.schedule.days?.map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(", ") || "" })
-                        : t("tasks.daily")}
-                      {" "}{t("tasks.at")}{" "}
-                      {String(task.schedule.hour).padStart(2, "0")}:
-                      {String(task.schedule.minute).padStart(2, "0")}
+                      {formatScheduleDesc(task)}
                     </p>
                     <p className="text-xs text-gray-400 dark:text-gray-500">
-                      {t("tasks.next", { time: formatNextRun(task.next_run) })}
+                      {t("tasks.next", { time: formatDateTime(task.next_run) })}
                     </p>
+                    {task.last_run && (
+                      <p className="text-xs text-gray-400 dark:text-gray-500">
+                        {t("tasks.lastRun", { time: formatDateTime(task.last_run) })}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -178,6 +214,7 @@ export function ScheduledTasks() {
             </h3>
 
             <div className="space-y-4">
+              {/* Task type */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   {t("tasks.taskType")}
@@ -185,10 +222,10 @@ export function ScheduledTasks() {
                 <select
                   value={newTask.type}
                   onChange={(e) =>
-                    setNewTask({
-                      ...newTask,
+                    setNewTask((prev) => ({
+                      ...prev,
                       type: e.target.value as "restart" | "backup",
-                    })
+                    }))
                   }
                   className="form-select"
                 >
@@ -197,83 +234,102 @@ export function ScheduledTasks() {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormInput
-                  type="number"
-                  label={t("tasks.hour")}
-                  value={newTask.schedule.hour}
-                  onChange={(e) =>
-                    setNewTask({
-                      ...newTask,
-                      schedule: {
-                        ...newTask.schedule,
-                        hour: parseInt(e.target.value) || 0,
-                      },
-                    })
-                  }
-                  min={0}
-                  max={23}
-                />
-                <FormInput
-                  type="number"
-                  label={t("tasks.minute")}
-                  value={newTask.schedule.minute}
-                  onChange={(e) =>
-                    setNewTask({
-                      ...newTask,
-                      schedule: {
-                        ...newTask.schedule,
-                        minute: parseInt(e.target.value) || 0,
-                      },
-                    })
-                  }
-                  min={0}
-                  max={59}
-                />
-              </div>
-
+              {/* Frequency */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   {t("tasks.frequency")}
                 </label>
                 <select
-                  value={newTask.schedule.frequency}
+                  value={freq}
                   onChange={(e) =>
-                    setNewTask({
-                      ...newTask,
-                      schedule: {
-                        ...newTask.schedule,
-                        frequency: e.target.value as "daily" | "weekly",
-                      },
+                    updateSchedule({
+                      frequency: e.target.value as "daily" | "weekly" | "interval",
                     })
                   }
                   className="form-select"
                 >
                   <option value="daily">{t("tasks.daily")}</option>
                   <option value="weekly">{t("tasks.weekly")}</option>
+                  <option value="interval">{t("tasks.intervalFreq")}</option>
                 </select>
               </div>
 
-              {newTask.schedule.frequency === "weekly" && (
+              {/* Interval inputs */}
+              {freq === "interval" && (
+                <div className="grid grid-cols-2 gap-4">
+                  <FormInput
+                    type="number"
+                    label={t("tasks.intervalValue")}
+                    value={newTask.schedule.interval_value ?? 30}
+                    onChange={(e) =>
+                      updateSchedule({ interval_value: parseInt(e.target.value) || 1 })
+                    }
+                    min={1}
+                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {t("tasks.intervalUnit")}
+                    </label>
+                    <select
+                      value={newTask.schedule.interval_unit ?? "minutes"}
+                      onChange={(e) =>
+                        updateSchedule({
+                          interval_unit: e.target.value as "minutes" | "hours",
+                        })
+                      }
+                      className="form-select"
+                    >
+                      <option value="minutes">{t("tasks.intervalMinutes")}</option>
+                      <option value="hours">{t("tasks.intervalHours")}</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* Hour / Minute for daily and weekly */}
+              {freq !== "interval" && (
+                <div className="grid grid-cols-2 gap-4">
+                  <FormInput
+                    type="number"
+                    label={t("tasks.hour")}
+                    value={newTask.schedule.hour ?? 3}
+                    onChange={(e) =>
+                      updateSchedule({ hour: parseInt(e.target.value) || 0 })
+                    }
+                    min={0}
+                    max={23}
+                  />
+                  <FormInput
+                    type="number"
+                    label={t("tasks.minute")}
+                    value={newTask.schedule.minute ?? 0}
+                    onChange={(e) =>
+                      updateSchedule({ minute: parseInt(e.target.value) || 0 })
+                    }
+                    min={0}
+                    max={59}
+                  />
+                </div>
+              )}
+
+              {/* Days of week for weekly */}
+              {freq === "weekly" && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {t("tasks.daysOfWeek")}
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {weekDays.map((day) => {
-                      const isSelected = newTask.schedule.days?.includes(day.value)
+                      const isSelected = (newTask.schedule.days ?? []).includes(day.value)
                       return (
                         <button
                           key={day.value}
                           type="button"
                           onClick={() => {
                             const days = isSelected
-                              ? newTask.schedule.days?.filter((d) => d !== day.value)
-                              : [...(newTask.schedule.days || []), day.value]
-                            setNewTask({
-                              ...newTask,
-                              schedule: { ...newTask.schedule, days },
-                            })
+                              ? (newTask.schedule.days ?? []).filter((d) => d !== day.value)
+                              : [...(newTask.schedule.days ?? []), day.value]
+                            updateSchedule({ days })
                           }}
                           className={`px-3 py-1 text-sm rounded-full transition-colors ${
                             isSelected
@@ -293,7 +349,10 @@ export function ScheduledTasks() {
             <div className="flex justify-end gap-3 mt-6">
               <button
                 type="button"
-                onClick={() => setShowCreateForm(false)}
+                onClick={() => {
+                  setShowCreateForm(false)
+                  setNewTask({ type: "restart", schedule: { ...DEFAULT_SCHEDULE } })
+                }}
                 className="btn btn-secondary"
               >
                 {t("tasks.cancel")}

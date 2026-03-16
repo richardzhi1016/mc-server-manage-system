@@ -522,7 +522,15 @@
       "creating": "Creating...",
       "createSuccess": "Task created successfully",
       "createError": "Failed to create task",
-      "updateError": "Failed to update task"
+      "updateError": "Failed to update task",
+      "intervalFreq": "By Interval",
+      "intervalValue": "Interval",
+      "intervalUnit": "Unit",
+      "intervalMinutes": "Minutes",
+      "intervalHours": "Hours",
+      "everyNMinutes": "Every {{value}} minutes",
+      "everyNHours": "Every {{value}} hours",
+      "lastRun": "Last: {{time}}"
     },
     "theme": {
       "title": "Appearance",

@@ -210,8 +210,9 @@ export async function downloadBackup(serverName: string, backupId: string): Prom
   window.open(url, "_blank")
 }
 
-export async function listScheduledTasks(): Promise<ScheduledTaskListResponse> {
-  const response = await apiClient.get<ScheduledTaskListResponse>("/api/scheduled-tasks")
+export async function listScheduledTasks(serverName?: string): Promise<ScheduledTaskListResponse> {
+  const params = serverName ? { server_name: serverName } : {}
+  const response = await apiClient.get<ScheduledTaskListResponse>("/api/scheduled-tasks", { params })
   return response.data
 }
 
