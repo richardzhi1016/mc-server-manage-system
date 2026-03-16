@@ -30,41 +30,41 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       )}
     >
       {/* Brand + toggle */}
-      <div className="flex items-center h-14 px-3 border-b border-gray-200 dark:border-mrinth-border flex-shrink-0 gap-2.5">
-        {/* Logo icon — always visible */}
-        <div className="flex items-center justify-center w-7 h-7 rounded-md bg-mrinth-green flex-shrink-0">
-          <Server className="w-4 h-4 text-mrinth-bg" strokeWidth={2.5} />
-        </div>
-
-        {/* Title — fades with width */}
-        <span
-          className={cn(
-            'font-bold text-sm tracking-tight text-gray-900 dark:text-mrinth-text',
-            'overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200 ease-in-out',
-            collapsed ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'
-          )}
-        >
-          MC Panel
-        </span>
-
-        {/* Spacer pushes toggle to right when expanded */}
-        <span className={cn('flex-1 transition-[max-width,opacity] duration-200', collapsed ? 'max-w-0 opacity-0 overflow-hidden' : 'max-w-full')} />
-
-        {/* Toggle button — always visible */}
-        {onToggle && (
+      <div className="flex items-center h-14 border-b border-gray-200 dark:border-mrinth-border flex-shrink-0">
+        {collapsed ? (
+          /* Collapsed: only the expand button, centered */
           <button
             onClick={onToggle}
-            className="p-1.5 rounded-md cursor-pointer flex-shrink-0 transition-colors
+            className="flex items-center justify-center w-full h-full cursor-pointer transition-colors
                        text-gray-400 dark:text-mrinth-muted
                        hover:text-gray-700 dark:hover:text-mrinth-text
                        hover:bg-gray-100 dark:hover:bg-mrinth-high"
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label="Expand sidebar"
           >
-            {collapsed
-              ? <PanelLeftOpen className="w-4 h-4" />
-              : <PanelLeftClose className="w-4 h-4" />
-            }
+            <PanelLeftOpen className="w-4 h-4" />
           </button>
+        ) : (
+          /* Expanded: logo + title + collapse button */
+          <div className="flex items-center gap-2.5 px-3 w-full">
+            <div className="flex items-center justify-center w-7 h-7 rounded-md bg-mrinth-green flex-shrink-0">
+              <Server className="w-4 h-4 text-mrinth-bg" strokeWidth={2.5} />
+            </div>
+            <span className="font-bold text-sm tracking-tight text-gray-900 dark:text-mrinth-text flex-1 whitespace-nowrap">
+              MC Panel
+            </span>
+            {onToggle && (
+              <button
+                onClick={onToggle}
+                className="p-1.5 rounded-md cursor-pointer flex-shrink-0 transition-colors
+                           text-gray-400 dark:text-mrinth-muted
+                           hover:text-gray-700 dark:hover:text-mrinth-text
+                           hover:bg-gray-100 dark:hover:bg-mrinth-high"
+                aria-label="Collapse sidebar"
+              >
+                <PanelLeftClose className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         )}
       </div>
 
