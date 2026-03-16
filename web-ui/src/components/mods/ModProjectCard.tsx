@@ -93,7 +93,7 @@ export function ModProjectCard({ mod, viewMode, isInstalled, onSelect }: ModProj
         )}
       </div>
 
-      <p className="truncate font-medium text-zinc-900 dark:text-zinc-100">{mod.title}</p>
+      <p className="line-clamp-2 font-medium text-zinc-900 dark:text-zinc-100">{mod.title}</p>
       <p className="mt-1 line-clamp-2 text-xs text-zinc-500 dark:text-zinc-400">{mod.description}</p>
 
       <div className="mt-2 flex flex-wrap gap-1">

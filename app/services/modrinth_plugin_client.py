@@ -17,7 +17,7 @@ class ModrinthPluginClient(ModrinthClient):
         index: str | None = None,
     ) -> dict[str, Any]:
         cats_key = ",".join(sorted(categories)) if categories else ""
-        cache_key = f"plugin_search:{query}:{game_version}:{page}:{limit}:{cats_key}:{index}"
+        cache_key = f"plugin_search:{query.strip()}:{game_version}:{page}:{limit}:{cats_key}:{index}"
         cached = self._get_cached(cache_key)
         if cached is not None:
             return cached

@@ -366,6 +366,7 @@
       "viewGrid": "Grid view",
       "viewList": "List view",
       "noResults": "No results found",
+      "categoriesError": "Failed to load categories",
       "sort": {
         "downloads": "Downloads",
         "relevance": "Relevance",

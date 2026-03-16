@@ -366,6 +366,7 @@
       "viewGrid": "网格视图",
       "viewList": "列表视图",
       "noResults": "未找到匹配结果",
+      "categoriesError": "加载分类失败",
       "sort": {
         "downloads": "下载量",
         "relevance": "相关性",

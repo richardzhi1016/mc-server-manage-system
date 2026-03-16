@@ -13,13 +13,15 @@ export function MarketSidebar({ type, selectedCategories, onCategoriesChange }: 
   const { t } = useTranslation("mods")
   const [categories, setCategories] = useState<ModCategory[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(false)
 
   useEffect(() => {
     setLoading(true)
+    setError(false)
     const fetcher = type === "mod" ? getModCategories() : getPluginCategories()
     fetcher
-      .then(setCategories)
-      .catch(() => setCategories([]))
+      .then((data) => { setCategories(data); setError(false) })
+      .catch(() => setError(true))
       .finally(() => setLoading(false))
   }, [type])
 
@@ -58,6 +60,8 @@ export function MarketSidebar({ type, selectedCategories, onCategoriesChange }: 
             <div key={i} className="h-4 animate-pulse rounded bg-zinc-200 dark:bg-zinc-700" />
           ))}
         </div>
+      ) : error ? (
+        <p className="text-xs text-zinc-400 dark:text-zinc-500">{t("market.categoriesError")}</p>
       ) : (
         <div className="space-y-4">
           {Object.entries(grouped).map(([header, cats]) => (

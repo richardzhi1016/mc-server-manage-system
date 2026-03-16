@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Search, Grid3X3, List, ChevronDown, Loader2 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { ModProjectCard } from "./ModProjectCard"
@@ -41,10 +41,13 @@ export function ModMarket({
   const [sortBy, setSortBy] = useState<SortBy>("downloads")
   const [viewMode, setViewMode] = useState<ViewMode>("grid")
   const [results, setResults] = useState<ModSearchResult[]>([])
-  const [page, setPage] = useState(0)
   const [totalHits, setTotalHits] = useState(0)
   const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  // Track whether at least one search has completed (avoid premature empty state flash)
+  const [hasSearched, setHasSearched] = useState(false)
+  // Use ref for page to avoid async state race in handleLoadMore
+  const pageRef = useRef(0)
 
   const [selectedProject, setSelectedProject] = useState<{
     projectId: string; title: string; description: string; iconUrl: string | null
@@ -54,6 +57,8 @@ export function ModMarket({
     modName: string; missing: ModDependency[]; versionId: string; projectId: string
   } | null>(null)
   const [depsInstalling, setDepsInstalling] = useState(false)
+
+  const [installError, setInstallError] = useState<string | null>(null)
 
   const doSearch = useCallback(async (
     q: string, cats: string[], sort: SortBy, pageNum: number, append: boolean,
@@ -73,9 +78,10 @@ export function ModMarket({
         setResults((prev) => [...prev, ...data.hits])
       } else {
         setResults(data.hits)
-        setPage(0)
+        pageRef.current = 0
       }
       setTotalHits(data.total_hits)
+      setHasSearched(true)
     } catch {
       if (!append) { setResults([]); setTotalHits(0) }
     } finally {
@@ -84,7 +90,7 @@ export function ModMarket({
     }
   }, [type, serverVersion, serverLoader])
 
-  // Auto-search: immediate on mount, debounced on change
+  // Auto-search: immediate on mount (query is ""), debounced on query change
   useEffect(() => {
     const delay = query ? 400 : 0
     const timer = setTimeout(() => {
@@ -94,13 +100,13 @@ export function ModMarket({
   }, [query, selectedCategories, sortBy, doSearch])
 
   const handleLoadMore = () => {
-    const nextPage = page + 1
-    setPage(nextPage)
-    doSearch(query, selectedCategories, sortBy, nextPage, true)
+    pageRef.current += 1
+    doSearch(query, selectedCategories, sortBy, pageRef.current, true)
   }
 
   // Install flow
   const doInstall = useCallback(async (projectId: string, versionId: string) => {
+    setInstallError(null)
     addInstalling(projectId)
     try {
       const result = type === "mod"
@@ -108,6 +114,10 @@ export function ModMarket({
         : await installPlugin(serverName, { project_id: projectId, version_id: versionId })
       if (result.restart_required) setRestartRequired(true)
       await onInstallSuccess()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setInstallError(msg)
+      throw err
     } finally {
       removeInstalling(projectId)
     }
@@ -123,7 +133,7 @@ export function ModMarket({
         setDepsModal({ modName: mod?.title ?? projectId, missing: deps.missing, versionId, projectId })
         return
       }
-    } catch { /* proceed without dep check */ }
+    } catch { /* proceed without dep check on network error */ }
     await doInstall(projectId, versionId)
   }
 
@@ -135,14 +145,16 @@ export function ModMarket({
         if (dep.version_id) await doInstall(dep.project_id, dep.version_id)
       }
       await doInstall(depsModal.projectId, depsModal.versionId)
+      setDepsModal(null)
+    } catch {
+      // Error already captured in installError; close modal so user can retry
+      setDepsModal(null)
     } finally {
       setDepsInstalling(false)
-      setDepsModal(null)
     }
   }
 
   const searchPlaceholder = type === "mod" ? t("searchPlaceholder") : t("plugins.searchPlaceholder")
-  const noResultsText = type === "mod" ? t("noResults") : t("plugins.noResults")
 
   return (
     <div className="flex gap-4">
@@ -204,6 +216,14 @@ export function ModMarket({
           </div>
         </div>
 
+        {/* Install error banner */}
+        {installError && (
+          <div className="mb-4 flex items-center justify-between rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-700 dark:bg-red-900/20 dark:text-red-400">
+            <span>{installError}</span>
+            <button onClick={() => setInstallError(null)} className="ml-2 text-red-500 hover:text-red-700">✕</button>
+          </div>
+        )}
+
         {/* Detail panel */}
         {selectedProject && (
           <div className="mb-4">
@@ -228,7 +248,7 @@ export function ModMarket({
           </div>
         ) : results.length === 0 ? (
           <div className="py-16 text-center text-sm text-zinc-500 dark:text-zinc-400">
-            {query || selectedCategories.length > 0 ? noResultsText : ""}
+            {hasSearched ? t("market.noResults") : ""}
           </div>
         ) : (
           <>
