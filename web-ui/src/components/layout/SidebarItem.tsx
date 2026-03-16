@@ -22,15 +22,24 @@ export function SidebarItem({ to, icon, label, collapsed, onClick, end }: Sideba
       onClick={onClick}
       title={collapsed ? label : undefined}
       className={cn(
-        'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150 cursor-pointer',
+        'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors duration-150 cursor-pointer overflow-hidden',
         isActive
-          ? 'bg-mrinth-green/10 text-mrinth-green font-medium dark:bg-mrinth-green/10 dark:text-mrinth-green'
+          ? 'bg-mrinth-green/10 text-mrinth-green font-medium'
           : 'text-gray-500 dark:text-mrinth-muted hover:bg-gray-100 dark:hover:bg-mrinth-high hover:text-gray-900 dark:hover:text-mrinth-text',
-        collapsed && 'justify-center px-2'
       )}
     >
       <span className="flex-shrink-0 w-4 h-4">{icon}</span>
-      {!collapsed && <span>{label}</span>}
+
+      {/* Label — always in DOM, animated by max-width+opacity */}
+      <span
+        className={cn(
+          'whitespace-nowrap overflow-hidden',
+          'transition-[max-width,opacity] duration-200 ease-in-out',
+          collapsed ? 'max-w-0 opacity-0' : 'max-w-[160px] opacity-100'
+        )}
+      >
+        {label}
+      </span>
     </Link>
   )
 }
