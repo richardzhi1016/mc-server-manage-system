@@ -21,7 +21,9 @@ from app.routes.backup_routes import backup_bp
 from app.routes.settings_routes import settings_bp
 from app.routes.mod_routes import mods_bp
 from app.routes.plugin_routes import plugins_bp
+from app.routes.scheduler_routes import scheduler_bp
 from app.services.server_manager import server_manager
+from app.services.scheduler_service import scheduler_service
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -37,6 +39,7 @@ CORS(app, origins=ALLOWED_ORIGINS)
 
 socketio = SocketIO(app, cors_allowed_origins=ALLOWED_ORIGINS, async_mode='threading')
 set_socketio(socketio)
+scheduler_service.init_app(app, socketio)
 
 app.config["UPLOAD_FOLDER"] = str(config.upload_folder)
 
@@ -88,6 +91,7 @@ app.register_blueprint(backup_bp)
 app.register_blueprint(settings_bp)
 app.register_blueprint(mods_bp)
 app.register_blueprint(plugins_bp)
+app.register_blueprint(scheduler_bp)
 
 
 @socketio.on("connect")

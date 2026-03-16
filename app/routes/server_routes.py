@@ -337,26 +337,21 @@ def upload_package():
     ), 200
 
 
-@servers_bp.route("/start-server", methods=["POST"])
-def start_server():
-    data = request.get_json()
-    if not data or "server_name" not in data:
-        return jsonify({"error": "Missing 'server_name' parameter"}), 400
-    server_name = data["server_name"]
+def _start_server_internal(server_name: str) -> tuple[bool, str]:
+    """Core start logic. Returns (success, message). Called by route and scheduler."""
     server_dir = str(config.get_server_dir(server_name))
 
     if not os.path.exists(server_dir):
-        return jsonify({"error": f"Server directory '{server_name}' not found"}), 404
+        return False, f"Server directory '{server_name}' not found"
     if server_manager.is_server_running(server_name):
-        return jsonify({"error": f"Server '{server_name}' is already running"}), 409
+        return False, f"Server '{server_name}' is already running"
 
     jar_file = find_server_jar(server_dir)
     if not jar_file:
-        return jsonify({"error": "No JAR file found"}), 404
+        return False, "No JAR file found"
 
     jar_path = os.path.join(server_dir, jar_file)
 
-    # Load saved startup settings (memory + JVM flags)
     settings_path = os.path.join(server_dir, "startup_settings.json")
     if os.path.exists(settings_path):
         try:
@@ -378,35 +373,98 @@ def start_server():
         "-jar", jar_path, "nogui",
     ]
 
-    try:
-        if not socketio:
-            return jsonify({"error": "SocketIO not available"}), 500
+    if not socketio:
+        return False, "SocketIO not available"
 
+    try:
         if server_name in server_manager.running_servers:
             server_manager.running_servers[server_name].stop()
 
         watcher = PTYProcessWatcher(server_name, command, server_dir, socketio)
         success, pid, error = watcher.start()
         if not success:
-            return jsonify({"error": f"Failed to start server: {error}"}), 500
+            return False, f"Failed to start server: {error}"
 
         server_manager.running_servers[server_name] = watcher
-
         socketio.emit(
             "server_started", {"server_name": server_name, "pid": pid},
             room=server_name,
             namespace="/",
         )
-
-        return jsonify(
-            {
-                "message": f"Server '{server_name}' started",
-                "jar_file": jar_file,
-                "pid": pid,
-            }
-        ), 200
+        return True, f"Server '{server_name}' started"
     except Exception as e:
-        return jsonify({"error": f"Failed to start server: {str(e)}"}), 500
+        return False, f"Failed to start server: {str(e)}"
+
+
+def _stop_server_internal(server_name: str) -> tuple[bool, str]:
+    """Core stop logic. Returns (success, message). Called by route and scheduler."""
+    if server_name not in server_manager.running_servers:
+        return False, f"Server '{server_name}' is not running"
+
+    watcher = server_manager.running_servers[server_name]
+
+    try:
+        from app.services.backup_service import backup_service
+        if server_name in backup_service._active_backups:
+            backup_info = backup_service._active_backups[server_name]
+            if backup_info.get("save_disabled"):
+                watcher.write_input("save-on\r\n")
+                time.sleep(0.5)
+    except Exception:
+        pass
+
+    try:
+        watcher.write_input("stop\r\n")
+
+        for _ in range(60):
+            if not watcher.is_alive():
+                break
+            time.sleep(0.5)
+
+        if watcher.is_alive() and watcher.pid:
+            try:
+                proc = psutil.Process(watcher.pid)
+                for child in proc.children(recursive=True):
+                    child.kill()
+                proc.kill()
+            except psutil.NoSuchProcess:
+                pass
+
+        watcher.stop()
+        del server_manager.running_servers[server_name]
+        server_manager.clear_players(server_name)
+
+        if socketio:
+            socketio.emit("server_stopped", {"server_name": server_name}, room=server_name, namespace="/")
+        return True, f"Server '{server_name}' stopped"
+    except Exception as e:
+        return False, f"Failed to stop server: {str(e)}"
+
+
+@servers_bp.route("/start-server", methods=["POST"])
+def start_server():
+    data = request.get_json()
+    if not data or "server_name" not in data:
+        return jsonify({"error": "Missing 'server_name' parameter"}), 400
+    server_name = data["server_name"]
+
+    # Pre-check for specific error codes
+    server_dir = str(config.get_server_dir(server_name))
+    if not os.path.exists(server_dir):
+        return jsonify({"error": f"Server directory '{server_name}' not found"}), 404
+    if server_manager.is_server_running(server_name):
+        return jsonify({"error": f"Server '{server_name}' is already running"}), 409
+    if not find_server_jar(server_dir):
+        return jsonify({"error": "No JAR file found"}), 404
+
+    success, message = _start_server_internal(server_name)
+    if not success:
+        return jsonify({"error": message}), 500
+
+    watcher = server_manager.running_servers.get(server_name)
+    pid = watcher.pid if watcher else None
+    jar_file = find_server_jar(server_dir) or ""
+    return jsonify({"message": message, "jar_file": jar_file, "pid": pid}), 200
 
 
 @servers_bp.route("/stop-server", methods=["POST"])
@@ -418,50 +476,11 @@ def stop_server():
 
     if server_name not in server_manager.running_servers:
         return jsonify({"error": f"Server '{server_name}' is not running"}), 404
-    watcher = server_manager.running_servers[server_name]
 
-    # Check if backup is in progress with save disabled
-    try:
-        from app.services.backup_service import backup_service
-        if server_name in backup_service._active_backups:
-            backup_info = backup_service._active_backups[server_name]
-            if backup_info.get('save_disabled'):
-                # Re-enable auto-save before stopping
-                watcher.write_input("save-on\r\n")
-                time.sleep(0.5)
-    except Exception:
-        pass  # Continue even if check fails
-
-    try:
-        # Send 'stop' command for graceful shutdown
-        watcher.write_input("stop\r\n")
-
-        # Wait for graceful shutdown (up to 30 seconds)
-        for _ in range(60):
-            if not watcher.is_alive():
-                break
-            time.sleep(0.5)
-
-        # Force kill if still alive
-        if watcher.is_alive() and watcher.pid:
-            try:
-                proc = psutil.Process(watcher.pid)
-                for child in proc.children(recursive=True):
-                    child.kill()
-                proc.kill()
-            except psutil.NoSuchProcess:
-                pass
-
-        # Clean up watcher thread (stop() no longer sends duplicate 'stop')
-        watcher.stop()
-        del server_manager.running_servers[server_name]
-        server_manager.clear_players(server_name)
-
-        if socketio:
-            socketio.emit("server_stopped", {"server_name": server_name}, room=server_name, namespace="/")
-        return jsonify({"message": f"Server '{server_name}' stopped"}), 200
-    except Exception as e:
-        return jsonify({"error": f"Failed to stop server: {str(e)}"}), 500
+    success, message = _stop_server_internal(server_name)
+    if not success:
+        return jsonify({"error": message}), 500
+    return jsonify({"message": message}), 200
 
 
 @servers_bp.route("/server-status", methods=["GET"])
