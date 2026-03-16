@@ -15,6 +15,8 @@ export default defineConfig({
       '/api': {
         target: 'http://127.0.0.1:5000',
         changeOrigin: true,
+        timeout: 900000,       // 15 min — Forge installer needs several minutes
+        proxyTimeout: 900000,  // 15 min
       }
     }
   }

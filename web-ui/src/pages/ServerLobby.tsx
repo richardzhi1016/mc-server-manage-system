@@ -33,7 +33,7 @@ export default function ServerLobby() {
   const { showToast } = useToast()
 
   // Use custom hook for Minecraft versions
-  const { versions: mcVersions, versionsMap, latestRelease } = useMinecraftVersions()
+  const { versions: mcVersions, releaseVersions: mcReleaseVersions, versionsMap, latestRelease } = useMinecraftVersions()
 
   // Connect to WebSocket for server events
   useEffect(() => {
@@ -125,7 +125,9 @@ export default function ServerLobby() {
       showToast('success', t('lobby.createSuccess', { name: data.name }))
     } catch (error) {
       console.error('Failed to create server:', error)
-      showToast('error', t('lobby.createFail'))
+      // Show specific backend error message if available
+      const backendMsg = (error as { response?: { data?: { error?: string } } })?.response?.data?.error
+      showToast('error', backendMsg || t('lobby.createFail'))
       throw error // Re-throw to let modal know creation failed
     }
   }, [showToast, t])
@@ -268,6 +270,7 @@ export default function ServerLobby() {
         onClose={handleCloseCreateModal}
         onCreateServer={handleCreateServer}
         versions={mcVersions}
+        releaseVersions={mcReleaseVersions}
         versionsMap={versionsMap}
         latestRelease={latestRelease}
       />

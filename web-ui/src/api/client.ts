@@ -62,7 +62,10 @@ export async function getServers(): Promise<ServerListResponse> {
 }
 
 export async function createServer(data: CreateServerRequest): Promise<CreateServerResponse> {
-  const response = await apiClient.post<CreateServerResponse>("/api/servers", data)
+  // Forge installation can take several minutes — use a 15-minute timeout
+  const response = await apiClient.post<CreateServerResponse>("/api/servers", data, {
+    timeout: 900000,
+  })
   return response.data
 }
 

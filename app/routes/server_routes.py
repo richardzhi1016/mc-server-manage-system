@@ -5,12 +5,14 @@ import re
 import shutil
 import sqlite3
 import subprocess
+import sys
 import threading
 import time
 import uuid
 import urllib.error
 import urllib.parse
 import urllib.request
+import xml.etree.ElementTree as ET
 
 import psutil
 import py7zr
@@ -41,6 +43,37 @@ socketio: SocketIO | None = None
 def set_socketio(sio: SocketIO) -> None:
     global socketio
     socketio = sio
+
+
+def _find_forge_args_file(server_dir: str) -> str | None:
+    """Find the Forge launch args file from run.sh or run.bat (modern Forge 1.17+)."""
+    script = "run.bat" if sys.platform == "win32" else "run.sh"
+    run_script_path = os.path.join(server_dir, script)
+    if not os.path.exists(run_script_path):
+        return None
+    try:
+        with open(run_script_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        match = re.search(r'@(libraries[^\s]+(?:unix|win)_args\.txt)', content)
+        if match:
+            return os.path.join(server_dir, match.group(1).replace("/", os.sep))
+    except Exception:
+        pass
+    return None
+
+
+def _write_forge_jvm_args(jvm_args_path: str, min_mem: int, max_mem: int, jvm_flags: list) -> None:
+    """Write JVM memory settings to user_jvm_args.txt for modern Forge servers."""
+    lines = [f"-Xms{min_mem}m", f"-Xmx{max_mem}m"] + list(jvm_flags)
+    with open(jvm_args_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
+
+def _server_has_launch_files(server_dir: str) -> bool:
+    """Check if server directory has the necessary files to start (JAR or Forge run script)."""
+    if _find_forge_args_file(server_dir):
+        return True
+    return find_server_jar(server_dir) is not None
 
 
 class PTYProcessWatcher:
@@ -346,12 +379,6 @@ def _start_server_internal(server_name: str) -> tuple[bool, str]:
     if server_manager.is_server_running(server_name):
         return False, f"Server '{server_name}' is already running"
 
-    jar_file = find_server_jar(server_dir)
-    if not jar_file:
-        return False, "No JAR file found"
-
-    jar_path = os.path.join(server_dir, jar_file)
-
     settings_path = os.path.join(server_dir, "startup_settings.json")
     if os.path.exists(settings_path):
         try:
@@ -365,13 +392,25 @@ def _start_server_internal(server_name: str) -> tuple[bool, str]:
     max_mem = startup.get("max_memory", config.default_max_memory)
     jvm_flags = startup.get("jvm_flags", [])
 
-    command = [
-        "java",
-        f"-Xms{min_mem}m",
-        f"-Xmx{max_mem}m",
-        *jvm_flags,
-        "-jar", jar_path, "nogui",
-    ]
+    # Detect modern Forge (1.17+) which uses @args files instead of a root JAR
+    forge_args_file = _find_forge_args_file(server_dir)
+    if forge_args_file:
+        jvm_args_path = os.path.join(server_dir, "user_jvm_args.txt")
+        _write_forge_jvm_args(jvm_args_path, min_mem, max_mem, jvm_flags)
+        rel_args = os.path.relpath(forge_args_file, server_dir)
+        command = ["java", "@user_jvm_args.txt", f"@{rel_args}", "nogui"]
+    else:
+        jar_file = find_server_jar(server_dir)
+        if not jar_file:
+            return False, "No JAR file found"
+        jar_path = os.path.join(server_dir, jar_file)
+        command = [
+            "java",
+            f"-Xms{min_mem}m",
+            f"-Xmx{max_mem}m",
+            *jvm_flags,
+            "-jar", jar_path, "nogui",
+        ]
 
     if not socketio:
         return False, "SocketIO not available"
@@ -454,8 +493,8 @@ def start_server():
         return jsonify({"error": f"Server directory '{server_name}' not found"}), 404
     if server_manager.is_server_running(server_name):
         return jsonify({"error": f"Server '{server_name}' is already running"}), 409
-    if not find_server_jar(server_dir):
-        return jsonify({"error": "No JAR file found"}), 404
+    if not _server_has_launch_files(server_dir):
+        return jsonify({"error": "No server launch files found"}), 404
 
     success, message = _start_server_internal(server_name)
     if not success:
@@ -613,6 +652,81 @@ def get_fabric_installer_versions():
         return jsonify({"error": f"Failed to fetch Fabric installer versions: {str(e)}"}), 500
 
 
+_forge_versions_cache: dict[str, list[str]] = {}
+_FORGE_PROMOTIONS_URL = "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json"
+_forge_promotions_cache: dict | None = None
+
+
+def _get_forge_promotions() -> dict:
+    """Fetch and cache the Forge promotions slim JSON (latest/recommended per MC version)."""
+    global _forge_promotions_cache
+    if _forge_promotions_cache is not None:
+        return _forge_promotions_cache
+    req = urllib.request.Request(
+        _FORGE_PROMOTIONS_URL,
+        headers={"User-Agent": "mc-server-manager/1.0"},
+    )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    _forge_promotions_cache = data
+    return data
+
+
+def _fetch_forge_versions(mc_version: str) -> list[str]:
+    """Return Forge version strings for a given MC version, newest first."""
+    # 1. Try the promotions API first (small JSON, fast)
+    try:
+        promos = _get_forge_promotions().get("promos", {})
+        versions: list[str] = []
+        seen: set[str] = set()
+        for suffix in ("latest", "recommended"):
+            key = f"{mc_version}-{suffix}"
+            if key in promos and promos[key] not in seen:
+                versions.append(promos[key])
+                seen.add(promos[key])
+        if versions:
+            return versions
+    except Exception as e:
+        logger.warning("Forge promotions API failed (%s), falling back to Maven", e)
+
+    # 2. Fallback: Maven metadata XML (full list, ~500 KB)
+    url = f"{config.forge_maven_url}/net/minecraftforge/forge/maven-metadata.xml"
+    req = urllib.request.Request(url, headers={"User-Agent": "mc-server-manager/1.0"})
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        xml_data = resp.read().decode("utf-8")
+    root = ET.fromstring(xml_data)
+    versioning = root.find("versioning")
+    versions = []
+    if versioning is not None:
+        versions_elem = versioning.find("versions")
+        if versions_elem is not None:
+            prefix = f"{mc_version}-"
+            for v in versions_elem.findall("version"):
+                if v.text and v.text.startswith(prefix):
+                    forge_ver = v.text[len(prefix):]
+                    if not any(tag in forge_ver for tag in ("-rc", "-beta", "alpha")):
+                        versions.append(forge_ver)
+    versions.reverse()
+    return versions
+
+
+@servers_bp.route("/forge/versions", methods=["GET"])
+def get_forge_versions():
+    """Fetch available Forge versions for a given Minecraft version."""
+    mc_version = request.args.get("mc_version")
+    if not mc_version:
+        return jsonify({"error": "mc_version parameter is required"}), 400
+    if mc_version in _forge_versions_cache:
+        return jsonify({"versions": _forge_versions_cache[mc_version]}), 200
+    try:
+        versions = _fetch_forge_versions(mc_version)
+        _forge_versions_cache[mc_version] = versions
+        return jsonify({"versions": versions}), 200
+    except Exception as e:
+        logger.error("Failed to fetch Forge versions for %s: %s", mc_version, e)
+        return jsonify({"error": f"Failed to fetch Forge versions: {str(e)}"}), 500
+
+
 @servers_bp.route("/servers", methods=["POST"])
 def create_server_instance():
     """Create a new server instance with folder and server.jar download."""
@@ -717,6 +831,85 @@ def create_server_instance():
             except Exception as e:
                 shutil.rmtree(server_dir)
                 return jsonify({"error": f"Failed to download Fabric server JAR: {str(e)}"}), 500
+
+        elif server_type == "forge":
+            if not version:
+                shutil.rmtree(server_dir)
+                return jsonify({"error": "Minecraft version is required for Forge server"}), 400
+            if not loader_version:
+                shutil.rmtree(server_dir)
+                return jsonify({"error": "Forge loader version is required"}), 400
+
+            forge_full_version = f"{version}-{loader_version}"
+            encoded_full = urllib.parse.quote(forge_full_version, safe="")
+            installer_filename = f"forge-{forge_full_version}-installer.jar"
+            installer_url = (
+                f"{config.forge_maven_url}/net/minecraftforge/forge"
+                f"/{encoded_full}/{installer_filename}"
+            )
+            installer_path = os.path.join(str(server_dir), installer_filename)
+
+            try:
+                # maven.minecraftforge.net requires a User-Agent header (returns 403 without one)
+                req = urllib.request.Request(
+                    installer_url, headers={"User-Agent": "mc-server-manager/1.0"}
+                )
+                with urllib.request.urlopen(req, timeout=300) as resp:
+                    total_size = int(resp.headers.get("Content-Length", 0))
+                    downloaded = 0
+                    chunk_size = 8192
+                    with open(installer_path, "wb") as f:
+                        while True:
+                            chunk = resp.read(chunk_size)
+                            if not chunk:
+                                break
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            report_progress(downloaded // chunk_size, chunk_size, total_size)
+            except urllib.error.HTTPError as e:
+                shutil.rmtree(server_dir)
+                return jsonify({"error": f"Failed to download Forge installer: HTTP {e.code}"}), 500
+            except Exception as e:
+                shutil.rmtree(server_dir)
+                return jsonify({"error": f"Failed to download Forge installer: {str(e)}"}), 500
+
+            if socketio:
+                socketio.emit("forge_installing", {"server_name": name})
+
+            try:
+                result = subprocess.run(
+                    [
+                        "java",
+                        "-Xmx512m",
+                        "-Djava.awt.headless=true",  # Prevent GUI dialogs on Windows
+                        "-jar", installer_path,
+                        "--installServer",
+                    ],
+                    cwd=server_dir,
+                    capture_output=True,
+                    text=True,
+                    timeout=900,  # 15 min — downloads Minecraft server + all libraries
+                )
+            except subprocess.TimeoutExpired:
+                shutil.rmtree(server_dir)
+                return jsonify({"error": "Forge installer timed out (15 min limit)"}), 500
+            except FileNotFoundError:
+                shutil.rmtree(server_dir)
+                return jsonify({"error": "Java not found. Please install Java 17+ and ensure it is in your PATH."}), 500
+            except Exception as e:
+                shutil.rmtree(server_dir)
+                return jsonify({"error": f"Failed to run Forge installer: {str(e)}"}), 500
+
+            # Clean up installer and its log
+            for cleanup_path in [installer_path, f"{installer_path}.log"]:
+                if os.path.exists(cleanup_path):
+                    os.remove(cleanup_path)
+
+            if result.returncode != 0:
+                shutil.rmtree(server_dir)
+                # Prefer stderr; fall back to last 500 chars of stdout
+                error_output = (result.stderr or result.stdout or "")[-600:] or "(no output)"
+                return jsonify({"error": f"Forge installer failed: {error_output}"}), 500
 
         elif server_type == "paper":
             if not version:

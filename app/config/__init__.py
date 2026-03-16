@@ -29,6 +29,7 @@ class Config:
             "default_min_memory": 1024,
             "fabric_meta_url": "https://meta.fabricmc.net",
             "papermc_api_url": "https://api.papermc.io/v2",
+            "forge_maven_url": "https://maven.minecraftforge.net",
             "log_level_patterns": {
                 "ERROR": r"\[.*ERROR.*\]",
                 "WARN": r"\[.*WARN.*\]",
@@ -76,6 +77,10 @@ class Config:
     @property
     def papermc_api_url(self) -> str:
         return self._config["papermc_api_url"]
+
+    @property
+    def forge_maven_url(self) -> str:
+        return self._config["forge_maven_url"]
 
     @property
     def log_level_patterns(self) -> dict[str, str]:

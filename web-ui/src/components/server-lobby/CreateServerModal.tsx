@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { API_BASE_URL } from '@/lib/api'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { useFabricGameVersions, useFabricLoaderVersions, useFabricInstallerVersions } from '@/hooks/useFabricVersions'
+import { useForgeVersions } from '@/hooks/useForgeVersions'
 import type { ServerType } from './TypeBadge'
 
 type CategoryType = 'Official' | 'Plugins' | 'Mods'
@@ -15,6 +16,7 @@ interface CreateServerModalProps {
     onClose: () => void
     onCreateServer: (data: { type: ServerType; name: string; version: string; version_url?: string; loader_version?: string; installer_version?: string }) => void
     versions: string[]
+    releaseVersions: string[]  // Only release versions — used for Forge/Paper
     versionsMap: Map<string, string>  // Maps version ID to metadata URL
     latestRelease: string
 }
@@ -39,6 +41,7 @@ export const CreateServerModal = React.memo(function CreateServerModal({
     onClose,
     onCreateServer,
     versions,
+    releaseVersions,
     versionsMap,
     latestRelease
 }: CreateServerModalProps) {
@@ -85,6 +88,7 @@ export const CreateServerModal = React.memo(function CreateServerModal({
     }
 
     const [showStableOnly, setShowStableOnly] = useState(true)
+    const [isInstalling, setIsInstalling] = useState(false)
 
     // Fabric version hooks
     const { versions: fabricGameVersions, latestRelease: fabricLatestRelease, isLoading: fabricGameLoading, error: fabricGameError, refetch: refetchFabricGame } = useFabricGameVersions(showStableOnly)
@@ -102,6 +106,10 @@ export const CreateServerModal = React.memo(function CreateServerModal({
     const socketRef = useRef<Socket | null>(null)
     const pendingServerNameRef = useRef<string | null>(null)
 
+    // Forge version hook — fetches per selected MC version (must be after selectedVersion/selectedType state)
+    const forgeMcVersion = selectedType === 'Forge' ? selectedVersion : ''
+    const { versions: forgeVersions, latestVersion: forgeLatestVersion, isLoading: forgeVersionsLoading, error: forgeVersionsError, refetch: refetchForgeVersions } = useForgeVersions(forgeMcVersion)
+
     // Reset state when modal opens - this is intentional for modal reset pattern
     // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => {
@@ -114,11 +122,19 @@ export const CreateServerModal = React.memo(function CreateServerModal({
             setSelectedInstallerVersion('')
             setEulaAgreed(false)
             setIsCreating(false)
+            setIsInstalling(false)
             setDownloadProgress(0)
             setSelectedVersion(latestRelease)
             setShowStableOnly(true)
         }
     }, [isOpen, latestRelease])
+
+    // Auto-select latest Forge version when forge versions load for a given MC version
+    useEffect(() => {
+        if (selectedType === 'Forge' && forgeLatestVersion && !selectedLoaderVersion) {
+            setSelectedLoaderVersion(forgeLatestVersion)
+        }
+    }, [selectedType, forgeLatestVersion, selectedLoaderVersion])
 
     // Cleanup socket on unmount
     useEffect(() => {
@@ -138,6 +154,8 @@ export const CreateServerModal = React.memo(function CreateServerModal({
     const handleTypeSelect = useCallback((type: ServerType) => {
         setSelectedType(type)
         setServerName(`My ${type} Server`)
+        setSelectedLoaderVersion('')
+        setSelectedInstallerVersion('')
         if (type === 'Fabric') {
             setSelectedVersion(fabricLatestRelease)
             setSelectedLoaderVersion(fabricLatestLoader)
@@ -161,6 +179,7 @@ export const CreateServerModal = React.memo(function CreateServerModal({
     const handleFinalCreate = useCallback(async () => {
         if (selectedType && serverName && eulaAgreed && !isCreating) {
             setIsCreating(true)
+            setIsInstalling(false)
             setDownloadProgress(0)
             pendingServerNameRef.current = serverName
 
@@ -176,20 +195,27 @@ export const CreateServerModal = React.memo(function CreateServerModal({
                         setDownloadProgress(data.progress)
                     }
                 })
+
+                socket.on('forge_installing', (data: { server_name: string }) => {
+                    if (data.server_name === pendingServerNameRef.current) {
+                        setIsInstalling(true)
+                    }
+                })
             }
 
             try {
                 const isFabric = selectedType === 'Fabric'
                 const isPaper = selectedType === 'Paper'
+                const isForge = selectedType === 'Forge'
                 await onCreateServer({
                     type: selectedType,
                     name: serverName,
                     version: selectedVersion,
-                    version_url: (!isFabric && !isPaper) ? versionsMap.get(selectedVersion) : undefined,
-                    loader_version: isFabric ? selectedLoaderVersion : undefined,
+                    version_url: (!isFabric && !isPaper && !isForge) ? versionsMap.get(selectedVersion) : undefined,
+                    loader_version: (isFabric || isForge) ? selectedLoaderVersion : undefined,
                     installer_version: isFabric ? selectedInstallerVersion : undefined,
                 })
-                // Download complete - close modal
+                // Creation complete - close modal
                 if (socketRef.current) {
                     socketRef.current.disconnect()
                     socketRef.current = null
@@ -197,6 +223,7 @@ export const CreateServerModal = React.memo(function CreateServerModal({
             } catch (error) {
                 console.error('Failed to create server:', error)
                 setIsCreating(false)
+                setIsInstalling(false)
                 setDownloadProgress(0)
             }
         }
@@ -204,7 +231,10 @@ export const CreateServerModal = React.memo(function CreateServerModal({
 
     const handleVersionChange = useCallback((version: string) => {
         setSelectedVersion(version)
-    }, [])
+        if (selectedType === 'Forge') {
+            setSelectedLoaderVersion('') // Will be auto-set when forge versions reload
+        }
+    }, [selectedType])
 
     const handleLoaderVersionChange = useCallback((version: string) => {
         setSelectedLoaderVersion(version)
@@ -342,12 +372,47 @@ export const CreateServerModal = React.memo(function CreateServerModal({
                                 ) : (
                                     <CustomSelect
                                         label={t('createModal.minecraftVersion')}
-                                        options={versions}
+                                        options={selectedType === 'Forge' || selectedType === 'Paper' ? releaseVersions : versions}
                                         value={selectedVersion}
                                         onChange={handleVersionChange}
                                     />
                                 )}
                             </div>
+
+                            {/* Row 2 (Forge only): Forge loader version — full width */}
+                            {selectedType === 'Forge' && (
+                                <div className="space-y-2">
+                                    {forgeVersionsLoading ? (
+                                        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm">
+                                            <Loader2 size={16} className="animate-spin" />
+                                            <span>{t('createModal.loadingForgeVersions')}</span>
+                                        </div>
+                                    ) : forgeVersionsError ? (
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm text-red-500 dark:text-red-400">{t('createModal.forgeVersionsError')}</span>
+                                            <button
+                                                onClick={refetchForgeVersions}
+                                                className="text-sm text-blue-600 dark:text-blue-400 hover:underline cursor-pointer font-medium"
+                                            >
+                                                {t('createModal.retry')}
+                                            </button>
+                                        </div>
+                                    ) : forgeVersions.length === 0 ? (
+                                        <div className="text-sm text-amber-600 dark:text-amber-400">
+                                            {t('createModal.noForgeVersions')}
+                                        </div>
+                                    ) : (
+                                        <CustomSelect
+                                            label={t('createModal.forgeLoaderVersion')}
+                                            options={forgeVersions}
+                                            value={selectedLoaderVersion}
+                                            onChange={handleLoaderVersionChange}
+                                        />
+                                    )}
+                                </div>
+                            )}
+
+                            {/* (no extra row for non-Forge, non-Fabric types) */}
 
                             {/* Row 2 (Fabric only): Loader Version + Installer Version — side by side */}
                             {selectedType === 'Fabric' && !fabricGameLoading && !fabricLoaderLoading && !fabricInstallerLoading && !fabricGameError && !fabricLoaderError && !fabricInstallerError && (
@@ -403,19 +468,26 @@ export const CreateServerModal = React.memo(function CreateServerModal({
 
                             <button
                                 onClick={handleFinalCreate}
-                                disabled={!serverName || !eulaAgreed || isCreating}
+                                disabled={!serverName || !eulaAgreed || isCreating || (selectedType === 'Forge' && (!selectedLoaderVersion || forgeVersionsLoading))}
                                 className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 disabled:bg-slate-200 dark:disabled:bg-slate-700 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-blue-200 dark:shadow-none disabled:shadow-none transition-all duration-200 mt-4 relative overflow-hidden"
                             >
                                 {isCreating ? (
-                                    <div className="flex flex-col items-center gap-1">
-                                        <span className="text-sm">{t('createModal.downloading', { progress: downloadProgress })}</span>
-                                        <div className="w-full h-2 bg-blue-400/30 rounded-full overflow-hidden">
-                                            <div
-                                                className="h-full bg-white rounded-full transition-all duration-300 ease-out"
-                                                style={{ width: `${downloadProgress}%` }}
-                                            />
+                                    isInstalling ? (
+                                        <div className="flex items-center justify-center gap-2">
+                                            <Loader2 size={18} className="animate-spin" />
+                                            <span className="text-sm">{t('createModal.installingForge')}</span>
                                         </div>
-                                    </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center gap-1">
+                                            <span className="text-sm">{t('createModal.downloading', { progress: downloadProgress })}</span>
+                                            <div className="w-full h-2 bg-blue-400/30 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-white rounded-full transition-all duration-300 ease-out"
+                                                    style={{ width: `${downloadProgress}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )
                                 ) : (
                                     <div className="flex items-center justify-center gap-2">
                                         <Plus size={20} strokeWidth={3} />

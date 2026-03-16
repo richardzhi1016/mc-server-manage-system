@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 
 interface MinecraftVersionsResult {
     versions: string[]
+    releaseVersions: string[]  // Only release-type versions (no snapshots/old_beta/old_alpha)
     versionsMap: Map<string, string>  // Maps version ID to metadata URL
     latestRelease: string
     isLoading: boolean
@@ -27,11 +28,13 @@ interface VersionManifest {
 
 // Cache for version data to avoid refetching
 let cachedVersions: string[] | null = null
+let cachedReleaseVersions: string[] | null = null
 let cachedVersionsMap: Map<string, string> | null = null
 let cachedLatestRelease: string | null = null
 
 export function useMinecraftVersions(): MinecraftVersionsResult {
     const [versions, setVersions] = useState<string[]>(cachedVersions || [])
+    const [releaseVersions, setReleaseVersions] = useState<string[]>(cachedReleaseVersions || [])
     const [versionsMap, setVersionsMap] = useState<Map<string, string>>(cachedVersionsMap || new Map())
     const [latestRelease, setLatestRelease] = useState<string>(cachedLatestRelease || '1.20.4')
     const [isLoading, setIsLoading] = useState(!cachedVersions)
@@ -51,6 +54,7 @@ export function useMinecraftVersions(): MinecraftVersionsResult {
 
             // Extract version IDs
             const versionIds = data.versions.map((v) => v.id)
+            const releaseIds = data.versions.filter((v) => v.type === 'release').map((v) => v.id)
 
             // Build version ID to URL map
             const versionUrlMap = new Map<string, string>()
@@ -60,10 +64,12 @@ export function useMinecraftVersions(): MinecraftVersionsResult {
 
             // Cache the results
             cachedVersions = versionIds
+            cachedReleaseVersions = releaseIds
             cachedVersionsMap = versionUrlMap
             cachedLatestRelease = data.latest?.release || '1.20.4'
 
             setVersions(versionIds)
+            setReleaseVersions(releaseIds)
             setVersionsMap(versionUrlMap)
             setLatestRelease(cachedLatestRelease)
         } catch (err) {
@@ -85,6 +91,7 @@ export function useMinecraftVersions(): MinecraftVersionsResult {
     const refetch = useCallback(() => {
         // Clear cache and refetch
         cachedVersions = null
+        cachedReleaseVersions = null
         cachedVersionsMap = null
         cachedLatestRelease = null
         fetchVersions()
@@ -92,6 +99,7 @@ export function useMinecraftVersions(): MinecraftVersionsResult {
 
     return {
         versions,
+        releaseVersions,
         versionsMap,
         latestRelease,
         isLoading,
