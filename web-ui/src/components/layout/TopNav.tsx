@@ -64,7 +64,7 @@ export function TopNav({ onMenuToggle, serverName, serverStatus }: TopNavProps) 
   return (
     <header
       className={cn(
-        'h-14 bg-white dark:bg-mrinth-surface border-b border-gray-200 dark:border-mrinth-border',
+        'h-14 bg-white dark:bg-mrinth-bg border-b border-gray-200 dark:border-mrinth-border',
         'flex items-center justify-between px-4 lg:px-6'
       )}
     >

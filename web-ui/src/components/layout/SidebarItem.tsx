@@ -29,7 +29,7 @@ export function SidebarItem({ to, icon, label, collapsed, onClick, end }: Sideba
         collapsed && 'justify-center px-2'
       )}
     >
-      <span className="flex-shrink-0 w-4.5 h-4.5">{icon}</span>
+      <span className="flex-shrink-0 w-4 h-4">{icon}</span>
       {!collapsed && <span>{label}</span>}
     </Link>
   )

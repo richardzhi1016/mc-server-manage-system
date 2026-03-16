@@ -41,8 +41,8 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
       >
         <div className="flex items-center justify-between px-4 py-5 border-b border-gray-200 dark:border-mrinth-border">
           <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-mrinth-green/10">
-              <Server className="w-4 h-4 text-mrinth-green" />
+            <div className="flex items-center justify-center w-7 h-7 rounded-md bg-mrinth-green">
+              <Server className="w-4 h-4 text-mrinth-bg" strokeWidth={2.5} />
             </div>
             <span className="font-bold text-base text-gray-900 dark:text-mrinth-text">
               MC Panel

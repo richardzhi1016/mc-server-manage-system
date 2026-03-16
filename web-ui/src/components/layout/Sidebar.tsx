@@ -30,14 +30,15 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
     >
       {/* Brand */}
       <div className={cn(
-        'flex items-center gap-2.5 px-4 py-5 border-b border-gray-200 dark:border-mrinth-border',
+        'flex items-center gap-2.5 px-4 border-b border-gray-200 dark:border-mrinth-border',
+        'h-14',
         collapsed && 'justify-center px-2'
       )}>
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-mrinth-green/10 flex-shrink-0">
-          <Server className="w-4.5 h-4.5 text-mrinth-green" strokeWidth={2} />
+        <div className="flex items-center justify-center w-7 h-7 rounded-md bg-mrinth-green flex-shrink-0">
+          <Server className="w-4 h-4 text-mrinth-bg" strokeWidth={2.5} />
         </div>
         {!collapsed && (
-          <span className="font-bold text-base tracking-tight text-gray-900 dark:text-mrinth-text">
+          <span className="font-bold text-sm tracking-tight text-gray-900 dark:text-mrinth-text">
             MC Panel
           </span>
         )}
@@ -47,39 +48,39 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
       <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto scrollbar-thin">
         <SidebarItem
           to={basePath}
-          icon={<LayoutDashboard className="w-4.5 h-4.5" />}
+          icon={<LayoutDashboard className="w-4 h-4" />}
           label={t('nav.dashboard')}
           collapsed={collapsed}
           end
         />
         <SidebarItem
           to="/servers"
-          icon={<ArrowLeftCircle className="w-4.5 h-4.5" />}
+          icon={<ArrowLeftCircle className="w-4 h-4" />}
           label={t('nav.backToLobby')}
           collapsed={collapsed}
         />
         <SidebarItem
           to={`${basePath}/console`}
-          icon={<Terminal className="w-4.5 h-4.5" />}
+          icon={<Terminal className="w-4 h-4" />}
           label={t('nav.console')}
           collapsed={collapsed}
         />
         <SidebarItem
           to={`${basePath}/players`}
-          icon={<Users className="w-4.5 h-4.5" />}
+          icon={<Users className="w-4 h-4" />}
           label={t('nav.players')}
           collapsed={collapsed}
         />
         <SidebarItem
           to={`${basePath}/files`}
-          icon={<Folder className="w-4.5 h-4.5" />}
+          icon={<Folder className="w-4 h-4" />}
           label={t('nav.files')}
           collapsed={collapsed}
         />
         {(serverType === "fabric" || serverType === "forge") && (
           <SidebarItem
             to={`${basePath}/mods`}
-            icon={<Package className="w-4.5 h-4.5" />}
+            icon={<Package className="w-4 h-4" />}
             label={t('nav.mods')}
             collapsed={collapsed}
           />
@@ -87,20 +88,20 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
         {serverType === "paper" && (
           <SidebarItem
             to={`${basePath}/plugins`}
-            icon={<Puzzle className="w-4.5 h-4.5" />}
+            icon={<Puzzle className="w-4 h-4" />}
             label={t('nav.plugins')}
             collapsed={collapsed}
           />
         )}
         <SidebarItem
           to={`${basePath}/backups`}
-          icon={<Database className="w-4.5 h-4.5" />}
+          icon={<Database className="w-4 h-4" />}
           label={t('nav.backups')}
           collapsed={collapsed}
         />
         <SidebarItem
           to={`${basePath}/settings`}
-          icon={<Settings className="w-4.5 h-4.5" />}
+          icon={<Settings className="w-4 h-4" />}
           label={t('nav.settings')}
           collapsed={collapsed}
         />
@@ -112,7 +113,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
         collapsed && 'text-center'
       )}>
         {!collapsed && (
-          <div className="px-3 py-2 text-xs text-gray-400 dark:text-mrinth-muted">
+          <div className="px-3 py-1 text-xs text-gray-400 dark:text-mrinth-muted">
             MC Server Manager · v1.0.0
           </div>
         )}
