@@ -20,17 +20,16 @@ export function SidebarItem({ to, icon, label, collapsed, onClick, end }: Sideba
     <Link
       to={to}
       onClick={onClick}
-      className={cn(
-        'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
-        'hover:bg-gray-100 dark:hover:bg-gray-800',
-        isActive
-          ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 font-medium'
-          : 'text-gray-600 dark:text-gray-400',
-        collapsed && 'justify-center'
-      )}
       title={collapsed ? label : undefined}
+      className={cn(
+        'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150 cursor-pointer',
+        isActive
+          ? 'bg-mrinth-green/10 text-mrinth-green font-medium dark:bg-mrinth-green/10 dark:text-mrinth-green'
+          : 'text-gray-500 dark:text-mrinth-muted hover:bg-gray-100 dark:hover:bg-mrinth-high hover:text-gray-900 dark:hover:text-mrinth-text',
+        collapsed && 'justify-center px-2'
+      )}
     >
-      <span className="flex-shrink-0 w-5 h-5">{icon}</span>
+      <span className="flex-shrink-0 w-4.5 h-4.5">{icon}</span>
       {!collapsed && <span>{label}</span>}
     </Link>
   )

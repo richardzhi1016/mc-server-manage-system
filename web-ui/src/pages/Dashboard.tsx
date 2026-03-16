@@ -33,8 +33,8 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('title')}</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-mrinth-text">{t('title')}</h1>
+          <p className="text-sm text-gray-500 dark:text-mrinth-muted">
             {t('subtitle')}
             {lastUpdated && (
               <span className="ml-2">
@@ -54,7 +54,7 @@ export default function Dashboard() {
             <select
               value={selectedServerId || servers[0]?.id || ''}
               onChange={(e) => setSelectedServer(e.target.value)}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="px-3 py-2 border border-gray-300 dark:border-mrinth-border rounded-lg bg-white dark:bg-mrinth-high text-sm text-gray-900 dark:text-mrinth-text focus:outline-none focus:ring-2 focus:ring-mrinth-green"
             >
               {servers.map((s) => (
                 <option key={s.id} value={s.id}>

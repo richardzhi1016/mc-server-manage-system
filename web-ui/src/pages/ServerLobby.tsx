@@ -222,23 +222,23 @@ export default function ServerLobby() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans p-6 md:p-10 relative transition-colors duration-300">
+    <div className="min-h-screen bg-gray-50 dark:bg-mrinth-bg text-gray-900 dark:text-mrinth-text font-sans p-6 md:p-10 relative transition-colors duration-300">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-end mb-8">
           <div>
-            <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight transition-colors">{t('lobby.title')}</h1>
-            <p className="text-slate-500 dark:text-slate-400 mt-1 transition-colors">{t('lobby.subtitle')}</p>
+            <h1 className="text-3xl font-extrabold text-gray-900 dark:text-mrinth-text tracking-tight">{t('lobby.title')}</h1>
+            <p className="text-gray-500 dark:text-mrinth-muted mt-1">{t('lobby.subtitle')}</p>
           </div>
           <div className="hidden sm:flex items-center gap-4">
             <button
               onClick={toggleDarkMode}
-              className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all shadow-sm"
+              className="p-2 rounded-lg bg-white dark:bg-mrinth-surface border border-gray-200 dark:border-mrinth-border text-gray-500 dark:text-mrinth-muted hover:text-mrinth-green dark:hover:text-mrinth-green transition-all shadow-sm cursor-pointer"
               title="Toggle Dark Mode"
             >
               {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
 
-            <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm transition-colors">
+            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-mrinth-muted bg-white dark:bg-mrinth-surface px-3 py-1.5 rounded-lg border border-gray-200 dark:border-mrinth-border shadow-sm">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
               {t('lobby.systemNormal')}
             </div>
@@ -249,12 +249,12 @@ export default function ServerLobby() {
           {isLoading ? (
             // Loading skeleton
             Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 h-52 animate-pulse">
-                <div className="h-2 w-full bg-slate-200 dark:bg-slate-700" />
+              <div key={i} className="bg-white dark:bg-mrinth-surface rounded-xl border border-gray-200 dark:border-mrinth-border h-52 animate-pulse">
+                <div className="h-1 w-full bg-gray-200 dark:bg-mrinth-border" />
                 <div className="p-5">
-                  <div className="w-10 h-10 rounded-lg bg-slate-200 dark:bg-slate-700 mb-3" />
-                  <div className="h-5 w-32 bg-slate-200 dark:bg-slate-700 rounded mb-2" />
-                  <div className="h-4 w-16 bg-slate-200 dark:bg-slate-700 rounded" />
+                  <div className="w-10 h-10 rounded-lg bg-gray-200 dark:bg-mrinth-high mb-3" />
+                  <div className="h-5 w-32 bg-gray-200 dark:bg-mrinth-high rounded mb-2" />
+                  <div className="h-4 w-16 bg-gray-200 dark:bg-mrinth-high rounded" />
                 </div>
               </div>
             ))

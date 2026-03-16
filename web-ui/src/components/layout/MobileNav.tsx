@@ -33,16 +33,18 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
 
       <div
         className={cn(
-          'fixed top-0 left-0 h-full w-72 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800',
+          'fixed top-0 left-0 h-full w-72 bg-white dark:bg-mrinth-surface border-r border-gray-200 dark:border-mrinth-border',
           'transform transition-transform duration-300 ease-in-out z-50',
           'lg:hidden',
           open ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        <div className="flex items-center justify-between px-4 py-5 border-b border-gray-200 dark:border-gray-800">
+        <div className="flex items-center justify-between px-4 py-5 border-b border-gray-200 dark:border-mrinth-border">
           <div className="flex items-center gap-2">
-            <Server className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
-            <span className="font-bold text-lg text-gray-900 dark:text-white">
+            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-mrinth-green/10">
+              <Server className="w-4 h-4 text-mrinth-green" />
+            </div>
+            <span className="font-bold text-base text-gray-900 dark:text-mrinth-text">
               MC Panel
             </span>
           </div>
@@ -113,8 +115,8 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
           />
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 px-4 py-4 border-t border-gray-200 dark:border-gray-800">
-          <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+        <div className="absolute bottom-0 left-0 right-0 px-4 py-4 border-t border-gray-200 dark:border-mrinth-border">
+          <div className="px-3 py-2 text-xs text-gray-400 dark:text-mrinth-muted">
             MC Server Management v1.0.0
           </div>
         </div>

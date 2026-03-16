@@ -16,7 +16,7 @@ function useThemeInner() {
     const saved = localStorage.getItem("theme") as Theme | null
     if (saved) return saved
     if (window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark"
-    return "light"
+    return "dark"  // Default to dark (Modrinth style)
   })
 
   useEffect(() => {

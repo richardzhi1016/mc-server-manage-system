@@ -38,7 +38,7 @@ export function Layout() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="flex h-screen bg-gray-50 dark:bg-mrinth-bg">
       <MobileNav open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
 
       <div className={cn('hidden lg:flex', sidebarCollapsed ? 'w-16' : 'w-64')}>

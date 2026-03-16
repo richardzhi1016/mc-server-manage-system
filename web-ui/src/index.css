@@ -30,24 +30,32 @@
     animation: slideIn 250ms ease;
   }
 
+  /* ── Base button ── */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium leading-tight border border-transparent rounded-md cursor-pointer transition-all duration-150 whitespace-nowrap;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium leading-tight border border-transparent rounded-lg cursor-pointer transition-all duration-150 whitespace-nowrap;
   }
 
   .btn:focus-visible {
-    @apply outline-2 outline-offset-2 outline-indigo-500;
+    @apply outline-2 outline-offset-2 outline-mrinth-green;
   }
 
   .btn:disabled {
     @apply opacity-50 cursor-not-allowed pointer-events-none;
   }
 
+  /* Green primary — Modrinth brand */
   .btn-primary {
-    @apply bg-indigo-500 text-white border-indigo-500 hover:bg-indigo-600 hover:border-indigo-600 hover:-translate-y-0.5 hover:shadow-md;
+    @apply bg-mrinth-green text-mrinth-bg font-semibold border-mrinth-green
+           hover:bg-mrinth-green-h hover:border-mrinth-green-h
+           hover:-translate-y-0.5 hover:shadow-lg hover:shadow-mrinth-green/20;
   }
 
+  /* Subtle secondary */
   .btn-secondary {
-    @apply bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700;
+    @apply bg-white text-gray-700 border-gray-300
+           hover:bg-gray-50 hover:border-gray-400
+           dark:bg-mrinth-high dark:text-mrinth-text dark:border-mrinth-border
+           dark:hover:bg-mrinth-border dark:hover:border-mrinth-muted;
   }
 
   .btn-success {
@@ -58,22 +66,25 @@
     @apply bg-red-500 text-white border-red-500 hover:bg-red-600 hover:border-red-600;
   }
 
+  /* ── Form controls ── */
   .form-input,
   .form-select,
   .form-textarea {
-    @apply w-full px-4 py-3 text-base leading-normal text-gray-900 bg-white border-2 border-gray-300 rounded-md transition-all duration-150 dark:bg-gray-800 dark:text-white dark:border-gray-600;
+    @apply w-full px-4 py-2.5 text-base leading-normal rounded-lg transition-all duration-150
+           text-gray-900 bg-white border-2 border-gray-300
+           dark:bg-mrinth-high dark:text-mrinth-text dark:border-mrinth-border;
   }
 
   .form-input:focus,
   .form-select:focus,
   .form-textarea:focus {
-    @apply outline-none border-indigo-500 shadow-lg shadow-indigo-100 dark:shadow-indigo-900/20;
+    @apply outline-none border-mrinth-green shadow-lg shadow-mrinth-green/10;
   }
 
   .form-input:disabled,
   .form-select:disabled,
   .form-textarea:disabled {
-    @apply bg-gray-100 cursor-not-allowed opacity-70 dark:bg-gray-700;
+    @apply bg-gray-100 cursor-not-allowed opacity-60 dark:bg-mrinth-surface;
   }
 
   .form-select {
@@ -81,8 +92,11 @@
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
   }
 
-    .card {
-      @apply bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden transition-shadow duration-[250ms] hover:shadow-md dark:bg-gray-900 dark:border-gray-800;
+  /* ── Card ── */
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden transition-all duration-200
+           hover:shadow-md
+           dark:bg-mrinth-surface dark:border-mrinth-border;
   }
 }
 
@@ -92,19 +106,19 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
 
   .scrollbar-thin::-webkit-scrollbar-track {
-    @apply bg-gray-100 dark:bg-gray-800;
+    @apply bg-gray-100 dark:bg-mrinth-bg rounded-full;
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+    @apply bg-gray-300 dark:bg-mrinth-border rounded-full;
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-400 dark:bg-gray-500;
+    @apply bg-gray-400 dark:bg-mrinth-muted;
   }
 }

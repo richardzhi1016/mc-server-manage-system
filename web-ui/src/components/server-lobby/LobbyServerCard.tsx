@@ -47,16 +47,12 @@ export const LobbyServerCard = React.memo(function LobbyServerCard({ server, onC
         onDelete?.(server)
     }, [onDelete, server])
 
-    // Close dropdown on outside click or Escape key
     useEffect(() => {
         if (!isMenuOpen) return
 
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                setIsMenuOpen(false)
-            }
+            if (e.key === 'Escape') setIsMenuOpen(false)
         }
-
         const handleClickOutside = (e: MouseEvent) => {
             if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
                 setIsMenuOpen(false)
@@ -74,12 +70,28 @@ export const LobbyServerCard = React.memo(function LobbyServerCard({ server, onC
     return (
         <div
             onClick={handleCardClick}
-            className="cursor-pointer group relative bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col h-52">
-            <div className={`h-2 w-full transition-colors duration-500 ${server.status === 'online' ? 'bg-gradient-to-r from-green-400 to-emerald-500' : 'bg-slate-200 dark:bg-slate-700'}`} />
+            className="cursor-pointer group relative flex flex-col h-52 rounded-xl overflow-hidden
+                       bg-white dark:bg-mrinth-surface
+                       border border-gray-200 dark:border-mrinth-border
+                       hover:border-mrinth-green/60 dark:hover:border-mrinth-green/60
+                       shadow-sm hover:shadow-md hover:shadow-mrinth-green/5
+                       transition-all duration-200"
+        >
+            {/* Status stripe at top */}
+            <div className={`h-1 w-full flex-shrink-0 transition-colors duration-500 ${
+                server.status === 'online'
+                    ? 'bg-gradient-to-r from-mrinth-green to-emerald-400'
+                    : 'bg-gray-200 dark:bg-mrinth-border'
+            }`} />
 
             <div className="p-5 flex flex-col flex-1">
                 <div className="flex justify-between items-start mb-3">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    {/* Server icon */}
+                    <div className="flex items-center justify-center w-10 h-10 rounded-lg
+                                    bg-gray-100 dark:bg-mrinth-high
+                                    text-gray-500 dark:text-mrinth-muted
+                                    group-hover:bg-mrinth-green/10 group-hover:text-mrinth-green
+                                    transition-colors duration-200">
                         <ServerIcon size={20} />
                     </div>
 
@@ -87,24 +99,39 @@ export const LobbyServerCard = React.memo(function LobbyServerCard({ server, onC
                     <div className="relative" ref={menuRef}>
                         <button
                             onClick={handleMenuToggle}
-                            className="cursor-pointer text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                            className="cursor-pointer p-1.5 rounded-md
+                                       text-gray-400 dark:text-mrinth-muted
+                                       hover:text-gray-700 dark:hover:text-mrinth-text
+                                       hover:bg-gray-100 dark:hover:bg-mrinth-high
+                                       transition-colors"
                         >
-                            <MoreVertical size={18} />
+                            <MoreVertical size={16} />
                         </button>
 
                         {isMenuOpen && (
-                            <div className="absolute right-0 top-full mt-1 z-10 bg-white dark:bg-slate-700 rounded-lg shadow-lg border border-slate-200 dark:border-slate-600 py-1 min-w-[140px] animate-in fade-in zoom-in-95 duration-150">
+                            <div className="absolute right-0 top-full mt-1 z-10
+                                            bg-white dark:bg-mrinth-high
+                                            rounded-lg shadow-xl
+                                            border border-gray-200 dark:border-mrinth-border
+                                            py-1 min-w-[140px]
+                                            animate-in fade-in zoom-in-95 duration-150">
                                 <button
                                     onClick={handleCloneClick}
-                                    className="cursor-pointer w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                                    className="cursor-pointer w-full flex items-center gap-2 px-3 py-2 text-sm
+                                               text-gray-700 dark:text-mrinth-text
+                                               hover:bg-gray-50 dark:hover:bg-mrinth-border
+                                               transition-colors"
                                 >
                                     <Copy size={14} />
                                     {t('card.clone')}
                                 </button>
-                                <div className="my-1 border-t border-slate-200 dark:border-slate-600" />
+                                <div className="my-1 border-t border-gray-200 dark:border-mrinth-border" />
                                 <button
                                     onClick={handleDeleteClick}
-                                    className="cursor-pointer w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                    className="cursor-pointer w-full flex items-center gap-2 px-3 py-2 text-sm
+                                               text-red-600 dark:text-red-400
+                                               hover:bg-red-50 dark:hover:bg-red-900/10
+                                               transition-colors"
                                 >
                                     <Trash2 size={14} />
                                     {t('card.delete')}
@@ -114,15 +141,22 @@ export const LobbyServerCard = React.memo(function LobbyServerCard({ server, onC
                     </div>
                 </div>
 
-                <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100 mb-1 truncate">{server.name}</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 font-mono mb-4">:{server.port}</p>
+                <h3 className="font-bold text-base text-gray-900 dark:text-mrinth-text mb-1 truncate">
+                    {server.name}
+                </h3>
+                <p className="text-xs text-gray-400 dark:text-mrinth-muted font-mono mb-4">
+                    :{server.port}
+                </p>
 
                 <div className="mt-auto flex items-center justify-between">
                     <StatusBadge status={server.status} />
 
                     <div className="flex items-center gap-2">
                         <TypeBadge type={server.type} />
-                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/50 px-2 py-1 rounded border border-slate-200 dark:border-slate-600">
+                        <span className="text-xs font-medium
+                                         text-gray-500 dark:text-mrinth-muted
+                                         bg-gray-100 dark:bg-mrinth-high
+                                         px-2 py-0.5 rounded border border-gray-200 dark:border-mrinth-border">
                             {server.version}
                         </span>
                     </div>

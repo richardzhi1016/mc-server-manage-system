@@ -64,7 +64,7 @@ export function TopNav({ onMenuToggle, serverName, serverStatus }: TopNavProps) 
   return (
     <header
       className={cn(
-        'h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800',
+        'h-14 bg-white dark:bg-mrinth-surface border-b border-gray-200 dark:border-mrinth-border',
         'flex items-center justify-between px-4 lg:px-6'
       )}
     >
@@ -81,17 +81,17 @@ export function TopNav({ onMenuToggle, serverName, serverStatus }: TopNavProps) 
 
         {serverName && (
           <div className="hidden sm:flex items-center gap-2">
-            <span className="text-sm text-gray-500 dark:text-gray-400">{t('nav.server')}:</span>
-            <span className="font-medium text-gray-900 dark:text-white">{serverName}</span>
+            <span className="text-sm text-gray-500 dark:text-mrinth-muted">{t('nav.server')}:</span>
+            <span className="font-medium text-gray-900 dark:text-mrinth-text">{serverName}</span>
             {serverStatus && (
               <span
                 className={cn(
                   'px-2 py-0.5 text-xs rounded-full font-medium',
                   serverStatus === 'running'
-                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                    ? 'bg-mrinth-green/10 text-mrinth-green'
                     : serverStatus === 'stopped'
-                    ? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
-                    : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                    ? 'bg-gray-100 text-gray-600 dark:bg-mrinth-high dark:text-mrinth-muted'
+                    : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400'
                 )}
               >
                 {getStatusText(serverStatus)}
@@ -120,7 +120,7 @@ export function TopNav({ onMenuToggle, serverName, serverStatus }: TopNavProps) 
           {langOpen && (
             <div
               role="listbox"
-              className="absolute right-0 top-full mt-1 w-32 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 py-1"
+              className="absolute right-0 top-full mt-1 w-32 bg-white dark:bg-mrinth-high border border-gray-200 dark:border-mrinth-border rounded-lg shadow-lg z-50 py-1"
             >
               {LANGUAGES.map(({ code, labelKey }) => (
                 <button
@@ -130,10 +130,10 @@ export function TopNav({ onMenuToggle, serverName, serverStatus }: TopNavProps) 
                   onClick={() => handleLangChange(code)}
                   className={cn(
                     'w-full flex items-center gap-2 px-3 py-2 text-sm text-left',
-                    'hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors',
+                    'hover:bg-gray-50 dark:hover:bg-mrinth-border transition-colors',
                     i18n.resolvedLanguage === code
-                      ? 'text-indigo-600 dark:text-indigo-400'
-                      : 'text-gray-700 dark:text-gray-300'
+                      ? 'text-mrinth-green'
+                      : 'text-gray-700 dark:text-mrinth-muted'
                   )}
                 >
                   {i18n.resolvedLanguage === code && <Check className="w-3 h-3 flex-shrink-0" />}
