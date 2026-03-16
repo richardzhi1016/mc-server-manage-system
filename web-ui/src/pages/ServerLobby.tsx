@@ -19,7 +19,7 @@ import { useToast } from '@/components/ui/Toast'
 
 export default function ServerLobby() {
   const { t } = useTranslation('servers')
-  const { setServers: setStoreServers } = useServerStore()
+  const { setServers: setStoreServers, addServer: addStoreServer } = useServerStore()
   const [servers, setServers] = useState<LobbyServer[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -121,6 +121,14 @@ export default function ServerLobby() {
         port
       }
       setServers(prev => [...prev, newServer])
+      addStoreServer({
+        id: response.server.id,
+        name: response.server.name,
+        server_type: data.type.toLowerCase(),
+        version: data.version,
+        port,
+        status: 'stopped',
+      })
       setCreateModalOpen(false)
       showToast('success', t('lobby.createSuccess', { name: data.name }))
     } catch (error) {
@@ -130,7 +138,7 @@ export default function ServerLobby() {
       showToast('error', backendMsg || t('lobby.createFail'))
       throw error // Re-throw to let modal know creation failed
     }
-  }, [showToast, t])
+  }, [showToast, t, addStoreServer])
 
   const handleOpenCloneModal = useCallback((server: LobbyServer) => {
     setCloneSourceServer(server)
@@ -164,6 +172,14 @@ export default function ServerLobby() {
         port: response.server.port || newPort,
       }
       setServers(prev => [...prev, newServer])
+      addStoreServer({
+        id: response.server.id,
+        name: response.server.name,
+        server_type: response.server.server_type,
+        version: response.server.version,
+        port: response.server.port || newPort,
+        status: 'stopped',
+      })
       setCloneModalOpen(false)
       setCloneSourceServer(null)
 
@@ -176,7 +192,7 @@ export default function ServerLobby() {
       const serverMessage = axiosError?.response?.data?.error
       throw new Error(serverMessage || 'Clone failed. Please try again.')
     }
-  }, [showToast, t])
+  }, [showToast, t, addStoreServer])
 
   const handleOpenDeleteModal = useCallback((server: LobbyServer) => {
     setDeleteTargetServer(server)
