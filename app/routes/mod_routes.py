@@ -62,13 +62,16 @@ def search_mods():
     loader = request.args.get("loader")
     page = request.args.get("page", 0, type=int)
     limit = request.args.get("limit", 20, type=int)
+    categories = request.args.getlist("categories[]") or None
+    index = request.args.get("index") or None
 
     if not version or not loader:
         return jsonify({"error": "Missing required params: version, loader"}), 400
 
     try:
         result = modrinth_client.search_mods(
-            query=query, loader=loader, game_version=version, page=page, limit=limit
+            query=query, loader=loader, game_version=version,
+            page=page, limit=limit, categories=categories, index=index,
         )
         return jsonify(result), 200
     except ModrinthRateLimitError:
@@ -76,6 +79,18 @@ def search_mods():
     except Exception as e:
         logger.error("Modrinth search error: %s", e)
         return jsonify({"error": f"Search failed: {str(e)}"}), 500
+
+
+@mods_bp.route("/mods/categories", methods=["GET"])
+def get_mod_categories():
+    try:
+        categories = modrinth_client.get_categories("mod")
+        return jsonify(categories), 200
+    except ModrinthRateLimitError:
+        return jsonify({"error": "Modrinth rate limit exceeded, try again later"}), 429
+    except Exception as e:
+        logger.error("Categories error: %s", e)
+        return jsonify({"error": f"Failed to get categories: {str(e)}"}), 500
 
 
 @mods_bp.route("/mods/<project_id>", methods=["GET"])

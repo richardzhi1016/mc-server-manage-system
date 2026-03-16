@@ -405,6 +405,12 @@ export interface ModDeleteResponse {
   restart_required: boolean
 }
 
+export interface ModCategory {
+  name: string
+  icon: string
+  header: string
+}
+
 // -- Plugin Management --
 
 export interface InstalledPlugin {

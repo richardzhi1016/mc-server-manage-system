@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 MODRINTH_BASE_URL = "https://api.modrinth.com/v2"
 USER_AGENT = "mc-server-manager/1.0"
 CACHE_TTL_SECONDS = 300  # 5 minutes
+CATEGORIES_CACHE_TTL_SECONDS = 3600  # 1 hour
 REQUEST_TIMEOUT = 15  # seconds for API calls
 
 
@@ -31,11 +32,11 @@ class ModrinthClient:
 
     # -- Cache helpers --
 
-    def _get_cached(self, key: str) -> Any | None:
+    def _get_cached(self, key: str, ttl: int = CACHE_TTL_SECONDS) -> Any | None:
         entry = self._cache.get(key)
         if entry is None:
             return None
-        if time.time() - entry["timestamp"] > CACHE_TTL_SECONDS:
+        if time.time() - entry["timestamp"] > ttl:
             del self._cache[key]
             return None
         return entry["data"]
@@ -66,26 +67,47 @@ class ModrinthClient:
         game_version: str,
         page: int = 0,
         limit: int = 20,
+        categories: list[str] | None = None,
+        index: str | None = None,
     ) -> dict[str, Any]:
-        cache_key = f"search:{query}:{loader}:{game_version}:{page}:{limit}"
+        cats_key = ",".join(sorted(categories)) if categories else ""
+        cache_key = f"search:{query}:{loader}:{game_version}:{page}:{limit}:{cats_key}:{index}"
         cached = self._get_cached(cache_key)
         if cached is not None:
             return cached
 
-        facets = json.dumps([
+        facets_list: list[list[str]] = [
             [f"categories:{loader}"],
             [f"versions:{game_version}"],
             ["project_type:mod"],
-        ])
-        params = {
+        ]
+        if categories:
+            for cat in categories:
+                facets_list.append([f"categories:{cat}"])
+
+        params: dict[str, Any] = {
             "query": query,
-            "facets": facets,
+            "facets": json.dumps(facets_list),
             "limit": limit,
             "offset": page * limit,
         }
+        if index:
+            params["index"] = index
+
         result = self._get("/search", params=params)
         self._set_cached(cache_key, result)
         return result
+
+    def get_categories(self, project_type: str) -> list[dict[str, Any]]:
+        cache_key = f"categories:{project_type}"
+        cached = self._get_cached(cache_key, ttl=CATEGORIES_CACHE_TTL_SECONDS)
+        if cached is not None:
+            return cached
+
+        all_categories = self._get("/tag/category")
+        filtered = [c for c in all_categories if c.get("project_type") == project_type]
+        self._set_cached(cache_key, filtered)
+        return filtered
 
     def get_project(self, project_id: str) -> dict[str, Any]:
         cache_key = f"project:{project_id}"
