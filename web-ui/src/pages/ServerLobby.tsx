@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { Moon, Sun } from 'lucide-react'
 import { io, Socket } from 'socket.io-client'
 import { useTranslation } from 'react-i18next'
-import { getServers, createServer, cloneServer, deleteServer, getNextAvailablePort } from '@/api/client'
+import { getServers, createServer, cloneServer, deleteServer } from '@/api/client'
 import { API_BASE_URL } from '@/lib/api'
 import { useServerStore } from '@/store/useServerStore'
 import {
@@ -101,8 +101,7 @@ export default function ServerLobby() {
 
   const handleCreateServer = useCallback(async (data: { type: ServerType; name: string; version: string; version_url?: string; loader_version?: string; installer_version?: string }) => {
     try {
-      const portResponse = await getNextAvailablePort()
-      const port = portResponse.port
+      const port = 25565
       const response = await createServer({
         name: data.name,
         type: data.type.toLowerCase(),
