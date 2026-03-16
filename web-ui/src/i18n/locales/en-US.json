@@ -357,6 +357,23 @@
     "searchPlaceholder": "Search mods...",
     "noResults": "No relevant mods found",
     "browseHint": "Search for mods on Modrinth to install",
+    "market": {
+      "browse": "Browse Market",
+      "installedTab": "Installed",
+      "installedBadge": "Installed",
+      "categories": "Categories",
+      "clearFilters": "Clear",
+      "viewGrid": "Grid view",
+      "viewList": "List view",
+      "noResults": "No results found",
+      "categoriesError": "Failed to load categories",
+      "sort": {
+        "downloads": "Downloads",
+        "relevance": "Relevance",
+        "newest": "Newest",
+        "updated": "Recently Updated"
+      }
+    },
     "plugins": {
       "title": "Plugin Management",
       "manage": "Manage plugins for {{server}}",

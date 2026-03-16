@@ -53,6 +53,7 @@ import type {
   ModToggleResponse,
   ModDeleteResponse,
   InstalledPluginsResponse,
+  ModCategory,
 } from "@/types/api"
 
 export async function getServers(): Promise<ServerListResponse> {
@@ -271,11 +272,22 @@ export async function searchMods(
   version: string,
   loader: string,
   page: number = 0,
-  limit: number = 20
+  limit: number = 20,
+  categories?: string[],
+  index?: string
 ): Promise<ModSearchResponse> {
   const response = await apiClient.get<ModSearchResponse>("/api/mods/search", {
-    params: { query, version, loader, page, limit },
+    params: {
+      query, version, loader, page, limit,
+      ...(categories?.length ? { "categories[]": categories } : {}),
+      ...(index ? { index } : {}),
+    },
   })
+  return response.data
+}
+
+export async function getModCategories(): Promise<ModCategory[]> {
+  const response = await apiClient.get<ModCategory[]>("/api/mods/categories")
   return response.data
 }
 
@@ -351,11 +363,22 @@ export async function searchPlugins(
   query: string,
   version: string,
   page: number = 0,
-  limit: number = 20
+  limit: number = 20,
+  categories?: string[],
+  index?: string
 ): Promise<ModSearchResponse> {
   const response = await apiClient.get<ModSearchResponse>("/api/plugins/search", {
-    params: { query, version, page, limit },
+    params: {
+      query, version, page, limit,
+      ...(categories?.length ? { "categories[]": categories } : {}),
+      ...(index ? { index } : {}),
+    },
   })
+  return response.data
+}
+
+export async function getPluginCategories(): Promise<ModCategory[]> {
+  const response = await apiClient.get<ModCategory[]>("/api/plugins/categories")
   return response.data
 }
 

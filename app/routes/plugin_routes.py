@@ -59,13 +59,16 @@ def search_plugins():
     version = request.args.get("version")
     page = request.args.get("page", 0, type=int)
     limit = request.args.get("limit", 20, type=int)
+    categories = request.args.getlist("categories[]") or None
+    index = request.args.get("index") or None
 
     if not version:
         return jsonify({"error": "Missing required param: version"}), 400
 
     try:
         result = modrinth_plugin_client.search_plugins(
-            query=query, game_version=version, page=page, limit=limit
+            query=query, game_version=version,
+            page=page, limit=limit, categories=categories, index=index,
         )
         return jsonify(result), 200
     except ModrinthRateLimitError:
@@ -73,6 +76,18 @@ def search_plugins():
     except Exception as e:
         logger.error("Modrinth plugin search error: %s", e)
         return jsonify({"error": f"Search failed: {str(e)}"}), 500
+
+
+@plugins_bp.route("/plugins/categories", methods=["GET"])
+def get_plugin_categories():
+    try:
+        categories = modrinth_plugin_client.get_categories("plugin")
+        return jsonify(categories), 200
+    except ModrinthRateLimitError:
+        return jsonify({"error": "Modrinth rate limit exceeded, try again later"}), 429
+    except Exception as e:
+        logger.error("Plugin categories error: %s", e)
+        return jsonify({"error": f"Failed to get categories: {str(e)}"}), 500
 
 
 @plugins_bp.route("/plugins/<project_id>", methods=["GET"])

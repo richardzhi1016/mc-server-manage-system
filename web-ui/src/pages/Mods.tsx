@@ -1,153 +1,58 @@
 import { useState, useEffect, useCallback } from "react"
 import { useParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { Package, Search, AlertTriangle, RotateCcw, Loader2 } from "lucide-react"
+import { Package, AlertTriangle, RotateCcw, Loader2 } from "lucide-react"
 import { useModStore } from "@/store/useModStore"
 import { useServerStore } from "@/store/useServerStore"
 import {
   getInstalledMods,
-  searchMods,
-  installMod,
   toggleMod,
   deleteMod,
-  checkModDependencies,
   stopServer,
   startServer,
 } from "@/api/client"
 import { ModCard } from "@/components/mods/ModCard"
-import { ModSearchResult } from "@/components/mods/ModSearchResult"
-import { ModDetailPanel } from "@/components/mods/ModDetailPanel"
-import { DependencyModal } from "@/components/mods/DependencyModal"
-import type { ModDependency } from "@/types/api"
+import { ModMarket } from "@/components/mods/ModMarket"
+import type { InstalledMod } from "@/types/api"
 
 export default function Mods() {
-  const { t } = useTranslation('mods')
-  const { t: tc } = useTranslation('common')
+  const { t } = useTranslation("mods")
+  const { t: tc } = useTranslation("common")
   const { serverName } = useParams<{ serverName: string }>()
   const servers = useServerStore((s) => s.servers)
   const server = servers.find((s) => s.name === serverName)
 
   const {
-    installedMods, searchResults, searchQuery, searchTotalHits,
-    searchPage, installedFilter, loading, searchLoading,
-    installing, restartRequired,
-    setInstalledMods, setSearchResults, appendSearchResults,
-    setSearchQuery, setSearchPage, setInstalledFilter, setLoading,
-    setSearchLoading, addInstalling, removeInstalling,
-    setRestartRequired,
+    installedMods, installedFilter, loading, installing, restartRequired,
+    setInstalledMods, setInstalledFilter, setLoading,
+    addInstalling, removeInstalling, setRestartRequired,
   } = useModStore()
 
-  const [selectedProject, setSelectedProject] = useState<{
-    projectId: string; title: string; description: string; iconUrl: string | null
-  } | null>(null)
+  const [activeTab, setActiveTab] = useState<"market" | "installed">("market")
 
-  const [depsModal, setDepsModal] = useState<{
-    modName: string; missing: ModDependency[]; versionId: string; projectId: string
-  } | null>(null)
-  const [depsInstalling, setDepsInstalling] = useState(false)
+  const serverVersion = server?.version ?? ""
+  const serverLoader = server?.server_type ?? ""
 
-  const serverVersion = server?.version || ""
-  const serverLoader = server?.server_type || ""
-
-  // Load installed mods
   const loadInstalled = useCallback(async () => {
     if (!serverName) return
     setLoading(true)
     try {
       const data = await getInstalledMods(serverName)
       setInstalledMods(data.mods)
-    } catch {
-      // handled by error state
-    } finally {
+    } catch { /* handled by empty state */ } finally {
       setLoading(false)
     }
   }, [serverName, setInstalledMods, setLoading])
 
   useEffect(() => { loadInstalled() }, [loadInstalled])
 
-  // Search mods
-  const handleSearch = useCallback(async (query: string, page: number = 0) => {
-    if (!query.trim() || !serverVersion || !serverLoader) return
-    setSearchLoading(true)
-    try {
-      const data = await searchMods(query, serverVersion, serverLoader, page)
-      if (page === 0) {
-        setSearchResults(data.hits, data.total_hits)
-      } else {
-        appendSearchResults(data.hits, data.total_hits)
-      }
-      setSearchPage(page)
-    } catch {
-      if (page === 0) setSearchResults([], 0)
-    } finally {
-      setSearchLoading(false)
-    }
-  }, [serverVersion, serverLoader, setSearchResults, appendSearchResults, setSearchPage, setSearchLoading])
-
-  // Install flow
-  const handleInstallClick = async (projectId: string, versionId: string) => {
-    if (!serverName) return
-
-    // Check dependencies first
-    try {
-      const deps = await checkModDependencies(serverName, versionId)
-      if (deps.missing.length > 0) {
-        const mod = searchResults.find((m) => m.project_id === projectId)
-        setDepsModal({
-          modName: mod?.title || projectId,
-          missing: deps.missing,
-          versionId,
-          projectId,
-        })
-        return
-      }
-    } catch {
-      // Proceed without dep check if it fails
-    }
-
-    await doInstall(projectId, versionId)
-  }
-
-  const doInstall = async (projectId: string, versionId: string) => {
-    if (!serverName) return
-    addInstalling(projectId)
-    try {
-      const result = await installMod(serverName, { project_id: projectId, version_id: versionId })
-      if (result.restart_required) {
-        setRestartRequired(true)
-      }
-      await loadInstalled()
-    } finally {
-      removeInstalling(projectId)
-    }
-  }
-
-  const handleDepsConfirm = async () => {
-    if (!depsModal || !serverName) return
-    setDepsInstalling(true)
-    try {
-      // Install dependencies first
-      for (const dep of depsModal.missing) {
-        if (dep.version_id) {
-          await doInstall(dep.project_id, dep.version_id)
-        }
-      }
-      // Install the main mod
-      await doInstall(depsModal.projectId, depsModal.versionId)
-    } finally {
-      setDepsInstalling(false)
-      setDepsModal(null)
-    }
-  }
-
-  // Toggle & Delete
   const handleToggle = async (filename: string) => {
     if (!serverName) return
     try {
       const result = await toggleMod(serverName, filename)
       if (result.restart_required) setRestartRequired(true)
       await loadInstalled()
-    } catch { /* error toast */ }
+    } catch { /* error handled */ }
   }
 
   const handleDelete = async (filename: string) => {
@@ -156,32 +61,27 @@ export default function Mods() {
       const result = await deleteMod(serverName, filename)
       if (result.restart_required) setRestartRequired(true)
       await loadInstalled()
-    } catch { /* error toast */ }
+    } catch { /* error handled */ }
   }
 
-  // Restart server
   const handleRestart = async () => {
     if (!serverName) return
     try {
       await stopServer({ server_name: serverName })
-      // Wait briefly for clean shutdown
       await new Promise((r) => setTimeout(r, 2000))
       await startServer({ server_name: serverName })
       setRestartRequired(false)
-    } catch { /* error toast */ }
+    } catch { /* error handled */ }
   }
 
-  // Filter installed mods
-  const filteredMods = installedMods.filter((mod) => {
+  const filteredMods = installedMods.filter((mod: InstalledMod) => {
     if (installedFilter === "enabled") return mod.enabled
     if (installedFilter === "disabled") return !mod.enabled
     return true
   })
 
   const installedProjectIds = new Set(
-    installedMods
-      .map((m) => m.modrinth_project_id)
-      .filter((id): id is string => id !== null)
+    installedMods.map((m) => m.modrinth_project_id).filter((id): id is string => id !== null)
   )
 
   return (
@@ -190,10 +90,8 @@ export default function Mods() {
       <div className="flex items-center gap-3">
         <Package size={24} className="text-blue-500" />
         <div>
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{t('title')}</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            {t('manage', { server: serverName })}
-          </p>
+          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{t("title")}</h1>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">{t("manage", { server: serverName })}</p>
         </div>
       </div>
 
@@ -202,25 +100,64 @@ export default function Mods() {
         <div className="flex items-center justify-between rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-700 dark:bg-amber-900/20">
           <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
             <AlertTriangle size={16} />
-            {t('changed')}
+            {t("changed")}
           </div>
           <button
             onClick={handleRestart}
             className="flex items-center gap-1 rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
           >
             <RotateCcw size={14} />
-            {tc('actions.restart')}
+            {tc("actions.restart")}
           </button>
         </div>
       )}
 
-      {/* Two-column layout */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Left: Installed */}
+      {/* Tabs */}
+      <div className="border-b border-zinc-200 dark:border-zinc-700">
+        <nav className="-mb-px flex gap-6">
+          <button
+            onClick={() => setActiveTab("market")}
+            className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "market"
+                ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                : "border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+            }`}
+          >
+            {t("market.browse")}
+          </button>
+          <button
+            onClick={() => setActiveTab("installed")}
+            className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "installed"
+                ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                : "border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+            }`}
+          >
+            {t("market.installedTab")} ({installedMods.length})
+          </button>
+        </nav>
+      </div>
+
+      {/* Tab content */}
+      {activeTab === "market" ? (
+        <ModMarket
+          type="mod"
+          serverName={serverName!}
+          serverVersion={serverVersion}
+          serverLoader={serverLoader}
+          installedProjectIds={installedProjectIds}
+          installing={installing}
+          addInstalling={addInstalling}
+          removeInstalling={removeInstalling}
+          setRestartRequired={setRestartRequired}
+          onInstallSuccess={loadInstalled}
+        />
+      ) : (
         <div>
+          {/* Filter bar */}
           <div className="mb-3 flex items-center justify-between">
             <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">
-              {t('installed', { count: installedMods.length })}
+              {t("installed", { count: installedMods.length })}
             </h2>
             <div className="flex gap-1">
               {(["all", "enabled", "disabled"] as const).map((f) => (
@@ -233,7 +170,7 @@ export default function Mods() {
                       : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                   }`}
                 >
-                  {f === "all" ? t('filters.all') : f === "enabled" ? t('filters.enabled') : t('filters.disabled')}
+                  {f === "all" ? t("filters.all") : f === "enabled" ? t("filters.enabled") : t("filters.disabled")}
                 </button>
               ))}
             </div>
@@ -246,117 +183,16 @@ export default function Mods() {
           ) : filteredMods.length === 0 ? (
             <div className="rounded-lg border border-dashed border-zinc-300 py-12 text-center dark:border-zinc-700">
               <Package size={32} className="mx-auto text-zinc-300 dark:text-zinc-600" />
-              <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-                {t('empty')}
-              </p>
+              <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">{t("empty")}</p>
             </div>
           ) : (
             <div className="space-y-2">
               {filteredMods.map((mod) => (
-                <ModCard
-                  key={mod.filename}
-                  mod={mod}
-                  onToggle={handleToggle}
-                  onDelete={handleDelete}
-                />
+                <ModCard key={mod.filename} mod={mod} onToggle={handleToggle} onDelete={handleDelete} />
               ))}
             </div>
           )}
         </div>
-
-        {/* Right: Search & Install */}
-        <div>
-          <h2 className="mb-3 font-semibold text-zinc-900 dark:text-zinc-100">
-            {t('browse')}
-          </h2>
-
-          {/* Search bar */}
-          <div className="relative mb-4">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-            <input
-              type="text"
-              placeholder={t('searchPlaceholder')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSearch(searchQuery)
-              }}
-              className="w-full rounded-md border border-zinc-300 bg-white py-2 pl-9 pr-3 text-sm dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100"
-            />
-          </div>
-
-          {/* Detail panel (shown when a mod is selected) */}
-          {selectedProject && (
-            <div className="mb-4">
-              <ModDetailPanel
-                projectId={selectedProject.projectId}
-                title={selectedProject.title}
-                description={selectedProject.description}
-                iconUrl={selectedProject.iconUrl}
-                serverVersion={serverVersion}
-                serverLoader={serverLoader}
-                onInstall={(versionId) =>
-                  handleInstallClick(selectedProject.projectId, versionId)
-                }
-                onClose={() => setSelectedProject(null)}
-                installing={installing.has(selectedProject.projectId)}
-              />
-            </div>
-          )}
-
-          {/* Search results */}
-          {searchLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 size={24} className="animate-spin text-zinc-400" />
-            </div>
-          ) : searchResults.length > 0 ? (
-            <div className="space-y-2">
-              {searchResults.map((mod) => (
-                <ModSearchResult
-                  key={mod.project_id}
-                  mod={mod}
-                  isInstalled={installedProjectIds.has(mod.project_id)}
-                  isInstalling={installing.has(mod.project_id)}
-                  onSelect={(projectId) => {
-                    setSelectedProject({
-                      projectId,
-                      title: mod.title,
-                      description: mod.description,
-                      iconUrl: mod.icon_url,
-                    })
-                  }}
-                />
-              ))}
-              {searchTotalHits > (searchPage + 1) * 20 && (
-                <button
-                  onClick={() => handleSearch(searchQuery, searchPage + 1)}
-                  className="w-full rounded-md border border-zinc-300 py-2 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                >
-                  {tc('actions.loadMore')}
-                </button>
-              )}
-            </div>
-          ) : searchQuery ? (
-            <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
-              {t('noResults')}
-            </p>
-          ) : (
-            <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
-              {t('browseHint')}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Dependency modal */}
-      {depsModal && (
-        <DependencyModal
-          modName={depsModal.modName}
-          missing={depsModal.missing}
-          onConfirm={handleDepsConfirm}
-          onCancel={() => setDepsModal(null)}
-          loading={depsInstalling}
-        />
       )}
     </div>
   )

@@ -357,6 +357,23 @@
     "searchPlaceholder": "搜索模组...",
     "noResults": "未找到相关模组",
     "browseHint": "在 Modrinth 搜索模组以安装",
+    "market": {
+      "browse": "浏览市场",
+      "installedTab": "已安装",
+      "installedBadge": "已安装",
+      "categories": "分类",
+      "clearFilters": "清除",
+      "viewGrid": "网格视图",
+      "viewList": "列表视图",
+      "noResults": "未找到匹配结果",
+      "categoriesError": "加载分类失败",
+      "sort": {
+        "downloads": "下载量",
+        "relevance": "相关性",
+        "newest": "最新发布",
+        "updated": "最近更新"
+      }
+    },
     "plugins": {
       "title": "插件管理",
       "manage": "管理 {{server}} 的插件",
