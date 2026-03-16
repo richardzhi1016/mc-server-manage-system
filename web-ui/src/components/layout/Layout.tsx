@@ -41,8 +41,8 @@ export function Layout() {
     <div className="flex h-screen bg-gray-50 dark:bg-mrinth-bg">
       <MobileNav open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
 
-      <div className={cn('hidden lg:flex', sidebarCollapsed ? 'w-16' : 'w-64')}>
-        <Sidebar collapsed={sidebarCollapsed} />
+      <div className={cn('hidden lg:flex flex-shrink-0', sidebarCollapsed ? 'w-16' : 'w-60')}>
+        <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(c => !c)} />
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
