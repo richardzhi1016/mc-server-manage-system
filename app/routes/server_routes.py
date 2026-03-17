@@ -29,6 +29,8 @@ from app.services.server_manager import (
     parse_log_level,
     update_server_properties_port,
 )
+from app.services.tps_monitor import start_monitor, stop_monitor, get_monitor, ServerType
+from app.services import alert_service as _alert_svc
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +107,11 @@ class PTYProcessWatcher:
                 server_manager.player_joined(self.server_name, m.group(1))
             elif m := _PLAYER_LEAVE.search(clean_line):
                 server_manager.player_left(self.server_name, m.group(1))
+
+            # Route line to TPS monitor
+            _monitor = get_monitor(self.server_name)
+            if _monitor:
+                _monitor.handle_log_line(clean_line)
 
             level = parse_log_level(clean_line)
             self.socketio.emit(
@@ -247,6 +254,10 @@ class PTYProcessWatcher:
                 self._emit_log_line(buffer.strip())
 
             server_manager.clear_players(self.server_name)
+            stop_monitor(self.server_name)
+            # Only alert if this was not a clean stop (server still in running_servers = unexpected exit)
+            if self.server_name in server_manager.running_servers:
+                _alert_svc.send(self.server_name, _alert_svc.AlertEvent.server_crashed(self.server_name))
             logger.info("PTYProcessWatcher (Windows) loop ended for %s", self.server_name)
         except Exception as e:
             logger.error("PTYProcessWatcher error: %s", e)
@@ -286,6 +297,10 @@ class PTYProcessWatcher:
 
             os.close(self.master_fd)
             server_manager.clear_players(self.server_name)
+            stop_monitor(self.server_name)
+            # Only alert if this was not a clean stop (server still in running_servers = unexpected exit)
+            if self.server_name in server_manager.running_servers:
+                _alert_svc.send(self.server_name, _alert_svc.AlertEvent.server_crashed(self.server_name))
             logger.info("PTYProcessWatcher (Unix) loop ended for %s", self.server_name)
         except Exception as e:
             logger.error("PTYProcessWatcher error: %s", e)
@@ -370,6 +385,20 @@ def upload_package():
     ), 200
 
 
+def _get_server_type_from_db(server_name: str) -> str:
+    """Query DB for server_type of the given server. Returns lowercase string."""
+    try:
+        with sqlite3.connect(str(config.database_path)) as conn:
+            row = conn.execute(
+                "SELECT server_type FROM server_instance WHERE name = ?",
+                (server_name,),
+            ).fetchone()
+        return (row[0] or "vanilla").lower() if row else "vanilla"
+    except Exception as e:
+        logger.warning("Failed to query server_type for %s: %s", server_name, e)
+        return "vanilla"
+
+
 def _start_server_internal(server_name: str) -> tuple[bool, str]:
     """Core start logic. Returns (success, message). Called by route and scheduler."""
     server_dir = str(config.get_server_dir(server_name))
@@ -425,6 +454,17 @@ def _start_server_internal(server_name: str) -> tuple[bool, str]:
             return False, f"Failed to start server: {error}"
 
         server_manager.running_servers[server_name] = watcher
+
+        # Detect server type and start TPS monitor
+        _server_type_str = _get_server_type_from_db(server_name)
+        if _server_type_str == "paper":
+            _tps_type = ServerType.PAPER
+        elif _server_type_str in ("fabric", "forge"):
+            _tps_type = ServerType.SPARK
+        else:
+            _tps_type = ServerType.VANILLA
+        start_monitor(server_name, _tps_type, socketio, watcher)
+
         socketio.emit(
             "server_started", {"server_name": server_name, "pid": pid},
             room=server_name,
@@ -469,6 +509,7 @@ def _stop_server_internal(server_name: str) -> tuple[bool, str]:
             except psutil.NoSuchProcess:
                 pass
 
+        stop_monitor(server_name)
         watcher.stop()
         del server_manager.running_servers[server_name]
         server_manager.clear_players(server_name)
