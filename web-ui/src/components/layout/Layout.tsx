@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useParams } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { TopNav } from './TopNav'
 import { MobileNav } from './MobileNav'
 import { cn } from '@/lib/utils'
 import { useServerStore } from '@/store/useServerStore'
 import { getServers } from '@/api/client'
+import { useServerSocket } from '@/hooks/useServerSocket'
 
 export function Layout() {
+  const { serverName } = useParams<{ serverName: string }>()
+  useServerSocket(serverName ?? null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const { servers, setServers } = useServerStore()
 

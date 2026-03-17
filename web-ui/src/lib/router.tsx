@@ -14,6 +14,7 @@ const Backups = lazy(() => import("@/pages/Backups"))
 const Settings = lazy(() => import("@/pages/Settings"))
 const Mods = lazy(() => import("@/pages/Mods"))
 const Plugins = lazy(() => import("@/pages/Plugins"))
+const Alerts = lazy(() => import("@/pages/Alerts"))
 
 export const appRouter = createBrowserRouter([
     {
@@ -109,6 +110,14 @@ export const appRouter = createBrowserRouter([
           element: (
             <Suspense fallback={<LoadingFallback />}>
               <Plugins />
+            </Suspense>
+          ),
+        },
+        {
+          path: "alerts",
+          element: (
+            <Suspense fallback={<LoadingFallback />}>
+              <Alerts />
             </Suspense>
           ),
         },

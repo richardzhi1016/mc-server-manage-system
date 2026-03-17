@@ -1,14 +1,20 @@
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CpuStatusCard, MemoryStatusCard, PlayersStatusCard, DiskStatusCard, ResourceChart, QuickActions } from '@/components/dashboard'
+import { TpsChart } from '@/components/dashboard/TpsChart'
+import { HealthScoreCard } from '@/components/dashboard/HealthScoreCard'
 import { useServerMetrics } from '@/hooks/useServerMetrics'
 import { useDashboardStore } from '@/store/useServerStore'
 import { useServerStore } from '@/store/useServerStore'
+import { useHealthStore } from '@/store/useHealthStore'
+import { useTpsStore } from '@/store/useTpsStore'
 import { Card, CardContent } from '@/components/ui/Card'
 import { RefreshCw, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import { useParams } from 'react-router-dom'
 import { currentLocale } from '@/i18n/locale'
+import { getHealth, getTpsHistory } from '@/api/client'
 
 export default function Dashboard() {
   const { t } = useTranslation('dashboard')
@@ -17,9 +23,17 @@ export default function Dashboard() {
   const { metrics, history, isLoading, error, lastUpdated, refresh } = useServerMetrics(selectedServerName)
   const { selectedTimeRange, setSelectedTimeRange } = useDashboardStore()
   const { servers } = useServerStore()
+  const { setHealth } = useHealthStore()
+  const { setHistory } = useTpsStore()
 
   const server = servers.find((s) => s.name === selectedServerName)
   const serverStatus = server?.status || 'stopped'
+
+  useEffect(() => {
+    if (!selectedServerName) return
+    getHealth(selectedServerName).then(setHealth).catch(() => {})
+    getTpsHistory(selectedServerName, 1).then((r) => setHistory(r.history)).catch(() => {})
+  }, [selectedServerName])
 
   return (
     <div className="space-y-6">
@@ -122,6 +136,11 @@ export default function Dashboard() {
           timeRange={selectedTimeRange}
           onTimeRangeChange={setSelectedTimeRange}
         />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+        <TpsChart />
+        <HealthScoreCard />
       </div>
     </div>
   )

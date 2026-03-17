@@ -1,4 +1,4 @@
-import { LayoutDashboard, Server, Settings, Users, Terminal, Folder, Database, ArrowLeftCircle, Package, Puzzle, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { LayoutDashboard, Server, Settings, Users, Terminal, Folder, Database, ArrowLeftCircle, Package, Puzzle, PanelLeftClose, PanelLeftOpen, Bell } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 import { SidebarItem } from './SidebarItem'
 import { useServerStore } from '@/store/useServerStore'
@@ -82,6 +82,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           <SidebarItem to={`${basePath}/plugins`} icon={<Puzzle className="w-4 h-4" />} label={t('nav.plugins')} collapsed={collapsed} />
         )}
         <SidebarItem to={`${basePath}/backups`} icon={<Database className="w-4 h-4" />} label={t('nav.backups')} collapsed={collapsed} />
+        <SidebarItem to={`${basePath}/alerts`} icon={<Bell className="w-4 h-4" />} label="告警设置" collapsed={collapsed} />
         <SidebarItem to={`${basePath}/settings`} icon={<Settings className="w-4 h-4" />} label={t('nav.settings')} collapsed={collapsed} />
       </nav>
 
