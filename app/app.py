@@ -22,6 +22,10 @@ from app.routes.settings_routes import settings_bp
 from app.routes.mod_routes import mods_bp
 from app.routes.plugin_routes import plugins_bp
 from app.routes.scheduler_routes import scheduler_bp
+from app.routes.tps_routes import tps_bp
+from app.routes.health_routes import health_bp
+from app.routes.alert_routes import alert_bp
+from app.routes.auto_restart_routes import auto_restart_bp
 from app.services.server_manager import server_manager
 from app.services.scheduler_service import scheduler_service
 
@@ -77,6 +81,78 @@ def init_database():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS tps_history (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            server_name TEXT NOT NULL,
+            tps         REAL NOT NULL,
+            status      TEXT NOT NULL DEFAULT 'ok',
+            timestamp   TEXT NOT NULL
+        )
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_tps_history_server_ts
+            ON tps_history(server_name, timestamp)
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS health_snapshots (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            server_name TEXT NOT NULL,
+            score       INTEGER NOT NULL,
+            cpu         REAL,
+            memory_pct  REAL,
+            tps         REAL,
+            timestamp   TEXT NOT NULL
+        )
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_health_snapshots_server_ts
+            ON health_snapshots(server_name, timestamp)
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS alert_configs (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            server_name TEXT NOT NULL,
+            type        TEXT NOT NULL,
+            config_json TEXT NOT NULL,
+            enabled     INTEGER DEFAULT 1
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS player_sessions (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            server_name TEXT NOT NULL,
+            username    TEXT NOT NULL,
+            join_at     TEXT NOT NULL,
+            leave_at    TEXT
+        )
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_player_sessions_server_join
+            ON player_sessions(server_name, join_at)
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS auto_restart_rules (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            server_name      TEXT NOT NULL,
+            trigger_type     TEXT NOT NULL,
+            threshold        REAL NOT NULL,
+            duration_seconds INTEGER NOT NULL,
+            cooldown_minutes INTEGER NOT NULL DEFAULT 30,
+            enabled          INTEGER DEFAULT 1
+        )
+    """)
+
+    # Migrate server_instance: add public_token column
+    try:
+        cursor.execute("ALTER TABLE server_instance ADD COLUMN public_token TEXT")
+    except Exception:
+        pass  # Column already exists
+
     conn.commit()
     conn.close()
 
@@ -92,6 +168,10 @@ app.register_blueprint(settings_bp)
 app.register_blueprint(mods_bp)
 app.register_blueprint(plugins_bp)
 app.register_blueprint(scheduler_bp)
+app.register_blueprint(tps_bp)
+app.register_blueprint(health_bp)
+app.register_blueprint(alert_bp)
+app.register_blueprint(auto_restart_bp)
 
 
 @socketio.on("connect")
