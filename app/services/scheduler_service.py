@@ -89,6 +89,7 @@ class SchedulerService:
                     except Exception as e:
                         logger.error("Failed to register job for task %s: %s", task["id"], e)
 
+        self._register_internal_jobs()
         self._scheduler.start()
         logger.info("SchedulerService started with %d task(s)", len(self._tasks))
 
@@ -96,6 +97,27 @@ class SchedulerService:
         """Gracefully shut down APScheduler."""
         if self._scheduler.running:
             self._scheduler.shutdown(wait=False)
+
+    def _register_internal_jobs(self) -> None:
+        """Register system-internal jobs not visible in the user task list."""
+        def _cleanup_old_metrics() -> None:
+            import sqlite3
+            from app.config import config
+            try:
+                with sqlite3.connect(str(config.database_path)) as conn:
+                    conn.execute("DELETE FROM tps_history WHERE timestamp < datetime('now', '-7 days')")
+                    conn.execute("DELETE FROM health_snapshots WHERE timestamp < datetime('now', '-30 days')")
+            except Exception as e:
+                logger.error("Metrics cleanup failed: %s", e)
+
+        self._scheduler.add_job(
+            _cleanup_old_metrics,
+            trigger="cron",
+            hour=3,
+            minute=0,
+            id="internal_metrics_cleanup",
+            replace_existing=True,
+        )
 
     # ------------------------------------------------------------------
     # Persistence
