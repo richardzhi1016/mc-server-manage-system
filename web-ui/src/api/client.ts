@@ -450,3 +450,89 @@ export async function checkPluginDependencies(
   )
   return response.data
 }
+
+// --- TPS & Health ---
+export interface TpsDataPoint {
+  tps: number | null
+  status: 'ok' | 'lagging' | 'warming_up' | 'unknown'
+  timestamp: string
+}
+
+export async function getTpsHistory(
+  serverName: string,
+  hours = 1
+): Promise<{ server_name: string; history: TpsDataPoint[] }> {
+  const res = await apiClient.get(`/api/servers/${encodeURIComponent(serverName)}/tps/history`, { params: { hours } })
+  return res.data
+}
+
+export interface HealthData {
+  server_name: string
+  score: number
+  grade: 'green' | 'yellow' | 'red'
+  cpu: number
+  memory_pct: number
+  tps: number | null
+  timestamp: string
+}
+
+export async function getHealth(serverName: string): Promise<HealthData> {
+  const res = await apiClient.get(`/api/servers/${encodeURIComponent(serverName)}/health`)
+  return res.data
+}
+
+// --- Alert Configs ---
+export interface AlertConfig {
+  id: number
+  type: 'discord_webhook' | 'email'
+  config: Record<string, string>
+  enabled: boolean
+}
+
+export async function getAlertConfigs(serverName: string): Promise<AlertConfig[]> {
+  const res = await apiClient.get(`/api/servers/${encodeURIComponent(serverName)}/alerts/config`)
+  return res.data.configs
+}
+
+export async function saveAlertConfig(
+  serverName: string,
+  data: { type: string; config: Record<string, string>; enabled?: boolean }
+): Promise<{ id: number; message: string }> {
+  const res = await apiClient.post(`/api/servers/${encodeURIComponent(serverName)}/alerts/config`, data)
+  return res.data
+}
+
+export async function deleteAlertConfig(serverName: string, configId: number): Promise<void> {
+  await apiClient.delete(`/api/servers/${encodeURIComponent(serverName)}/alerts/config/${configId}`)
+}
+
+// --- Auto-Restart Rules ---
+export interface AutoRestartRule {
+  id: number
+  trigger_type: 'tps_below' | 'memory_above' | 'empty_server'
+  threshold: number
+  duration_seconds: number
+  cooldown_minutes: number
+  enabled: boolean
+}
+
+export async function getAutoRestartRules(serverName: string): Promise<AutoRestartRule[]> {
+  const res = await apiClient.get(`/api/servers/${encodeURIComponent(serverName)}/auto-restart/rules`)
+  return res.data.rules
+}
+
+export async function createAutoRestartRule(
+  serverName: string,
+  data: Omit<AutoRestartRule, 'id' | 'enabled'>
+): Promise<{ id: number }> {
+  const res = await apiClient.post(`/api/servers/${encodeURIComponent(serverName)}/auto-restart/rules`, data)
+  return res.data
+}
+
+export async function deleteAutoRestartRule(serverName: string, ruleId: number): Promise<void> {
+  await apiClient.delete(`/api/servers/${encodeURIComponent(serverName)}/auto-restart/rules/${ruleId}`)
+}
+
+export async function cancelAutoRestart(serverName: string): Promise<void> {
+  await apiClient.post(`/api/servers/${encodeURIComponent(serverName)}/auto-restart/cancel`)
+}
