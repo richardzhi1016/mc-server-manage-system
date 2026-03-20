@@ -31,6 +31,7 @@ from app.services.server_manager import (
 )
 from app.services.tps_monitor import start_monitor, stop_monitor, get_monitor, ServerType
 from app.services import alert_service as _alert_svc
+from app.services.player_analytics import player_analytics_service
 
 logger = logging.getLogger(__name__)
 
@@ -104,9 +105,13 @@ class PTYProcessWatcher:
         if clean_line:
             # Track online players from log events
             if m := _PLAYER_JOIN.search(clean_line):
-                server_manager.player_joined(self.server_name, m.group(1))
+                username = m.group(1)
+                server_manager.player_joined(self.server_name, username)
+                player_analytics_service.record_join(self.server_name, username)
             elif m := _PLAYER_LEAVE.search(clean_line):
-                server_manager.player_left(self.server_name, m.group(1))
+                username = m.group(1)
+                server_manager.player_left(self.server_name, username)
+                player_analytics_service.record_leave(self.server_name, username)
 
             # Route line to TPS monitor
             _monitor = get_monitor(self.server_name)
@@ -253,6 +258,7 @@ class PTYProcessWatcher:
             if buffer.strip():
                 self._emit_log_line(buffer.strip())
 
+            player_analytics_service.close_all_sessions(self.server_name)
             server_manager.clear_players(self.server_name)
             stop_monitor(self.server_name)
             # Only alert if this was not a clean stop (server still in running_servers = unexpected exit)
@@ -296,6 +302,7 @@ class PTYProcessWatcher:
                     self._emit_log_line(line_str)
 
             os.close(self.master_fd)
+            player_analytics_service.close_all_sessions(self.server_name)
             server_manager.clear_players(self.server_name)
             stop_monitor(self.server_name)
             # Only alert if this was not a clean stop (server still in running_servers = unexpected exit)
@@ -455,6 +462,18 @@ def _start_server_internal(server_name: str) -> tuple[bool, str]:
 
         server_manager.running_servers[server_name] = watcher
 
+        # Record server start time for uptime tracking
+        try:
+            import sqlite3 as _sq3
+            from datetime import timezone as _tz
+            with _sq3.connect(str(config.database_path)) as _conn:
+                _conn.execute(
+                    "UPDATE server_instance SET started_at = ? WHERE name = ?",
+                    (datetime.now(_tz.utc).isoformat(), server_name)
+                )
+        except Exception as _e:
+            logger.warning("Failed to record started_at for %s: %s", server_name, _e)
+
         # Detect server type and start TPS monitor
         _server_type_str = _get_server_type_from_db(server_name)
         if _server_type_str == "paper":
@@ -512,6 +531,17 @@ def _stop_server_internal(server_name: str) -> tuple[bool, str]:
         stop_monitor(server_name)
         watcher.stop()
         del server_manager.running_servers[server_name]
+        player_analytics_service.close_all_sessions(server_name)
+        try:
+            import sqlite3 as _sq3
+            from datetime import timezone as _tz
+            with _sq3.connect(str(config.database_path)) as _conn:
+                _conn.execute(
+                    "UPDATE server_instance SET started_at = NULL WHERE name = ?",
+                    (server_name,)
+                )
+        except Exception as _e:
+            logger.warning("Failed to clear started_at for %s: %s", server_name, _e)
         server_manager.clear_players(server_name)
 
         if socketio:
