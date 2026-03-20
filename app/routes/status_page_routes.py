@@ -123,7 +123,7 @@ def public_status(token: str):
                 (datetime.now(timezone.utc) - started_dt).total_seconds()
             )
         except Exception:
-            pass
+            logger.warning("Failed to calculate uptime for %s: %s", server_name, row["started_at"])
 
     health_score = None
     try:
@@ -136,7 +136,7 @@ def public_status(token: str):
         if snap:
             health_score = snap["score"]
     except Exception:
-        pass
+        logger.warning("Failed to read health snapshot for %s", server_name, exc_info=True)
 
     tps = None
     monitor = get_monitor(server_name)

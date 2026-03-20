@@ -83,6 +83,7 @@ class TestPublicEndpoint:
 
     def test_uptime_calculated_from_started_at(self, client):
         import app.config as cfg
+        from unittest.mock import patch
         db = str(cfg.config.database_path)
         started = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
         with sqlite3.connect(db) as conn:
@@ -90,10 +91,11 @@ class TestPublicEndpoint:
                 "UPDATE server_instance SET started_at=? WHERE name='testserver'", (started,)
             )
         r = client.post("/api/servers/testserver/status-page/enable").get_json()
-        resp = client.get(f"/api/public/status/{r['token']}")
+        with patch("app.routes.status_page_routes.server_manager") as mock_sm:
+            mock_sm.is_server_running.return_value = True
+            mock_sm.online_players = {"testserver": set()}
+            resp = client.get(f"/api/public/status/{r['token']}")
         data = resp.get_json()
-        # Server is still "stopped" since no watcher, but uptime should come from started_at
-        # Actually with no running server, status is "stopped" and uptime is null
-        # The test verifies status field is present
-        assert "status" in data
-        assert "server_name" in data
+        assert data["status"] == "running"
+        assert data["uptime_seconds"] is not None
+        assert 3500 < data["uptime_seconds"] < 3700
