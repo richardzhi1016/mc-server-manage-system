@@ -29,6 +29,10 @@ class DiscordBotManager:
         self._internal_secret: str = ""
         self._last_restart_time: float = 0.0
         self._lock = threading.Lock()
+        # Stored so watchdog can respawn on exit
+        self._token: str = ""
+        self._channel_id: str = ""
+        self._flask_url: str = ""
 
     def get_state(self) -> str:
         return self._state
@@ -39,7 +43,10 @@ class DiscordBotManager:
     def start(self, token: str, channel_id: str, internal_secret: str, flask_url: str) -> None:
         with self._lock:
             self._kill_orphan()
+            self._token = token
+            self._channel_id = channel_id
             self._internal_secret = internal_secret
+            self._flask_url = flask_url
             self._restart_count = 0
             self._stop_event.clear()
             self._spawn(token, channel_id, internal_secret, flask_url)
@@ -162,6 +169,8 @@ class DiscordBotManager:
                 self._restart_count += 1
                 self._state = "retrying"
                 logger.warning("Discord bot exited, retrying (%d/%d)", self._restart_count, _MAX_RESTARTS)
+                self._spawn(self._token, self._channel_id, self._internal_secret, self._flask_url)
+                self._state = "running"
 
 
 def _write_pid_file(pid: int) -> None:
