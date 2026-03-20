@@ -91,7 +91,7 @@ class TestListInstalledMods:
         mock_info.return_value = {"name": "srv", "server_type": "vanilla"}
         resp = client.get("/api/servers/srv/mods")
         assert resp.status_code == 400
-        assert b"vanilla" in resp.data.lower()
+        assert b"fabric" in resp.data.lower()
 
     @patch("app.routes.mod_routes.mod_manager")
     @patch("app.routes.mod_routes._get_server_info")
