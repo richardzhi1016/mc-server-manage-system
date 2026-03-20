@@ -24,6 +24,7 @@ class AlertColor(IntEnum):
 
 @dataclass
 class AlertEvent:
+    event_type: str
     server_name: str
     title: str
     message: str
@@ -31,11 +32,22 @@ class AlertEvent:
     fields: list = field(default_factory=list)
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
+    def to_dict(self) -> dict:
+        return {
+            "type": self.event_type,
+            "server_name": self.server_name,
+            "title": self.title,
+            "message": self.message,
+            "timestamp": self.timestamp,
+            "fields": self.fields,
+        }
+
     # --- Factory methods ---
 
     @classmethod
     def server_crashed(cls, server_name: str) -> "AlertEvent":
         return cls(
+            event_type="server_crashed",
             server_name=server_name,
             title="🔴 服务器崩溃",
             message=f"服务器 **{server_name}** 意外退出。",
@@ -45,6 +57,7 @@ class AlertEvent:
     @classmethod
     def auto_restart_pending(cls, server_name: str, reason: str) -> "AlertEvent":
         return cls(
+            event_type="auto_restart_pending",
             server_name=server_name,
             title="⚠️ 自动重启即将触发",
             message=f"服务器 **{server_name}** 将在 60 秒后自动重启。\n原因：`{reason}`",
@@ -54,6 +67,7 @@ class AlertEvent:
     @classmethod
     def auto_restart_executed(cls, server_name: str, reason: str) -> "AlertEvent":
         return cls(
+            event_type="auto_restart_executed",
             server_name=server_name,
             title="🔄 自动重启已执行",
             message=f"服务器 **{server_name}** 已完成自动重启。\n原因：`{reason}`",
@@ -63,6 +77,7 @@ class AlertEvent:
     @classmethod
     def health_critical(cls, server_name: str, score: int) -> "AlertEvent":
         return cls(
+            event_type="health_critical",
             server_name=server_name,
             title="🔴 服务器健康状态危急",
             message=f"服务器 **{server_name}** 健康分降至 **{score}**（危险区间）。",
@@ -72,10 +87,31 @@ class AlertEvent:
     @classmethod
     def health_recovered(cls, server_name: str, score: int) -> "AlertEvent":
         return cls(
+            event_type="health_recovered",
             server_name=server_name,
             title="✅ 服务器健康恢复",
             message=f"服务器 **{server_name}** 健康分恢复至 **{score}**（良好区间）。",
             color=AlertColor.GREEN,
+        )
+
+    @classmethod
+    def player_joined(cls, server_name: str, username: str) -> "AlertEvent":
+        return cls(
+            event_type="player_joined",
+            server_name=server_name,
+            title="👤 玩家加入",
+            message=f"**{username}** 加入了服务器 **{server_name}**。",
+            color=AlertColor.GREEN,
+        )
+
+    @classmethod
+    def player_left(cls, server_name: str, username: str) -> "AlertEvent":
+        return cls(
+            event_type="player_left",
+            server_name=server_name,
+            title="👤 玩家离开",
+            message=f"**{username}** 离开了服务器 **{server_name}**。",
+            color=AlertColor.BLUE,
         )
 
 

@@ -45,3 +45,29 @@ class TestBuildDiscordPayload:
         event = AlertEvent.server_crashed("MySky")
         embed = build_discord_payload(event)["embeds"][0]
         assert isinstance(embed["color"], int)
+
+
+class TestAlertEventEventType:
+    def test_server_crashed_has_event_type(self):
+        event = AlertEvent.server_crashed("MySky")
+        assert event.event_type == "server_crashed"
+
+    def test_player_joined_factory(self):
+        event = AlertEvent.player_joined("MySky", "Steve")
+        assert event.event_type == "player_joined"
+        assert event.server_name == "MySky"
+        assert "Steve" in event.message
+
+    def test_player_left_factory(self):
+        event = AlertEvent.player_left("MySky", "Alex")
+        assert event.event_type == "player_left"
+        assert "Alex" in event.message
+
+    def test_to_dict_has_type_key(self):
+        event = AlertEvent.server_crashed("MySky")
+        d = event.to_dict()
+        assert d["type"] == "server_crashed"
+        assert "server_name" in d
+        assert "title" in d
+        assert "message" in d
+        assert "timestamp" in d
