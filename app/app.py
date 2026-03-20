@@ -28,6 +28,7 @@ from app.routes.alert_routes import alert_bp
 from app.routes.auto_restart_routes import auto_restart_bp
 from app.routes.analytics_routes import analytics_bp
 from app.routes.status_page_routes import status_page_bp
+from app.routes.internal_routes import internal_bp
 from app.services.server_manager import server_manager
 from app.services.scheduler_service import scheduler_service
 
@@ -45,6 +46,11 @@ CORS(app, origins=ALLOWED_ORIGINS)
 
 socketio = SocketIO(app, cors_allowed_origins=ALLOWED_ORIGINS, async_mode='threading')
 set_socketio(socketio)
+
+import uuid as _uuid
+if not os.environ.get("INTERNAL_SECRET"):
+    os.environ["INTERNAL_SECRET"] = str(_uuid.uuid4())
+INTERNAL_SECRET = os.environ["INTERNAL_SECRET"]
 scheduler_service.init_app(app, socketio)
 
 app.config["UPLOAD_FOLDER"] = str(config.upload_folder)
@@ -198,6 +204,7 @@ app.register_blueprint(alert_bp)
 app.register_blueprint(auto_restart_bp)
 app.register_blueprint(analytics_bp)
 app.register_blueprint(status_page_bp)
+app.register_blueprint(internal_bp)
 
 
 @socketio.on("connect")
