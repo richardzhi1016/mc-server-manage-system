@@ -71,3 +71,4 @@ class TestAlertEventEventType:
         assert "title" in d
         assert "message" in d
         assert "timestamp" in d
+        assert "fields" in d
