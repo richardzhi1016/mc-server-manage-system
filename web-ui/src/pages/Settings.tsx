@@ -1,14 +1,15 @@
 import React, { useState } from "react"
 import { useParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { Settings, Cpu, FileText, Clock, Palette } from "lucide-react"
+import { Settings, Cpu, FileText, Clock, Palette, Globe } from "lucide-react"
 import { StartupParams } from "@/components/settings/StartupParams"
 import { ServerProperties } from "@/components/settings/ServerProperties"
 import { ScheduledTasks } from "@/components/settings/ScheduledTasks"
 import { ThemeSettings } from "@/components/settings/ThemeSettings"
+import { StatusPageSettings } from "@/components/settings/StatusPageSettings"
 import { cn } from "@/lib/utils"
 
-type SettingsTab = "startup" | "properties" | "scheduler" | "theme"
+type SettingsTab = "startup" | "properties" | "scheduler" | "theme" | "status-page"
 
 export default function SettingsPage() {
   const { serverName } = useParams<{ serverName: string }>()
@@ -21,6 +22,7 @@ export default function SettingsPage() {
     { id: "properties", label: t("tabs.properties"), icon: <FileText className="w-5 h-5" /> },
     { id: "scheduler", label: t("tabs.tasks"), icon: <Clock className="w-5 h-5" /> },
     { id: "theme", label: t("tabs.theme"), icon: <Palette className="w-5 h-5" /> },
+    { id: "status-page", label: "公开状态页", icon: <Globe className="w-5 h-5" /> },
   ]
 
   return (
@@ -63,6 +65,7 @@ export default function SettingsPage() {
             {activeTab === "properties" && <ServerProperties serverName={serverName ?? ""} />}
             {activeTab === "scheduler" && <ScheduledTasks />}
             {activeTab === "theme" && <ThemeSettings />}
+            {activeTab === "status-page" && <StatusPageSettings serverName={serverName ?? ""} />}
           </div>
         </div>
       </div>
