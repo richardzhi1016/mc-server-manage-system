@@ -15,6 +15,7 @@ const Settings = lazy(() => import("@/pages/Settings"))
 const Mods = lazy(() => import("@/pages/Mods"))
 const Plugins = lazy(() => import("@/pages/Plugins"))
 const Alerts = lazy(() => import("@/pages/Alerts"))
+const Analytics = lazy(() => import("@/pages/Analytics"))
 
 export const appRouter = createBrowserRouter([
     {
@@ -118,6 +119,14 @@ export const appRouter = createBrowserRouter([
           element: (
             <Suspense fallback={<LoadingFallback />}>
               <Alerts />
+            </Suspense>
+          ),
+        },
+        {
+          path: "analytics",
+          element: (
+            <Suspense fallback={<LoadingFallback />}>
+              <Analytics />
             </Suspense>
           ),
         },
