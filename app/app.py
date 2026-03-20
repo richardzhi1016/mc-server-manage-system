@@ -27,6 +27,7 @@ from app.routes.health_routes import health_bp
 from app.routes.alert_routes import alert_bp
 from app.routes.auto_restart_routes import auto_restart_bp
 from app.routes.analytics_routes import analytics_bp
+from app.routes.status_page_routes import status_page_bp
 from app.services.server_manager import server_manager
 from app.services.scheduler_service import scheduler_service
 
@@ -196,6 +197,7 @@ app.register_blueprint(health_bp)
 app.register_blueprint(alert_bp)
 app.register_blueprint(auto_restart_bp)
 app.register_blueprint(analytics_bp)
+app.register_blueprint(status_page_bp)
 
 
 @socketio.on("connect")
