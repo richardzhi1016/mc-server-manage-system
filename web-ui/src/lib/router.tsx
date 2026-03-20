@@ -16,6 +16,7 @@ const Mods = lazy(() => import("@/pages/Mods"))
 const Plugins = lazy(() => import("@/pages/Plugins"))
 const Alerts = lazy(() => import("@/pages/Alerts"))
 const Analytics = lazy(() => import("@/pages/Analytics"))
+const PublicStatus = lazy(() => import("@/pages/PublicStatus"))
 
 export const appRouter = createBrowserRouter([
     {
@@ -131,6 +132,14 @@ export const appRouter = createBrowserRouter([
           ),
         },
       ],
+    },
+    {
+      path: "/public/:token",
+      element: (
+        <Suspense fallback={<LoadingFallback />}>
+          <PublicStatus />
+        </Suspense>
+      ),
     },
     {
       path: "*",
