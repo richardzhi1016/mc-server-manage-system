@@ -153,6 +153,28 @@ def init_database():
     except Exception:
         pass  # Column already exists
 
+    # Phase 2: started_at for server uptime tracking
+    try:
+        cursor.execute("ALTER TABLE server_instance ADD COLUMN started_at TEXT")
+    except Exception:
+        pass  # Column already exists
+
+    # Phase 2: Discord Bot global config (single-row table, id always = 1)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS discord_bot_config (
+            id         INTEGER PRIMARY KEY CHECK (id = 1),
+            token      TEXT NOT NULL,
+            channel_id TEXT NOT NULL,
+            enabled    INTEGER DEFAULT 1
+        )
+    """)
+
+    # Phase 2: compound index for analytics retention queries
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_player_sessions_server_user_join
+            ON player_sessions(server_name, username, join_at)
+    """)
+
     conn.commit()
     conn.close()
 
