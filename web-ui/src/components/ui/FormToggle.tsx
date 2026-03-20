@@ -1,7 +1,7 @@
 import { forwardRef, type ButtonHTMLAttributes } from "react"
 import { cn } from "@/lib/utils"
 
-interface FormToggleProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface FormToggleProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'onChange'> {
   label?: string
   checked: boolean
   onChange?: (checked: boolean) => void

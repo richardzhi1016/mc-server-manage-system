@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, DragEvent } from 'react';
+import { useState, useEffect, useRef, useCallback, type DragEvent } from 'react';
 import {
   Folder,
   ChevronRight,
@@ -15,7 +15,6 @@ import { useTranslation } from 'react-i18next';
 import { listFiles, deleteFile, renameFile, createFolder, getDownloadUrl, uploadFile } from '@/api/file';
 import type { FileItem } from '@/api/file';
 import { FileIcon } from './FileIcon';
-import { currentLocale } from '@/i18n/locale';
 
 interface FileBrowserProps {
   serverName: string;
@@ -33,16 +32,6 @@ function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-function formatDate(timestamp: number): string {
-  if (!timestamp) return '-';
-  const date = new Date(timestamp * 1000);
-  return date.toLocaleDateString(currentLocale(), {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 export function FileBrowser({
   serverName,
