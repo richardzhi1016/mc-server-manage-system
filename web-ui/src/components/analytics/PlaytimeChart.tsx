@@ -23,7 +23,7 @@ export function PlaytimeChart({ data }: Props) {
         <BarChart data={chartData} layout="vertical" margin={{ left: 60 }}>
           <XAxis type="number" tickFormatter={formatSeconds} tick={{ fill: 'var(--color-mrinth-muted)', fontSize: 12 }} />
           <YAxis dataKey="username" type="category" tick={{ fill: 'var(--color-mrinth-text)', fontSize: 12 }} width={70} />
-          <Tooltip formatter={(val: number) => formatSeconds(val)} />
+          <Tooltip formatter={(val: number | undefined) => (val !== undefined ? formatSeconds(val) : '—')} />
           <Bar dataKey="total_seconds" fill="var(--color-mrinth-green)" radius={[0, 4, 4, 0]} />
         </BarChart>
       </ResponsiveContainer>
