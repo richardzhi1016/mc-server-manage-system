@@ -101,3 +101,6 @@ app/servers/
 .agent/
 .claude/
 CLAUDE.md
+
+# Git worktrees
+.worktrees/
