@@ -29,6 +29,7 @@ from app.routes.auto_restart_routes import auto_restart_bp
 from app.routes.analytics_routes import analytics_bp
 from app.routes.status_page_routes import status_page_bp
 from app.routes.internal_routes import internal_bp
+from app.routes.discord_bot_routes import discord_bot_bp
 from app.services.server_manager import server_manager
 from app.services.scheduler_service import scheduler_service
 
@@ -205,6 +206,7 @@ app.register_blueprint(auto_restart_bp)
 app.register_blueprint(analytics_bp)
 app.register_blueprint(status_page_bp)
 app.register_blueprint(internal_bp)
+app.register_blueprint(discord_bot_bp)
 
 
 @socketio.on("connect")
