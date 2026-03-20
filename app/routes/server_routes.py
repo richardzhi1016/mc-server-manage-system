@@ -32,6 +32,7 @@ from app.services.server_manager import (
 from app.services.tps_monitor import start_monitor, stop_monitor, get_monitor, ServerType
 from app.services import alert_service as _alert_svc
 from app.services.player_analytics import player_analytics_service
+from app.services.discord_bot import discord_bot_manager
 
 logger = logging.getLogger(__name__)
 
@@ -108,10 +109,12 @@ class PTYProcessWatcher:
                 username = m.group(1)
                 server_manager.player_joined(self.server_name, username)
                 player_analytics_service.record_join(self.server_name, username)
+                discord_bot_manager.send_event(_alert_svc.AlertEvent.player_joined(self.server_name, username))
             elif m := _PLAYER_LEAVE.search(clean_line):
                 username = m.group(1)
                 server_manager.player_left(self.server_name, username)
                 player_analytics_service.record_leave(self.server_name, username)
+                discord_bot_manager.send_event(_alert_svc.AlertEvent.player_left(self.server_name, username))
 
             # Route line to TPS monitor
             _monitor = get_monitor(self.server_name)
