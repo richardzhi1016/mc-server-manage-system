@@ -1,8 +1,10 @@
 import logging
 import os
+import sqlite3
 
 from flask import Blueprint, request, jsonify
 
+from app.config import config
 from app.services.server_manager import server_manager
 from app.services.tps_monitor import get_monitor
 
@@ -46,10 +48,8 @@ def server_status(server_name: str):
     tps = monitor.current_tps if monitor else None
     health = None
     try:
-        import sqlite3 as _sq3
-        from app.config import config as _cfg
-        with _sq3.connect(str(_cfg.database_path)) as _conn:
-            row = _conn.execute(
+        with sqlite3.connect(str(config.database_path)) as conn:
+            row = conn.execute(
                 "SELECT score FROM health_snapshots WHERE server_name=? ORDER BY timestamp DESC LIMIT 1",
                 (server_name,)
             ).fetchone()
