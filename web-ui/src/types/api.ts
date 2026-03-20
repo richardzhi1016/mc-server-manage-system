@@ -429,3 +429,44 @@ export interface InstalledPluginsResponse {
   plugins: InstalledPlugin[]
   server_name: string
 }
+
+// Analytics
+export interface PlaytimeEntry {
+  username: string
+  total_seconds: number
+}
+export interface HeatmapCell {
+  dow: number
+  hour: number
+  avg: number
+}
+export interface RetentionData {
+  retention_pct: number
+  sample_size: number
+}
+
+// Status Page
+export interface StatusPageConfig {
+  token: string | null
+  url: string | null
+}
+export interface PublicServerStatus {
+  server_name: string
+  status: "running" | "stopped"
+  version: string | null
+  players_online: number | null
+  players_max: number | null
+  uptime_seconds: number | null
+  health_score: number | null
+  tps: number | null
+}
+
+// Discord Bot
+export interface DiscordBotConfig {
+  token: string
+  channel_id: string
+  enabled: boolean
+}
+export interface DiscordBotState {
+  state: "stopped" | "running" | "retrying" | "crashed"
+}

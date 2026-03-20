@@ -54,6 +54,13 @@ import type {
   ModDeleteResponse,
   InstalledPluginsResponse,
   ModCategory,
+  PlaytimeEntry,
+  HeatmapCell,
+  RetentionData,
+  StatusPageConfig,
+  PublicServerStatus,
+  DiscordBotConfig,
+  DiscordBotState,
 } from "@/types/api"
 
 export async function getServers(): Promise<ServerListResponse> {
@@ -535,4 +542,81 @@ export async function deleteAutoRestartRule(serverName: string, ruleId: number):
 
 export async function cancelAutoRestart(serverName: string): Promise<void> {
   await apiClient.post(`/api/servers/${encodeURIComponent(serverName)}/auto-restart/cancel`)
+}
+
+// Analytics
+export async function getPlaytime(serverName: string, from?: string, to?: string): Promise<PlaytimeEntry[]> {
+  const params = new URLSearchParams()
+  if (from) params.set("from", from)
+  if (to) params.set("to", to)
+  const qs = params.toString() ? `?${params}` : ""
+  const resp = await apiClient.get<{ playtime: PlaytimeEntry[] }>(`/api/servers/${serverName}/analytics/playtime${qs}`)
+  return resp.data.playtime
+}
+
+export async function getHeatmap(serverName: string, from?: string, to?: string): Promise<HeatmapCell[]> {
+  const params = new URLSearchParams()
+  if (from) params.set("from", from)
+  if (to) params.set("to", to)
+  const qs = params.toString() ? `?${params}` : ""
+  const resp = await apiClient.get<{ heatmap: HeatmapCell[] }>(`/api/servers/${serverName}/analytics/heatmap${qs}`)
+  return resp.data.heatmap
+}
+
+export async function getRetention(serverName: string, from?: string, to?: string): Promise<RetentionData> {
+  const params = new URLSearchParams()
+  if (from) params.set("from", from)
+  if (to) params.set("to", to)
+  const qs = params.toString() ? `?${params}` : ""
+  const resp = await apiClient.get<RetentionData>(`/api/servers/${serverName}/analytics/retention${qs}`)
+  return resp.data
+}
+
+// Status Page
+export async function enableStatusPage(serverName: string): Promise<StatusPageConfig> {
+  const resp = await apiClient.post<StatusPageConfig>(`/api/servers/${serverName}/status-page/enable`)
+  return resp.data
+}
+
+export async function disableStatusPage(serverName: string): Promise<void> {
+  await apiClient.post(`/api/servers/${serverName}/status-page/disable`)
+}
+
+export async function resetStatusPageToken(serverName: string): Promise<StatusPageConfig> {
+  const resp = await apiClient.post<StatusPageConfig>(`/api/servers/${serverName}/status-page/token/reset`)
+  return resp.data
+}
+
+export async function getStatusPageConfig(serverName: string): Promise<StatusPageConfig> {
+  const resp = await apiClient.get<StatusPageConfig>(`/api/servers/${serverName}/status-page/config`)
+  return resp.data
+}
+
+export async function getPublicStatus(token: string): Promise<PublicServerStatus> {
+  const resp = await apiClient.get<PublicServerStatus>(`/api/public/status/${token}`)
+  return resp.data
+}
+
+// Discord Bot
+export async function getDiscordBotConfig(): Promise<{ config: DiscordBotConfig | null }> {
+  const resp = await apiClient.get<{ config: DiscordBotConfig | null }>("/api/discord-bot/config")
+  return resp.data
+}
+
+export async function saveDiscordBotConfig(config: { token: string; channel_id: string }): Promise<void> {
+  await apiClient.post("/api/discord-bot/config", config)
+}
+
+export async function startDiscordBot(): Promise<DiscordBotState> {
+  const resp = await apiClient.post<DiscordBotState>("/api/discord-bot/start")
+  return resp.data
+}
+
+export async function stopDiscordBot(): Promise<void> {
+  await apiClient.post("/api/discord-bot/stop")
+}
+
+export async function getDiscordBotStatus(): Promise<DiscordBotState> {
+  const resp = await apiClient.get<DiscordBotState>("/api/discord-bot/status")
+  return resp.data
 }
