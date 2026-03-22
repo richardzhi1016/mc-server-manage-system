@@ -243,6 +243,26 @@ def handle_leave_console(data):
         )
 
 
+@socketio.on("join_lobby")
+def handle_join_lobby():
+    """Join the global lobby room to receive server start/stop status updates.
+
+    The lobby room is a lightweight subscription that only receives
+    server_started and server_stopped events — NOT console log lines.
+    Any page that displays the server list (ServerLobby, Sidebar) should
+    join this room so status dots update in real-time.
+    """
+    join_room("lobby")
+    emit("lobby_joined", {"status": "joined"})
+
+
+@socketio.on("leave_lobby")
+def handle_leave_lobby():
+    """Leave the global lobby room."""
+    leave_room("lobby")
+    emit("lobby_left", {"status": "left"})
+
+
 @socketio.on("send_command")
 def handle_send_command(data):
     """Send a command to a running Minecraft server"""

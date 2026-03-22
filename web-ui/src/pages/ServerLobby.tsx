@@ -35,17 +35,46 @@ export default function ServerLobby() {
   // Use custom hook for Minecraft versions
   const { versions: mcVersions, releaseVersions: mcReleaseVersions, versionsMap, latestRelease } = useMinecraftVersions()
 
-  // Connect to WebSocket for server events
+  // Connect to WebSocket lobby room for real-time server start/stop events
   useEffect(() => {
     const socket = io(API_BASE_URL, {
       transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
     })
     socketRef.current = socket
 
+    socket.on('connect', () => {
+      // Join the lightweight lobby room — receives only server_started / server_stopped,
+      // NOT the heavy console log stream. Rejoined automatically after reconnect.
+      socket.emit('join_lobby')
+    })
+
+    socket.on('server_started', (data: { server_name: string }) => {
+      // Update local card status
+      setServers(prev =>
+        prev.map(s => s.name === data.server_name ? { ...s, status: 'online' as const } : s)
+      )
+      // Keep Zustand store in sync for sidebar status dots
+      const { updateServerStatusByName } = useServerStore.getState()
+      updateServerStatusByName(data.server_name, 'running')
+    })
+
+    socket.on('server_stopped', (data: { server_name: string }) => {
+      setServers(prev =>
+        prev.map(s => s.name === data.server_name ? { ...s, status: 'offline' as const } : s)
+      )
+      const { updateServerStatusByName } = useServerStore.getState()
+      updateServerStatusByName(data.server_name, 'stopped')
+    })
+
     return () => {
+      socket.emit('leave_lobby')
       socket.disconnect()
     }
   }, [])
+
 
   // Fetch servers from backend on mount
   useEffect(() => {

@@ -487,9 +487,16 @@ def _start_server_internal(server_name: str) -> tuple[bool, str]:
             _tps_type = ServerType.VANILLA
         start_monitor(server_name, _tps_type, socketio, watcher)
 
+        # Notify console viewers for this specific server
         socketio.emit(
             "server_started", {"server_name": server_name, "pid": pid},
             room=server_name,
+            namespace="/",
+        )
+        # Notify the global lobby room (ServerLobby page and Sidebar status dots)
+        socketio.emit(
+            "server_started", {"server_name": server_name, "pid": pid},
+            room="lobby",
             namespace="/",
         )
         return True, f"Server '{server_name}' started"
@@ -548,7 +555,10 @@ def _stop_server_internal(server_name: str) -> tuple[bool, str]:
         server_manager.clear_players(server_name)
 
         if socketio:
+            # Notify console viewers for this specific server
             socketio.emit("server_stopped", {"server_name": server_name}, room=server_name, namespace="/")
+            # Notify the global lobby room (ServerLobby page and Sidebar status dots)
+            socketio.emit("server_stopped", {"server_name": server_name}, room="lobby", namespace="/")
         return True, f"Server '{server_name}' stopped"
     except Exception as e:
         return False, f"Failed to stop server: {str(e)}"

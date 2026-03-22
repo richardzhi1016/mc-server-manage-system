@@ -15,11 +15,14 @@ export interface ServerActions {
   addServer: (server: Server) => void
   removeServer: (serverId: string) => void
   updateServerStatus: (serverId: string, status: Server["status"], port?: number) => void
+  /** Update status by server name (used by lobby socket events which send server_name not id). */
+  updateServerStatusByName: (serverName: string, status: Server["status"]) => void
   setSelectedServer: (serverId: string | null) => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
   clearServers: () => void
 }
+
 
 export interface DashboardState {
   currentMetrics: ServerMetrics | null

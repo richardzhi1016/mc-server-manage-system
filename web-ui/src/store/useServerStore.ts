@@ -31,6 +31,14 @@ export const useServerStore = create<ServerState & ServerActions>()(
           ),
         })),
 
+      updateServerStatusByName: (serverName, status) =>
+        set((state) => ({
+          servers: state.servers.map((s) =>
+            s.name === serverName ? { ...s, status } : s
+          ),
+        })),
+
+
       setSelectedServer: (serverId) => set({ selectedServerId: serverId }),
 
       setLoading: (loading) => set({ loading }),
