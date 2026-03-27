@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { ChevronDown, Check } from 'lucide-react'
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { ChevronDown, Check, Search, X } from 'lucide-react'
 
 interface CustomSelectProps {
     options: string[]
@@ -10,13 +10,16 @@ interface CustomSelectProps {
 
 export const CustomSelect = React.memo(function CustomSelect({ options, value, onChange, label }: CustomSelectProps) {
     const [isOpen, setIsOpen] = useState(false)
+    const [searchTerm, setSearchTerm] = useState('')
     const dropdownRef = useRef<HTMLDivElement>(null)
+    const searchInputRef = useRef<HTMLInputElement>(null)
 
     // Close dropdown when clicking outside
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
                 setIsOpen(false)
+                setSearchTerm('') // Reset search term when closed by clicking outside
             }
         }
         document.addEventListener('mousedown', handleClickOutside)
@@ -26,11 +29,32 @@ export const CustomSelect = React.memo(function CustomSelect({ options, value, o
     const handleSelect = useCallback((option: string) => {
         onChange(option)
         setIsOpen(false)
+        setSearchTerm('') // Reset search term when an option is selected
     }, [onChange])
 
     const toggleOpen = useCallback(() => {
-        setIsOpen(prev => !prev)
+        setIsOpen(prev => {
+            if (prev) {
+                // If closing, reset the search term
+                setSearchTerm('')
+            }
+            return !prev
+        })
     }, [])
+
+    // Filter options based on search term
+    const filteredOptions = useMemo(() => {
+        if (!searchTerm.trim()) return options
+        const lowerSearch = searchTerm.toLowerCase()
+        return options.filter(opt => opt.toLowerCase().includes(lowerSearch))
+    }, [options, searchTerm])
+
+    // Focus input when dropdown opens
+    useEffect(() => {
+        if (isOpen && searchInputRef.current) {
+            searchInputRef.current.focus()
+        }
+    }, [isOpen])
 
     return (
         <div className="space-y-2 relative" ref={dropdownRef}>
@@ -60,28 +84,61 @@ export const CustomSelect = React.memo(function CustomSelect({ options, value, o
           border border-slate-200 dark:border-slate-600
           rounded-xl shadow-xl
           animate-in fade-in zoom-in-95 duration-100
-          max-h-40 overflow-y-auto p-1
-          [&::-webkit-scrollbar]:w-1.5
-          [&::-webkit-scrollbar-track]:bg-transparent
-          [&::-webkit-scrollbar-thumb]:bg-slate-200
-          [&::-webkit-scrollbar-thumb]:dark:bg-slate-700
-          [&::-webkit-scrollbar-thumb]:rounded-full
+          overflow-hidden
         ">
-                    {options.map((option) => (
-                        <button
-                            key={option}
-                            type="button"
-                            onClick={() => handleSelect(option)}
-                            className={`w-full px-3 py-2 text-left text-sm font-medium transition-colors flex items-center justify-between rounded-lg mb-0.5 last:mb-0
-                ${option === value
-                                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                                }`}
-                        >
-                            {option}
-                            {option === value && <Check size={14} />}
-                        </button>
-                    ))}
+                    {/* Search Input Box */}
+                    <div className="p-2 border-b border-slate-100 dark:border-slate-700/60 sticky top-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm z-10" onClick={e => e.stopPropagation()}>
+                        <div className="relative">
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                ref={searchInputRef}
+                                type="text"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                placeholder="Search versions..."
+                                className="w-full pl-9 pr-8 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-slate-700 dark:text-slate-200 placeholder-slate-400"
+                            />
+                            {searchTerm && (
+                                <button
+                                    onClick={() => setSearchTerm('')}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-md"
+                                >
+                                    <X size={14} />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="
+                        max-h-60 overflow-y-auto p-1
+                        [&::-webkit-scrollbar]:w-1.5
+                        [&::-webkit-scrollbar-track]:bg-transparent
+                        [&::-webkit-scrollbar-thumb]:bg-slate-200
+                        [&::-webkit-scrollbar-thumb]:dark:bg-slate-700
+                        [&::-webkit-scrollbar-thumb]:rounded-full
+                    ">
+                        {filteredOptions.length > 0 ? (
+                            filteredOptions.map((option) => (
+                                <button
+                                    key={option}
+                                    type="button"
+                                    onClick={() => handleSelect(option)}
+                                    className={`w-full px-3 py-2 text-left text-sm font-medium transition-colors flex items-center justify-between rounded-lg mb-0.5 last:mb-0
+                        ${option === value
+                                            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                        }`}
+                                >
+                                    {option}
+                                    {option === value && <Check size={14} />}
+                                </button>
+                            ))
+                        ) : (
+                            <div className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                                No versions found matching &quot;{searchTerm}&quot;
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>
