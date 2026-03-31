@@ -94,6 +94,21 @@
       "stopFail": "停止失败",
       "restartSuccess": "服务器 {{server}} 已重启",
       "restartFail": "重启失败"
+    },
+    "scheduledBackup": {
+      "title": "周期备份",
+      "enable": "开启周期备份",
+      "interval": "备份间隔",
+      "every": "每隔",
+      "hours": "小时",
+      "minutes": "分钟",
+      "save": "保存",
+      "saved": "设置已保存",
+      "saving": "保存中...",
+      "loadError": "加载设置失败",
+      "saveError": "保存设置失败",
+      "nextRun": "下次运行：{{time}}",
+      "noNextRun": "等待调度"
     }
   },
   "players": {

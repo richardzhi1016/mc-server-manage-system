@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CpuStatusCard, MemoryStatusCard, PlayersStatusCard, DiskStatusCard, ResourceChart, QuickActions } from '@/components/dashboard'
+import { CpuStatusCard, MemoryStatusCard, PlayersStatusCard, DiskStatusCard, ResourceChart, QuickActions, ScheduledBackupPanel } from '@/components/dashboard'
 import { TpsChart } from '@/components/dashboard/TpsChart'
 import { HealthScoreCard } from '@/components/dashboard/HealthScoreCard'
 import { useServerMetrics } from '@/hooks/useServerMetrics'
@@ -114,11 +114,12 @@ export default function Dashboard() {
           />
         </div>
 
-        <div>
+        <div className="space-y-4">
           <QuickActions
             serverName={selectedServerName || ''}
             serverStatus={serverStatus}
           />
+          <ScheduledBackupPanel serverName={selectedServerName || ''} />
         </div>
       </div>
 

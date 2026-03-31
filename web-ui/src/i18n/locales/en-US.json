@@ -94,6 +94,21 @@
       "stopFail": "Failed to stop server",
       "restartSuccess": "Server {{server}} restarted",
       "restartFail": "Failed to restart server"
+    },
+    "scheduledBackup": {
+      "title": "Periodic Backup",
+      "enable": "Enable Backup",
+      "interval": "Backup Interval",
+      "every": "Every",
+      "hours": "Hours",
+      "minutes": "Minutes",
+      "save": "Save",
+      "saved": "Settings saved",
+      "saving": "Saving...",
+      "loadError": "Failed to load settings",
+      "saveError": "Failed to save settings",
+      "nextRun": "Next run: {{time}}",
+      "noNextRun": "Pending schedule"
     }
   },
   "players": {

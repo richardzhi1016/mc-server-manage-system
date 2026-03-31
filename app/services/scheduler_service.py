@@ -418,6 +418,12 @@ class SchedulerService:
                 self._emit_task_event(task_id, server_name, "backup", False, msg)
                 return
 
+            from app.services.server_manager import server_manager
+            if not server_manager.is_server_running(server_name):
+                logger.info("Skipping scheduled backup for %s: server is not running", server_name)
+                self._update_last_run(task_id) # Optional: Update last run to prevent immediate retries if it's interval-based
+                return
+
             from app.services.backup_service import backup_service
             result = backup_service.create_backup(server_name, backup_type="scheduled")
             if result is None:
