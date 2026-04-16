@@ -96,8 +96,12 @@
       "restartFail": "重启失败"
     },
     "scheduledBackup": {
-      "title": "周期备份",
-      "enable": "开启周期备份",
+      "title": "自动备份",
+      "tabPeriodic": "周期备份",
+      "tabStartup": "启动前备份",
+      "enablePeriodic": "开启周期备份",
+      "enableStartup": "开启启动前备份",
+      "startupDesc": "每次启动服务器前自动创建备份",
       "interval": "备份间隔",
       "every": "每隔",
       "hours": "小时",

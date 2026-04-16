@@ -104,6 +104,7 @@ def _read_startup_settings(server_dir: str) -> dict:
         "min_memory": config.default_min_memory,
         "max_memory": config.default_max_memory,
         "jvm_flags": [],
+        "backup_on_startup": False,
     }
 
 
@@ -188,6 +189,7 @@ def update_startup_settings():
     min_memory = data.get("min_memory", config.default_min_memory)
     max_memory = data.get("max_memory", config.default_max_memory)
     jvm_flags = data.get("jvm_flags", [])
+    backup_on_startup = data.get("backup_on_startup", False)
 
     if not isinstance(min_memory, int) or min_memory < 256:
         return jsonify({"error": "min_memory must be an integer >= 256"}), 400
@@ -195,11 +197,14 @@ def update_startup_settings():
         return jsonify({"error": "max_memory must be an integer >= min_memory"}), 400
     if not isinstance(jvm_flags, list):
         return jsonify({"error": "jvm_flags must be a list"}), 400
+    if not isinstance(backup_on_startup, bool):
+        return jsonify({"error": "backup_on_startup must be a boolean"}), 400
 
     settings = {
         "min_memory": min_memory,
         "max_memory": max_memory,
         "jvm_flags": jvm_flags,
+        "backup_on_startup": backup_on_startup,
     }
 
     path = _get_startup_settings_path(server_dir)

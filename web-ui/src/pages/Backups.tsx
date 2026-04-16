@@ -35,14 +35,17 @@ function formatDate(isoString: string): string {
   })
 }
 
-function getTypeBadge(filename: string): { key: string; className: string } {
-  if (filename.includes("_startup")) {
+function getTypeBadge(backup: BackupInfo): { key: string; className: string } {
+  const typeStr = backup.type || "";
+  const filename = backup.filename || "";
+
+  if (typeStr === "startup" || filename.includes("_startup")) {
     return {
       key: "types.startup",
       className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
     }
   }
-  if (filename.includes("_periodic")) {
+  if (typeStr === "scheduled" || typeStr === "periodic" || filename.includes("_scheduled") || filename.includes("_periodic")) {
     return {
       key: "types.scheduled",
       className: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
@@ -185,7 +188,7 @@ export default function Backups() {
       ) : (
         <div className="grid gap-3">
           {backups.map((backup) => {
-            const badge = getTypeBadge(backup.filename)
+            const badge = getTypeBadge(backup)
             return (
               <Card
                 key={backup.id}

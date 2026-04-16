@@ -20,20 +20,27 @@ export function ScheduledBackupPanel({ serverName }: ScheduledBackupPanelProps) 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [task, setTask] = useState<ScheduledTask | null>(null)
+  
+  // Tabs
+  const [activeTab, setActiveTab] = useState<'periodic' | 'startup'>('periodic')
 
-  // Form state
+  // Form state - Periodic
   const [enabled, setEnabled] = useState(false)
   const [intervalValue, setIntervalValue] = useState(2)
   const [intervalUnit, setIntervalUnit] = useState<'minutes' | 'hours'>('hours')
-  
-  // Track if changes are made to show the save button
   const [isDirty, setIsDirty] = useState(false)
+
+  // Form state - Startup
+  const [startupSettings, setStartupSettings] = useState<api.StartupSettings | null>(null)
+  const [backupOnStartup, setBackupOnStartup] = useState(false)
+  const [isStartupDirty, setIsStartupDirty] = useState(false)
 
   const fetchTask = useCallback(async () => {
     if (!serverName) return
 
     try {
       setLoading(true)
+      // Fetch periodic task
       const res = await api.listScheduledTasks(serverName)
       const backupTask = res.tasks.find(
         (t) => t.type === 'backup' && t.schedule.frequency === 'interval'
@@ -51,8 +58,15 @@ export function ScheduledBackupPanel({ serverName }: ScheduledBackupPanelProps) 
         setIntervalUnit('hours')
       }
       setIsDirty(false)
+
+      // Fetch startup settings
+      const settings = await api.getStartupSettings(serverName)
+      setStartupSettings(settings)
+      setBackupOnStartup(!!settings.backup_on_startup)
+      setIsStartupDirty(false)
+
     } catch (error) {
-      console.error('Failed to fetch backup task:', error)
+      console.error('Failed to fetch backup settings:', error)
       notify({ type: 'error', message: t('scheduledBackup.loadError') })
     } finally {
       setLoading(false)
@@ -63,6 +77,7 @@ export function ScheduledBackupPanel({ serverName }: ScheduledBackupPanelProps) 
     fetchTask()
   }, [fetchTask])
 
+  // Periodic Handle
   const handleToggle = (checked: boolean) => {
     setEnabled(checked)
     setIsDirty(true)
@@ -74,7 +89,6 @@ export function ScheduledBackupPanel({ serverName }: ScheduledBackupPanelProps) 
       setIntervalValue(val)
       setIsDirty(true)
     } else if (e.target.value === '') {
-      // allow empty temporarily while typing
       setIntervalValue(0)
     }
   }
@@ -84,38 +98,60 @@ export function ScheduledBackupPanel({ serverName }: ScheduledBackupPanelProps) 
     setIsDirty(true)
   }
 
-  const handleSave = async () => {
-    if (intervalValue <= 0) {
-      notify({ type: 'error', message: t('scheduledBackup.saveError') })
-      return
-    }
+  // Startup Handle
+  const handleStartupToggle = (checked: boolean) => {
+    setBackupOnStartup(checked)
+    setIsStartupDirty(true)
+  }
 
+  const handleSave = async () => {
     try {
       setSaving(true)
-      if (task) {
-        await api.updateScheduledTask(task.id, {
-          enabled,
-          schedule: {
-            frequency: 'interval',
-            interval_value: intervalValue,
-            interval_unit: intervalUnit
-          }
-        })
-      } else {
-        await api.createScheduledTask({
+
+      if (activeTab === 'periodic') {
+        if (intervalValue <= 0) {
+          notify({ type: 'error', message: t('scheduledBackup.saveError') })
+          setSaving(false)
+          return
+        }
+        
+        if (task) {
+          await api.updateScheduledTask(task.id, {
+            enabled,
+            schedule: {
+              frequency: 'interval',
+              interval_value: intervalValue,
+              interval_unit: intervalUnit
+            }
+          })
+        } else {
+          await api.createScheduledTask({
+            server_name: serverName,
+            type: 'backup',
+            schedule: {
+              frequency: 'interval',
+              interval_value: intervalValue,
+              interval_unit: intervalUnit
+            }
+          })
+        }
+        setIsDirty(false)
+      } else if (activeTab === 'startup') {
+        const payload = {
           server_name: serverName,
-          type: 'backup',
-          schedule: {
-            frequency: 'interval',
-            interval_value: intervalValue,
-            interval_unit: intervalUnit
-          }
-        })
+          min_memory: startupSettings?.min_memory || 1024,
+          max_memory: startupSettings?.max_memory || 4096,
+          jvm_flags: startupSettings?.jvm_flags || [],
+          backup_on_startup: backupOnStartup
+        }
+        await api.updateStartupSettings(payload)
+        setIsStartupDirty(false)
       }
+
       notify({ type: 'success', message: t('scheduledBackup.saved') })
       await fetchTask()
     } catch (error: any) {
-      console.error('Failed to save backup task:', error)
+      console.error('Failed to save backup settings:', error)
       notify({ type: 'error', message: t('scheduledBackup.saveError') })
     } finally {
       setSaving(false)
@@ -123,6 +159,9 @@ export function ScheduledBackupPanel({ serverName }: ScheduledBackupPanelProps) 
   }
 
   if (!serverName) return null
+
+  const isCurrentDirty = activeTab === 'periodic' ? isDirty : isStartupDirty
+  const isSaveDisabled = saving || (activeTab === 'periodic' && enabled && intervalValue <= 0)
 
   return (
     <Card>
@@ -133,55 +172,96 @@ export function ScheduledBackupPanel({ serverName }: ScheduledBackupPanelProps) 
           {loading && <Loader2 className="w-3 h-3 animate-spin text-gray-400 ml-auto" />}
         </CardTitle>
       </CardHeader>
+      
+      <div className="flex border-b border-gray-100 dark:border-gray-800">
+        <button
+          className={`flex-1 py-2 text-sm text-center border-b-2 font-medium transition-colors ${
+            activeTab === 'periodic'
+              ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+          }`}
+          onClick={() => setActiveTab('periodic')}
+        >
+          {t('scheduledBackup.tabPeriodic')}
+        </button>
+        <button
+          className={`flex-1 py-2 text-sm text-center border-b-2 font-medium transition-colors ${
+            activeTab === 'startup'
+              ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+          }`}
+          onClick={() => setActiveTab('startup')}
+        >
+          {t('scheduledBackup.tabStartup')}
+        </button>
+      </div>
+
       <CardContent className="pt-4 space-y-4">
         {!loading && (
           <>
-            <FormToggle
-              label={t('scheduledBackup.enable')}
-              checked={enabled}
-              onChange={handleToggle}
-            />
+            {activeTab === 'periodic' && (
+              <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                <FormToggle
+                  label={t('scheduledBackup.enablePeriodic')}
+                  checked={enabled}
+                  onChange={handleToggle}
+                />
 
-            {enabled && (
-              <div className="pt-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                <div className="flex items-center gap-2 mb-3 text-sm text-gray-600 dark:text-gray-300">
-                  <span className="whitespace-nowrap">{t('scheduledBackup.every')}</span>
-                  <Input 
-                    type="number" 
-                    min="1"
-                    className="w-20 text-center h-8" 
-                    value={intervalValue || ''} 
-                    onChange={handleValueChange}
-                  />
-                  <select 
-                    value={intervalUnit}
-                    onChange={handleUnitChange}
-                    className="h-8 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="hours">{t('scheduledBackup.hours')}</option>
-                    <option value="minutes">{t('scheduledBackup.minutes')}</option>
-                  </select>
-                </div>
+                {enabled && (
+                  <div className="pt-4 space-y-3">
+                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                      <span className="whitespace-nowrap">{t('scheduledBackup.every')}</span>
+                      <Input 
+                        type="number" 
+                        min="1"
+                        className="w-20 text-center h-8" 
+                        value={intervalValue || ''} 
+                        onChange={handleValueChange}
+                      />
+                      <select 
+                        value={intervalUnit}
+                        onChange={handleUnitChange}
+                        className="h-8 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="hours">{t('scheduledBackup.hours')}</option>
+                        <option value="minutes">{t('scheduledBackup.minutes')}</option>
+                      </select>
+                    </div>
 
-                {task?.next_run && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 p-2 rounded-md border border-gray-100 dark:border-gray-800">
-                    {t('scheduledBackup.nextRun', { time: new Date(task.next_run).toLocaleString() })}
-                  </p>
-                )}
-                {!task?.next_run && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 p-2 rounded-md border border-gray-100 dark:border-gray-800">
-                    {t('scheduledBackup.noNextRun')}
-                  </p>
+                    {task?.next_run ? (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 p-2 rounded-md border border-gray-100 dark:border-gray-800">
+                        {t('scheduledBackup.nextRun', { time: new Date(task.next_run).toLocaleString() })}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 p-2 rounded-md border border-gray-100 dark:border-gray-800">
+                        {t('scheduledBackup.noNextRun')}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             )}
 
-            {isDirty && (
+            {activeTab === 'startup' && (
+              <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                <FormToggle
+                  label={t('scheduledBackup.enableStartup')}
+                  checked={backupOnStartup}
+                  onChange={handleStartupToggle}
+                />
+                
+                <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 p-2 mt-4 rounded-md border border-gray-100 dark:border-gray-800">
+                  {t('scheduledBackup.startupDesc')}
+                </p>
+              </div>
+            )}
+
+            {isCurrentDirty && (
               <Button 
                 className="w-full mt-2" 
                 size="sm" 
                 onClick={handleSave} 
-                disabled={saving || (enabled && intervalValue <= 0)}
+                disabled={isSaveDisabled}
               >
                 {saving ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />

@@ -165,7 +165,7 @@ export async function getBans(serverName?: string): Promise<BanListResponse> {
 }
 
 export async function getStartupSettings(serverName: string): Promise<StartupSettings> {
-  const params = { server_name: serverName }
+  const params = { server_name: serverName, _t: Date.now() }
   const response = await apiClient.get<StartupSettings>("/api/settings/startup", { params })
   return response.data
 }

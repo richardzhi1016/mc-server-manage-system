@@ -44,6 +44,7 @@ export function StartupParams({ serverName }: { serverName: string }) {
         min_memory: settings.min_memory,
         max_memory: settings.max_memory,
         jvm_flags: settings.jvm_flags,
+        backup_on_startup: settings.backup_on_startup,
       })
       notify({ type: "success", message: t("startup.saveSuccess") })
     } catch {

@@ -178,6 +178,7 @@ export interface StartupSettings {
   min_memory: number
   max_memory: number
   jvm_flags: string[]
+  backup_on_startup?: boolean
 }
 
 export interface ServerPropertySchema {
@@ -199,6 +200,7 @@ export interface UpdateStartupRequest {
   min_memory: number
   max_memory: number
   jvm_flags: string[]
+  backup_on_startup?: boolean
 }
 
 export interface UpdateServerPropertiesRequest {
@@ -216,6 +218,7 @@ export interface BackupInfo {
   created_at: string
   size: number
   filename: string
+  type?: string
 }
 
 export interface BackupListResponse {

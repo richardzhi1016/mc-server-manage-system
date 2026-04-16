@@ -430,6 +430,15 @@ def _start_server_internal(server_name: str) -> tuple[bool, str]:
     min_mem = startup.get("min_memory", config.default_min_memory)
     max_mem = startup.get("max_memory", config.default_max_memory)
     jvm_flags = startup.get("jvm_flags", [])
+    backup_on_startup = startup.get("backup_on_startup", False)
+
+    if backup_on_startup:
+        try:
+            from app.services.backup_service import backup_service
+            logger.info("Performing startup backup for %s", server_name)
+            backup_service.create_backup(server_name, backup_type="startup")
+        except Exception as e:
+            logger.error("Failed to perform startup backup for %s: %s", server_name, e)
 
     # Detect modern Forge (1.17+) which uses @args files instead of a root JAR
     forge_args_file = _find_forge_args_file(server_dir)
