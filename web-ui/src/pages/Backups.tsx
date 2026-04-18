@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useParams } from "react-router-dom"
-import { Database, Plus, Download, RotateCcw, Trash2, Archive, RefreshCw } from "lucide-react"
+import { Database, Plus, Download, RotateCcw, Trash2, Archive, RefreshCw, Search } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useNotification } from "@/hooks/useNotification"
 import {
@@ -13,6 +13,7 @@ import {
 import { type BackupInfo } from "@/types/api"
 import { Button } from "@/components/ui/Button"
 import { Card, CardContent } from "@/components/ui/Card"
+import { Input } from "@/components/ui/Input"
 import { cn } from "@/lib/utils"
 import { currentLocale } from "@/i18n/locale"
 
@@ -57,6 +58,18 @@ function getTypeBadge(backup: BackupInfo): { key: string; className: string } {
   }
 }
 
+function formatBackupName(filename: string): string {
+  const match = filename.match(/backup-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/);
+  if (match) {
+    const [_, year, month, day, hourStr, minute] = match;
+    const hour = parseInt(hourStr, 10);
+    const ampm = hour >= 12 ? 'pm' : 'am';
+    const formattedHour = hour % 12 === 0 ? 12 : hour % 12;
+    return `${year}年-${parseInt(month, 10)}月-${parseInt(day, 10)}日，${formattedHour}.${minute}${ampm}`;
+  }
+  return filename;
+}
+
 export default function Backups() {
   const { serverName } = useParams<{ serverName: string }>()
   const { t } = useTranslation("backups")
@@ -70,6 +83,8 @@ export default function Backups() {
     backupId: string
     backupName: string
   } | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [filterType, setFilterType] = useState("all")
   const { notify } = useNotification()
 
   const loadBackups = useCallback(async () => {
@@ -158,6 +173,29 @@ export default function Backups() {
         </div>
       </div>
 
+      {/* Search and Filter */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <Input 
+            placeholder={t("actions.search") || "Search backups..."} 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <select 
+          className="h-10 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value)}
+        >
+          <option value="all">{t("filters.all") || "All Types"}</option>
+          <option value="manual">{t("types.manual") || "Manual"}</option>
+          <option value="scheduled">{t("types.scheduled") || "Scheduled"}</option>
+          <option value="startup">{t("types.startup") || "Startup"}</option>
+        </select>
+      </div>
+
       {/* Backup List */}
       {loading ? (
         <div className="grid gap-4">
@@ -187,83 +225,110 @@ export default function Backups() {
         </Card>
       ) : (
         <div className="grid gap-3">
-          {backups.map((backup) => {
-            const badge = getTypeBadge(backup)
-            return (
-              <Card
-                key={backup.id}
-                className="dark:bg-gray-800 dark:border-gray-700 hover:shadow-md transition-shadow"
-              >
-                <CardContent className="p-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-gray-900 dark:text-white truncate">
-                          {backup.filename}
-                        </span>
-                        <span
-                          className={cn(
-                            "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0",
-                            badge.className
-                          )}
-                        >
-                          {t(badge.key)}
-                        </span>
-                      </div>
+          {(() => {
+            const filteredBackups = backups.filter((backup) => {
+              const searchMatch = backup.filename.toLowerCase().includes(searchQuery.toLowerCase());
+              if (!searchMatch) return false;
+
+              if (filterType === "all") return true;
+
+              const badge = getTypeBadge(backup);
+              const typeMap: Record<string, string> = {
+                "types.startup": "startup",
+                "types.scheduled": "scheduled",
+                "types.manual": "manual"
+              };
+              return typeMap[badge.key] === filterType;
+            });
+
+            if (filteredBackups.length === 0) {
+              return (
+                <Card className="dark:bg-gray-800 dark:border-gray-700">
+                  <CardContent className="py-8 text-center">
+                    <p className="text-gray-500 dark:text-gray-400 font-medium">{t("noSearchResults") || "No backups match your search."}</p>
+                  </CardContent>
+                </Card>
+              );
+            }
+
+            return filteredBackups.map((backup) => {
+              const badge = getTypeBadge(backup)
+              return (
+                <Card
+                  key={backup.id}
+                  className="dark:bg-gray-800 dark:border-gray-700 hover:shadow-md transition-shadow"
+                >
+                  <CardContent className="p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium text-gray-900 dark:text-white truncate" title={backup.filename}>
+                            {formatBackupName(backup.filename)}
+                          </span>
+                          <span
+                            className={cn(
+                              "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0",
+                              badge.className
+                            )}
+                          >
+                            {t(badge.key)}
+                          </span>
+                        </div>
                       <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                         <span>{formatDate(backup.created_at)}</span>
                         <span>{formatSize(backup.size)}</span>
                       </div>
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDownload(backup)}
-                        className="gap-1.5 text-gray-600 dark:text-gray-400"
-                      >
-                        <Download className="w-4 h-4" />
-                        <span className="hidden sm:inline">{t("actions.download")}</span>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          setConfirmAction({
-                            type: "restore",
-                            backupId: backup.id,
-                            backupName: backup.filename,
-                          })
-                        }
-                        className="gap-1.5 text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20"
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                        <span className="hidden sm:inline">{t("actions.restore")}</span>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          setConfirmAction({
-                            type: "delete",
-                            backupId: backup.id,
-                            backupName: backup.filename,
-                          })
-                        }
-                        className="gap-1.5 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        <span className="hidden sm:inline">{t("actions.delete")}</span>
-                      </Button>
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDownload(backup)}
+                          className="gap-1.5 text-gray-600 dark:text-gray-400"
+                        >
+                          <Download className="w-4 h-4" />
+                          <span className="hidden sm:inline">{t("actions.download")}</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            setConfirmAction({
+                              type: "restore",
+                              backupId: backup.id,
+                              backupName: backup.filename,
+                            })
+                          }
+                          className="gap-1.5 text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                          <span className="hidden sm:inline">{t("actions.restore")}</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            setConfirmAction({
+                              type: "delete",
+                              backupId: backup.id,
+                              backupName: backup.filename,
+                            })
+                          }
+                          className="gap-1.5 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span className="hidden sm:inline">{t("actions.delete")}</span>
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
+                  </CardContent>
+                </Card>
+              )
+            })
+          })()}
         </div>
       )}
 

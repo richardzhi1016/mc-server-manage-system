@@ -424,8 +424,13 @@
       "download": "下载",
       "restore": "恢复",
       "restoring": "恢复中...",
-      "delete": "删除"
+      "delete": "删除",
+      "search": "搜索"
     },
+    "filters": {
+      "all": "所有类型"
+    },
+    "noSearchResults": "没有找到符合条件的备份",
     "empty": "暂无备份",
     "emptyDesc": "点击\"创建备份\"为当前服务器创建第一个备份",
     "confirmRestore": "确认恢复",

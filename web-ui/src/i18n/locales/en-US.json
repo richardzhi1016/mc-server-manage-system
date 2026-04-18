@@ -420,8 +420,13 @@
       "download": "Download",
       "restore": "Restore",
       "restoring": "Restoring...",
-      "delete": "Delete"
+      "delete": "Delete",
+      "search": "Search"
     },
+    "filters": {
+      "all": "All Types"
+    },
+    "noSearchResults": "No backups match your search criteria",
     "empty": "No backups",
     "emptyDesc": "Click \"Create Backup\" to create the first backup for this server",
     "confirmRestore": "Confirm Restore",

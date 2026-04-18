@@ -7,7 +7,7 @@ import { FormToggle } from '@/components/ui/FormToggle'
 import { Input } from '@/components/ui/Input'
 import { useNotification } from '@/hooks/useNotification'
 import * as api from '@/api/client'
-import type { ScheduledTask } from '@/types/api'
+import type { ScheduledTask, StartupSettings } from '@/types/api'
 
 interface ScheduledBackupPanelProps {
   serverName: string
@@ -31,7 +31,7 @@ export function ScheduledBackupPanel({ serverName }: ScheduledBackupPanelProps) 
   const [isDirty, setIsDirty] = useState(false)
 
   // Form state - Startup
-  const [startupSettings, setStartupSettings] = useState<api.StartupSettings | null>(null)
+  const [startupSettings, setStartupSettings] = useState<StartupSettings | null>(null)
   const [backupOnStartup, setBackupOnStartup] = useState(false)
   const [isStartupDirty, setIsStartupDirty] = useState(false)
 
