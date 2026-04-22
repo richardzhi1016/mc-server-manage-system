@@ -103,19 +103,19 @@ interface InlineTitleProps {
 
 function InlineTitle({ backup, onSave, placeholder }: InlineTitleProps) {
   const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState(displayName(backup))
+  const [value, setValue] = useState(backup.name || "")
   const [saving, setSaving] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Keep local value in sync when backup.name changes externally
   useEffect(() => {
     if (!editing) {
-      setValue(displayName(backup))
+      setValue(backup.name || "")
     }
-  }, [backup.name, backup.filename, editing])
+  }, [backup.name, editing])
 
   const startEdit = () => {
-    setValue(displayName(backup))
+    setValue(backup.name || "")
     setEditing(true)
     setTimeout(() => {
       inputRef.current?.focus()
@@ -125,9 +125,10 @@ function InlineTitle({ backup, onSave, placeholder }: InlineTitleProps) {
 
   const commitSave = async () => {
     const trimmed = value.trim()
-    if (!trimmed || trimmed === displayName(backup)) {
+    // Only skip if the name hasn't changed
+    if (trimmed === (backup.name || "")) {
       setEditing(false)
-      setValue(displayName(backup))
+      setValue(backup.name || "")
       return
     }
     setSaving(true)
@@ -141,7 +142,7 @@ function InlineTitle({ backup, onSave, placeholder }: InlineTitleProps) {
 
   const cancelEdit = () => {
     setEditing(false)
-    setValue(displayName(backup))
+    setValue(backup.name || "")
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
