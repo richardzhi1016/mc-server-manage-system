@@ -219,6 +219,8 @@ export interface BackupInfo {
   size: number
   filename: string
   type?: string
+  /** User-defined display name / alias */
+  name?: string
 }
 
 export interface BackupListResponse {
@@ -227,6 +229,8 @@ export interface BackupListResponse {
 
 export interface CreateBackupRequest {
   server_name: string
+  /** Optional custom alias for the backup */
+  name?: string
 }
 
 export interface CreateBackupResponse {
@@ -237,6 +241,10 @@ export interface CreateBackupResponse {
 export interface RestoreBackupRequest {
   server_name: string
   backup_id: string
+}
+
+export interface RenameBackupRequest {
+  name: string
 }
 
 export interface ScheduledTaskSchedule {

@@ -37,15 +37,46 @@ def get_server_backup_dir(server_name: str) -> str:
     return str(config.get_server_backup_dir(server_name))
 
 
-def get_backup_path(server_name: str, backup_filename_base: str) -> str:
-    """Get the path to a specific backup directory."""
-    return str(config.get_server_backup_dir(server_name) / backup_filename_base)
+def get_backup_path(server_name: str, backup_id: str) -> str | None:
+    """Get the path to a specific backup directory by searching for the backup ID."""
+    server_backup_dir = config.get_server_backup_dir(server_name)
+    if not os.path.exists(server_backup_dir):
+        return None
+    
+    # Search for a folder that matches the backup-ID prefix
+    prefix = f"backup-{backup_id}"
+    try:
+        for folder_name in os.listdir(server_backup_dir):
+            if folder_name.startswith(prefix):
+                folder_path = os.path.join(server_backup_dir, folder_name)
+                if os.path.isdir(folder_path):
+                    return folder_path
+    except Exception:
+        pass
+    return None
 
 
-def get_backup_info_path(server_name: str, backup_filename_base: str, backup_type: str = "manual") -> str:
+def get_backup_info_path(server_name: str, backup_id: str, backup_type: str | None = None) -> str | None:
     """Get the path to a backup info JSON file."""
-    backup_folder = config.get_server_backup_dir(server_name) / f"backup-{backup_filename_base}_{backup_type}"
-    return str(backup_folder / f"{backup_filename_base}.json")
+    if backup_type:
+        folder_name = f"backup-{backup_id}_{backup_type}"
+        backup_folder = config.get_server_backup_dir(server_name) / folder_name
+        info_path = backup_folder / f"{folder_name}.json"
+        if os.path.exists(info_path):
+            return str(info_path)
+    
+    # Fallback: search for any JSON in the backup folder
+    backup_folder = get_backup_path(server_name, backup_id)
+    if not backup_folder:
+        return None
+    
+    try:
+        for filename in os.listdir(backup_folder):
+            if filename.endswith(".json"):
+                return os.path.join(backup_folder, filename)
+    except Exception:
+        pass
+    return None
 
 
 class BackupService:
@@ -109,7 +140,7 @@ class BackupService:
             self._backup_locks[server_name] = threading.RLock()
         return self._backup_locks[server_name]
 
-    def create_backup(self, server_name: str, backup_type: str = "manual") -> dict[str, Any] | None:
+    def create_backup(self, server_name: str, backup_type: str = "manual", custom_name: str | None = None) -> dict[str, Any] | None:
         """Create a backup of a server (world data only) with concurrency protection.
         
         Args:
@@ -126,13 +157,13 @@ class BackupService:
             raise BackupInProgressError(server_name)
         
         try:
-            return self._create_backup_internal(server_name, backup_type)
+            return self._create_backup_internal(server_name, backup_type, custom_name)
         except BackupInProgressError:
             return None
         finally:
             lock.release()
 
-    def _create_backup_internal(self, server_name: str, backup_type: str) -> dict[str, Any] | None:
+    def _create_backup_internal(self, server_name: str, backup_type: str, custom_name: str | None = None) -> dict[str, Any] | None:
         """Internal backup logic - assumes lock is already held."""
         from app.services.server_manager import server_manager
         
@@ -174,7 +205,7 @@ class BackupService:
                         raise Exception("Server stopped during backup preparation")
             
             # Step 3: Perform actual backup
-            result = self._perform_backup(server_name, server_dir, server_backup_dir, backup_type)
+            result = self._perform_backup(server_name, server_dir, server_backup_dir, backup_type, custom_name)
             return result
             
         except Exception as e:
@@ -287,7 +318,8 @@ class BackupService:
         pass  # Log error if needed
 
     def _perform_backup(self, server_name: str, server_dir: str, 
-                       server_backup_dir: str, backup_type: str) -> dict[str, Any] | None:
+                       server_backup_dir: str, backup_type: str,
+                       custom_name: str | None = None) -> dict[str, Any] | None:
         """Perform the actual backup operation."""
         # Find existing world folders
         world_folders = []
@@ -350,7 +382,8 @@ class BackupService:
                 "size": file_size,
                 "filename": backup_filename,
                 "type": backup_type,
-                "world_folders": world_folders
+                "world_folders": world_folders,
+                "name": custom_name or "",
             }
 
             with open(info_path, "w", encoding="utf-8") as f:
@@ -381,14 +414,15 @@ class BackupService:
         if not backup_info:
             return False
         
-        server_backup_dir = get_server_backup_dir(server_name)
-        backup_filename = backup_info.get("filename", "")
-        backup_filename_base = backup_info.get("id", "")
-        backup_type = backup_info.get("type", "manual") or "manual"
-        if not backup_filename or not backup_filename_base:
+        backup_folder = get_backup_path(server_name, backup_id)
+        if not backup_folder:
             return False
-        backup_folder_name = f"backup-{backup_filename_base}_{backup_type}"
-        backup_path = os.path.join(server_backup_dir, backup_folder_name, backup_filename)
+            
+        backup_filename = backup_info.get("filename", "")
+        if not backup_filename:
+            return False
+            
+        backup_path = os.path.join(backup_folder, backup_filename)
         server_dir = str(config.get_server_dir(server_name))
 
         if not os.path.exists(backup_path):
@@ -415,15 +449,17 @@ class BackupService:
     def delete_backup(self, server_name: str, backup_id: str) -> bool:
         """Delete a backup."""
         backup_path = get_backup_path(server_name, backup_id)
-        info_path = get_backup_info_path(server_name, backup_id)
-
+        if not backup_path:
+            logger.warning("Could not find backup path for %s / %s", server_name, backup_id)
+            return False
+            
         try:
             if os.path.exists(backup_path):
-                os.remove(backup_path)
-            if os.path.exists(info_path):
-                os.remove(info_path)
-            return True
-        except Exception:
+                shutil.rmtree(backup_path)
+                return True
+            return False
+        except Exception as e:
+            logger.error("Failed to delete backup: %s", e)
             return False
 
     def _enforce_retention_policy(self, server_name: str | None = None) -> int:
@@ -562,7 +598,7 @@ class BackupService:
     ) -> dict[str, Any] | None:
         """Get information about a specific backup."""
         # Try all possible backup types
-        backup_types = ["manual", "startup", "periodic"]
+        backup_types = ["manual", "startup", "periodic", "scheduled"]
         for backup_type in backup_types:
             info_path = get_backup_info_path(server_name, backup_id, backup_type)
             if os.path.exists(info_path):
@@ -572,6 +608,21 @@ class BackupService:
                 except Exception:
                     continue
         return None
+
+    def rename_backup(self, server_name: str, backup_id: str, new_name: str) -> bool:
+        info_path = get_backup_info_path(server_name, backup_id)
+        if info_path and os.path.exists(info_path):
+            try:
+                with open(info_path, "r", encoding="utf-8") as f:
+                    info = json.load(f)
+                info["name"] = new_name
+                with open(info_path, "w", encoding="utf-8") as f:
+                    json.dump(info, f, indent=2, ensure_ascii=False)
+                return True
+            except Exception as e:
+                logger.error("Failed to rename backup %s: %s", backup_id, e)
+                return False
+        return False
 
 
 backup_service = BackupService()

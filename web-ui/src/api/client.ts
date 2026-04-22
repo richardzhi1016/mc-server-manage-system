@@ -34,6 +34,7 @@ import type {
   CreateBackupRequest,
   CreateBackupResponse,
   RestoreBackupRequest,
+  RenameBackupRequest,
   ScheduledTask,
   ScheduledTaskListResponse,
   CreateScheduledTaskRequest,
@@ -219,6 +220,18 @@ export async function deleteBackup(serverName: string, backupId: string): Promis
 export async function downloadBackup(serverName: string, backupId: string): Promise<void> {
   const url = `${apiClient.defaults.baseURL}/api/backups/${serverName}/${backupId}/download`
   window.open(url, "_blank")
+}
+
+export async function renameBackup(
+  serverName: string,
+  backupId: string,
+  newName: string
+): Promise<{ message: string }> {
+  const response = await apiClient.patch<{ message: string }>(
+    `/api/backups/${encodeURIComponent(serverName)}/${encodeURIComponent(backupId)}`,
+    { name: newName } satisfies RenameBackupRequest
+  )
+  return response.data
 }
 
 export async function listScheduledTasks(serverName?: string): Promise<ScheduledTaskListResponse> {

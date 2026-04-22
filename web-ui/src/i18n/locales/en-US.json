@@ -421,7 +421,10 @@
       "restore": "Restore",
       "restoring": "Restoring...",
       "delete": "Delete",
-      "search": "Search"
+      "search": "Search",
+      "rename": "Rename",
+      "namePlaceholder": "Backup name (e.g. 2026-04-18 12:00:00)",
+      "nameInputTitle": "Custom name for the next backup"
     },
     "filters": {
       "all": "All Types"
@@ -436,13 +439,15 @@
     "success": {
       "created": "Backup created successfully",
       "restored": "Backup restored successfully",
-      "deleted": "Backup deleted"
+      "deleted": "Backup deleted",
+      "renamed": "Backup renamed"
     },
     "errors": {
       "load": "Failed to load backup list",
       "create": "Failed to create backup",
       "restore": "Failed to restore backup",
-      "delete": "Failed to delete backup"
+      "delete": "Failed to delete backup",
+      "rename": "Failed to rename backup"
     }
   },
   "files": {
