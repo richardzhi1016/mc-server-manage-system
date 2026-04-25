@@ -91,6 +91,58 @@ class BackupService:
         # Track active backups for crash recovery
         self._active_backups: dict[str, dict] = {}
 
+    def get_server_retention(self, server_name: str) -> int:
+        """Get the backup retention count for a server."""
+        settings_path = config.get_server_dir(server_name) / "backup_retention.json"
+        if os.path.exists(settings_path):
+            try:
+                with open(settings_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    val = data.get("retention")
+                    if isinstance(val, int) and 5 <= val <= 50:
+                        return val
+            except Exception:
+                pass
+        return self.BACKUP_RETENTION
+
+    def set_server_retention(self, server_name: str, retention: int) -> bool:
+        """Set the backup retention count for a server."""
+        if not isinstance(retention, int) or not (5 <= retention <= 50):
+            return False
+        settings_path = config.get_server_dir(server_name) / "backup_retention.json"
+        try:
+            with open(settings_path, "w", encoding="utf-8") as f:
+                json.dump({"retention": retention}, f)
+            return True
+        except Exception:
+            return False
+
+    def get_server_retention(self, server_name: str) -> int:
+        """Get the backup retention count for a server."""
+        settings_path = config.get_server_dir(server_name) / "backup_retention.json"
+        if os.path.exists(settings_path):
+            try:
+                with open(settings_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    val = data.get("retention")
+                    if isinstance(val, int) and 5 <= val <= 50:
+                        return val
+            except Exception:
+                pass
+        return self.BACKUP_RETENTION
+
+    def set_server_retention(self, server_name: str, retention: int) -> bool:
+        """Set the backup retention count for a server."""
+        if not isinstance(retention, int) or not (5 <= retention <= 50):
+            return False
+        settings_path = config.get_server_dir(server_name) / "backup_retention.json"
+        try:
+            with open(settings_path, "w", encoding="utf-8") as f:
+                json.dump({"retention": retention}, f)
+            return True
+        except Exception:
+            return False
+
     def list_backups(self, server_name: str | None = None) -> list[dict[str, Any]]:
         """List all backups, optionally filtered by server name."""
         backups_dir = get_backups_dir()
@@ -466,11 +518,12 @@ class BackupService:
         """Delete old backups based on smart retention policy (Ported from openmc.py)."""
         if server_name:
             backups = self.list_backups(server_name)
+            keep_count = self.get_server_retention(server_name)
         else:
             backups = self.list_backups()
+            keep_count = self.BACKUP_RETENTION
 
         # Validate retention count
-        keep_count = self.BACKUP_RETENTION
         if keep_count < 5:
             # Fallback to safe minimum if configured too low (though currently hardcoded)
             keep_count = 5
@@ -495,19 +548,24 @@ class BackupService:
             
             startup_backups = [b for b in candidates if b.get('type') == 'startup']
             manual_backups = [b for b in candidates if b.get('type', 'manual') == 'manual']
-            periodic_backups = [b for b in candidates if b.get('type') == 'periodic']
+            scheduled_backups = [b for b in candidates if b.get('type') == 'scheduled']
 
             counts = {
                 'startup': len(startup_backups),
                 'manual': len(manual_backups),
-                'periodic': len(periodic_backups)
+                'scheduled': len(scheduled_backups)
             }
 
             # Find types that exceed minimum requirement
             deletable_types = [(t, c) for t, c in counts.items() if c > min_per_type]
             
             if not deletable_types:
-                # Should not happen given logic, but safety break
+                # Fallback: if all categorized types are at minimum, but total still exceeds keep_count,
+                # delete the absolute oldest backup from candidates to strictly enforce the limit.
+                to_delete = candidates[-1]
+                if self.delete_backup_by_info(to_delete):
+                    deleted_count += 1
+                    backups.remove(to_delete)
                 break
 
             # 1. Find max count
@@ -524,7 +582,7 @@ class BackupService:
                 # Delete oldest of this type
                 if target_type == 'startup': to_delete = startup_backups[-1]
                 elif target_type == 'manual': to_delete = manual_backups[-1]
-                else: to_delete = periodic_backups[-1]
+                else: to_delete = scheduled_backups[-1]
 
             elif len(max_types) == 2:
                 # Case 2: Two-way tie
@@ -533,19 +591,15 @@ class BackupService:
                     target_type = latest_type
                     if target_type == 'startup': to_delete = startup_backups[-1]
                     elif target_type == 'manual': to_delete = manual_backups[-1]
-                    else: to_delete = periodic_backups[-1]
+                    else: to_delete = scheduled_backups[-1]
                 else:
                     # Latest type NOT in tie -> Delete absolute oldest among the two types
                     candidates_in_tie = []
                     if 'startup' in max_types: candidates_in_tie.extend(startup_backups)
                     if 'manual' in max_types: candidates_in_tie.extend(manual_backups)
-                    if 'periodic' in max_types: candidates_in_tie.extend(periodic_backups)
+                    if 'scheduled' in max_types: candidates_in_tie.extend(scheduled_backups)
                     
                     # Sort by created_at desc (newest first), so last is oldest
-                    # Verify sort order: list_backups returns desc
-                    # We need the OLDEST, so we pick the last one.
-                    # Wait, we need to sort candidates_in_tie correctly if we merged them.
-                    # Since individual lists are sorted desc, merging them needs re-sort.
                     candidates_in_tie.sort(key=lambda x: x.get("created_at", ""), reverse=True)
                     if candidates_in_tie:
                         to_delete = candidates_in_tie[-1]
@@ -555,7 +609,7 @@ class BackupService:
                 target_type = latest_type
                 if target_type == 'startup': to_delete = startup_backups[-1]
                 elif target_type == 'manual': to_delete = manual_backups[-1]
-                else: to_delete = periodic_backups[-1]
+                else: to_delete = scheduled_backups[-1]
 
             # Execute deletion
             if to_delete and self.delete_backup_by_info(to_delete):

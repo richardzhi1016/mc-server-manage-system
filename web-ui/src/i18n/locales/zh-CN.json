@@ -430,6 +430,10 @@
       "namePlaceholder": "备份名称（如 2026-04-18 12:00:00）",
       "nameInputTitle": "为下次备份设置自定义名称"
     },
+    "retention": {
+      "prefix": "保留策略：最多保留最近的",
+      "suffix": "个备份"
+    },
     "filters": {
       "all": "所有类型"
     },
@@ -451,7 +455,8 @@
       "create": "创建备份失败",
       "restore": "恢复备份失败",
       "delete": "删除备份失败",
-      "rename": "重命名备份失败"
+      "rename": "重命名备份失败",
+      "saveRetention": "保存保留策略失败"
     }
   },
   "files": {

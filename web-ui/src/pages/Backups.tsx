@@ -10,6 +10,8 @@ import {
   deleteBackup,
   downloadBackup,
   renameBackup,
+  getBackupRetention,
+  setBackupRetention,
 } from "@/api/client"
 import { type BackupInfo } from "@/types/api"
 import { Button } from "@/components/ui/Button"
@@ -232,6 +234,8 @@ export default function Backups() {
 
   // ── Pre-creation name input (default = current timestamp) ──────────────────
   const [newBackupName, setNewBackupName] = useState(nowTimestamp)
+  const [retention, setRetention] = useState<string>("10")
+  const [flashSaved, setFlashSaved] = useState(false)
 
   const { notify } = useNotification()
 
@@ -248,9 +252,55 @@ export default function Backups() {
     }
   }, [serverName, notify, t])
 
+  const loadRetention = useCallback(async () => {
+    if (!serverName) return
+    try {
+      const response = await getBackupRetention(serverName)
+      setRetention(response.retention.toString())
+    } catch {
+      console.error("Failed to load retention policy")
+    }
+  }, [serverName])
+
   useEffect(() => {
     loadBackups()
-  }, [loadBackups])
+    loadRetention()
+  }, [loadBackups, loadRetention])
+
+  const handleSaveRetention = async (valueStr: string) => {
+    if (!serverName) return
+    let val = parseInt(valueStr, 10)
+    
+    // Empty input recovery
+    if (isNaN(val) || valueStr.trim() === "") {
+      val = 10
+    }
+    
+    // Boundary enforcement
+    if (val < 5) val = 5
+    if (val > 50) val = 50
+    
+    setRetention(val.toString())
+    
+    try {
+      await setBackupRetention(serverName, val)
+      setFlashSaved(true)
+      setTimeout(() => setFlashSaved(false), 1500)
+    } catch {
+      notify({ type: "error", message: t("errors.saveRetention") || "Failed to save retention policy" })
+    }
+  }
+
+  const handleRetentionBlur = () => {
+    handleSaveRetention(retention)
+  }
+
+  const handleRetentionKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      e.currentTarget.blur() // this will trigger onBlur and save
+    }
+  }
 
   // ── Create with custom name ────────────────────────────────────────────────
   const handleCreate = async () => {
@@ -349,27 +399,48 @@ export default function Backups() {
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 ml-11">{t("subtitle")}</p>
         </div>
 
-        {/* Create Backup controls */}
+        {/* Right Side: Controls & Quick Settings */}
         <div className="flex flex-col sm:items-end gap-2">
-          {/* ── Pre-creation name input ── */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Input
-              id="new-backup-name"
-              placeholder={t("actions.namePlaceholder")}
-              value={newBackupName}
-              onChange={(e) => setNewBackupName(e.target.value)}
-              className="h-9 text-sm sm:w-56"
-              title={t("actions.nameInputTitle")}
-            />
+          {/* Create Backup controls */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-2 order-2 sm:order-1">
+              <Button variant="outline" size="icon" onClick={loadBackups} disabled={loading}>
+                <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+              </Button>
+              <Button onClick={handleCreate} disabled={creating || !serverName} className="gap-2">
+                <Plus className="w-4 h-4" />
+                {creating ? t("actions.creating") : t("actions.create")}
+              </Button>
+            </div>
+
+            {/* ── Pre-creation name input ── */}
+            <div className="flex items-center gap-2 w-full sm:w-auto order-1 sm:order-2">
+              <Input
+                id="new-backup-name"
+                placeholder={t("actions.namePlaceholder")}
+                value={newBackupName}
+                onChange={(e) => setNewBackupName(e.target.value)}
+                className="h-9 text-sm sm:w-56"
+                title={t("actions.nameInputTitle")}
+              />
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={loadBackups} disabled={loading}>
-              <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
-            </Button>
-            <Button onClick={handleCreate} disabled={creating || !serverName} className="gap-2">
-              <Plus className="w-4 h-4" />
-              {creating ? t("actions.creating") : t("actions.create")}
-            </Button>
+          
+          {/* Quick Settings: Retention Policy */}
+          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mt-1 sm:mt-0">
+            <span>{t("retention.prefix") || "Retention Policy: Keep the last"}</span>
+            <Input
+              type="text"
+              value={retention}
+              onChange={(e) => setRetention(e.target.value)}
+              onBlur={handleRetentionBlur}
+              onKeyDown={handleRetentionKeyDown}
+              className={cn(
+                "h-7 w-14 text-center px-1 text-sm transition-colors",
+                flashSaved ? "bg-green-100 border-green-500 text-green-800 dark:bg-green-900/40 dark:border-green-500 dark:text-green-300" : ""
+              )}
+            />
+            <span>{t("retention.suffix") || "backups"}</span>
           </div>
         </div>
       </div>

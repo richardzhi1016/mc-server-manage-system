@@ -426,6 +426,10 @@
       "namePlaceholder": "Backup name (e.g. 2026-04-18 12:00:00)",
       "nameInputTitle": "Custom name for the next backup"
     },
+    "retention": {
+      "prefix": "Retention Policy: Keep the last",
+      "suffix": "backups"
+    },
     "filters": {
       "all": "All Types"
     },
@@ -447,7 +451,8 @@
       "create": "Failed to create backup",
       "restore": "Failed to restore backup",
       "delete": "Failed to delete backup",
-      "rename": "Failed to rename backup"
+      "rename": "Failed to rename backup",
+      "saveRetention": "Failed to save retention policy"
     }
   },
   "files": {
