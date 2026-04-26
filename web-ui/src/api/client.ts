@@ -62,6 +62,7 @@ import type {
   PublicServerStatus,
   DiscordBotConfig,
   DiscordBotState,
+  BackupRetentionResponse,
 } from "@/types/api"
 
 export async function getServers(): Promise<ServerListResponse> {
@@ -483,6 +484,19 @@ export async function getTpsHistory(
   hours = 1
 ): Promise<{ server_name: string; history: TpsDataPoint[] }> {
   const res = await apiClient.get(`/api/servers/${encodeURIComponent(serverName)}/tps/history`, { params: { hours } })
+  return res.data
+}
+
+export async function getBackupRetention(serverName: string): Promise<BackupRetentionResponse> {
+  const res = await apiClient.get<BackupRetentionResponse>(`/api/backups/${encodeURIComponent(serverName)}/retention`)
+  return res.data
+}
+
+export async function setBackupRetention(serverName: string, retention: number): Promise<{ message: string; retention: number }> {
+  const res = await apiClient.put<{ message: string; retention: number }>(
+    `/api/backups/${encodeURIComponent(serverName)}/retention`,
+    { retention }
+  )
   return res.data
 }
 

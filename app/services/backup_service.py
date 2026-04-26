@@ -117,32 +117,6 @@ class BackupService:
         except Exception:
             return False
 
-    def get_server_retention(self, server_name: str) -> int:
-        """Get the backup retention count for a server."""
-        settings_path = config.get_server_dir(server_name) / "backup_retention.json"
-        if os.path.exists(settings_path):
-            try:
-                with open(settings_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    val = data.get("retention")
-                    if isinstance(val, int) and 5 <= val <= 50:
-                        return val
-            except Exception:
-                pass
-        return self.BACKUP_RETENTION
-
-    def set_server_retention(self, server_name: str, retention: int) -> bool:
-        """Set the backup retention count for a server."""
-        if not isinstance(retention, int) or not (5 <= retention <= 50):
-            return False
-        settings_path = config.get_server_dir(server_name) / "backup_retention.json"
-        try:
-            with open(settings_path, "w", encoding="utf-8") as f:
-                json.dump({"retention": retention}, f)
-            return True
-        except Exception:
-            return False
-
     def list_backups(self, server_name: str | None = None) -> list[dict[str, Any]]:
         """List all backups, optionally filtered by server name."""
         backups_dir = get_backups_dir()

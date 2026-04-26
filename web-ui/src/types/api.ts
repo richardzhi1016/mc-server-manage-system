@@ -247,6 +247,10 @@ export interface RenameBackupRequest {
   name: string
 }
 
+export interface BackupRetentionResponse {
+  retention: number
+}
+
 export interface ScheduledTaskSchedule {
   frequency: "daily" | "weekly" | "interval"
   hour?: number
