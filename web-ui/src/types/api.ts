@@ -221,6 +221,7 @@ export interface BackupInfo {
   type?: string
   /** User-defined display name / alias */
   name?: string
+  is_locked?: boolean
 }
 
 export interface BackupListResponse {
@@ -231,6 +232,8 @@ export interface CreateBackupRequest {
   server_name: string
   /** Optional custom alias for the backup */
   name?: string
+  /** Whether to lock the backup immediately */
+  is_locked?: boolean
 }
 
 export interface CreateBackupResponse {

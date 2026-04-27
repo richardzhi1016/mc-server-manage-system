@@ -160,18 +160,50 @@ class BackupService:
         backups.sort(key=lambda x: x.get("created_at", ""), reverse=True)
         return backups
 
+    def toggle_backup_lock(self, server_name: str, backup_id: str) -> bool:
+        """Toggle the lock state of a backup."""
+        # Try all possible backup types to find the info file
+        backup_types = ["manual", "startup", "periodic", "scheduled"]
+        info_path = None
+        for backup_type in backup_types:
+            path = get_backup_info_path(server_name, backup_id, backup_type)
+            if path and os.path.exists(path):
+                info_path = path
+                break
+        
+        if not info_path:
+            return False
+            
+        try:
+            with open(info_path, "r", encoding="utf-8") as f:
+                info = json.load(f)
+            
+            # Toggle is_locked
+            current_state = info.get("is_locked", False)
+            info["is_locked"] = not current_state
+            
+            with open(info_path, "w", encoding="utf-8") as f:
+                json.dump(info, f, indent=2, ensure_ascii=False)
+            
+            return True
+        except Exception as e:
+            print(f"[Backup] ERROR: Failed to toggle lock for {backup_id}: {e}")
+            return False
+
     def _get_backup_lock(self, server_name: str) -> threading.RLock:
         """Get or create a backup lock for the specified server."""
         if server_name not in self._backup_locks:
             self._backup_locks[server_name] = threading.RLock()
         return self._backup_locks[server_name]
 
-    def create_backup(self, server_name: str, backup_type: str = "manual", custom_name: str | None = None) -> dict[str, Any] | None:
+    def create_backup(self, server_name: str, backup_type: str = "manual", custom_name: str | None = None, is_locked: bool = False) -> dict[str, Any] | None:
         """Create a backup of a server (world data only) with concurrency protection.
         
         Args:
             server_name: Name of the server to backup
             backup_type: Type of backup (manual, startup, periodic)
+            custom_name: Optional user-defined name
+            is_locked: Whether to lock the backup immediately after creation
             
         Returns:
             Backup info dict if successful, None if backup already in progress or failed
@@ -183,13 +215,13 @@ class BackupService:
             raise BackupInProgressError(server_name)
         
         try:
-            return self._create_backup_internal(server_name, backup_type, custom_name)
+            return self._create_backup_internal(server_name, backup_type, custom_name, is_locked)
         except BackupInProgressError:
             return None
         finally:
             lock.release()
 
-    def _create_backup_internal(self, server_name: str, backup_type: str, custom_name: str | None = None) -> dict[str, Any] | None:
+    def _create_backup_internal(self, server_name: str, backup_type: str, custom_name: str | None = None, is_locked: bool = False) -> dict[str, Any] | None:
         """Internal backup logic - assumes lock is already held."""
         from app.services.server_manager import server_manager
         
@@ -231,7 +263,7 @@ class BackupService:
                         raise Exception("Server stopped during backup preparation")
             
             # Step 3: Perform actual backup
-            result = self._perform_backup(server_name, server_dir, server_backup_dir, backup_type, custom_name)
+            result = self._perform_backup(server_name, server_dir, server_backup_dir, backup_type, custom_name, is_locked)
             return result
             
         except Exception as e:
@@ -345,7 +377,7 @@ class BackupService:
 
     def _perform_backup(self, server_name: str, server_dir: str, 
                        server_backup_dir: str, backup_type: str,
-                       custom_name: str | None = None) -> dict[str, Any] | None:
+                       custom_name: str | None = None, is_locked: bool = False) -> dict[str, Any] | None:
         """Perform the actual backup operation."""
         # Find existing world folders
         world_folders = []
@@ -410,6 +442,7 @@ class BackupService:
                 "type": backup_type,
                 "world_folders": world_folders,
                 "name": custom_name or "",
+                "is_locked": is_locked,
             }
 
             with open(info_path, "w", encoding="utf-8") as f:
@@ -481,6 +514,12 @@ class BackupService:
             
         try:
             if os.path.exists(backup_path):
+                # Check if locked before deletion
+                info = self.get_backup_info(server_name, backup_id)
+                if info and info.get("is_locked", False):
+                    print(f"[Backup] DENIED: Attempted to delete locked backup {backup_id}")
+                    return False
+                
                 shutil.rmtree(backup_path)
                 return True
             return False
@@ -502,6 +541,9 @@ class BackupService:
             # Fallback to safe minimum if configured too low (though currently hardcoded)
             keep_count = 5
 
+        # Exclude locked backups from retention policy
+        backups = [b for b in backups if not b.get("is_locked", False)]
+        
         total_backups = len(backups)
         if total_backups <= keep_count:
             return 0
@@ -616,6 +658,9 @@ class BackupService:
 
         try:
             if os.path.exists(backup_folder):
+                # Check if locked
+                if info.get("is_locked", False):
+                    return False
                 shutil.rmtree(backup_folder)
             return True
         except Exception:

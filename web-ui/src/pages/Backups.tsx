@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useParams } from "react-router-dom"
-import { Database, Plus, Download, RotateCcw, Trash2, Archive, RefreshCw, Search, Pencil, Check, X } from "lucide-react"
+import { Database, Plus, Download, RotateCcw, Trash2, Archive, RefreshCw, Search, Pencil, Check, X, Lock, Unlock } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useNotification } from "@/hooks/useNotification"
 import {
@@ -10,6 +10,7 @@ import {
   deleteBackup,
   downloadBackup,
   renameBackup,
+  toggleBackupLock,
   getBackupRetention,
   setBackupRetention,
 } from "@/api/client"
@@ -234,6 +235,7 @@ export default function Backups() {
 
   // ── Pre-creation name input (default = current timestamp) ──────────────────
   const [newBackupName, setNewBackupName] = useState(nowTimestamp)
+  const [lockOnCreate, setLockOnCreate] = useState(false)
   const [retention, setRetention] = useState<string>("10")
   const [flashSaved, setFlashSaved] = useState(false)
 
@@ -308,10 +310,15 @@ export default function Backups() {
     setCreating(true)
     try {
       const name = newBackupName.trim()
-      await createBackup({ server_name: serverName, name: name || undefined })
+      await createBackup({ 
+        server_name: serverName, 
+        name: name || undefined,
+        is_locked: lockOnCreate
+      })
       notify({ type: "success", message: t("success.created") })
       // Refresh the default name so it's ready for the next backup
       setNewBackupName(nowTimestamp())
+      setLockOnCreate(false)
       loadBackups()
     } catch {
       notify({ type: "error", message: t("errors.create") })
@@ -369,6 +376,25 @@ export default function Backups() {
     }
   }
 
+  // ── Toggle lock ───────────────────────────────────────────────────────────
+  const handleToggleLock = async (backupId: string) => {
+    if (!serverName) return
+    try {
+      await toggleBackupLock(serverName, backupId)
+      setBackups((prev) =>
+        prev.map((b) => (b.id === backupId ? { ...b, is_locked: !b.is_locked } : b))
+      )
+      const backup = backups.find(b => b.id === backupId)
+      const isNowLocked = !backup?.is_locked
+      notify({ 
+        type: "success", 
+        message: isNowLocked ? t("success.locked") : t("success.unlocked") 
+      })
+    } catch {
+      notify({ type: "error", message: t("errors.lock") })
+    }
+  }
+
   // ── Filtered list ─────────────────────────────────────────────────────────
   const filteredBackups = backups.filter((backup) => {
     const label = displayName(backup).toLowerCase()
@@ -414,7 +440,19 @@ export default function Backups() {
             </div>
 
             {/* ── Pre-creation name input ── */}
-            <div className="flex items-center gap-2 w-full sm:w-auto order-1 sm:order-2">
+            <div className="flex items-center gap-4 w-full sm:w-auto order-1 sm:order-2">
+              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                <input
+                  type="checkbox"
+                  id="lock-on-create"
+                  checked={lockOnCreate}
+                  onChange={(e) => setLockOnCreate(e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <label htmlFor="lock-on-create" className="cursor-pointer select-none">
+                  {t("actions.lockOnCreate") || "Lock immediately"}
+                </label>
+              </div>
               <Input
                 id="new-backup-name"
                 placeholder={t("actions.namePlaceholder")}
@@ -508,7 +546,12 @@ export default function Backups() {
             return (
               <Card
                 key={backup.id}
-                className="dark:bg-gray-800 dark:border-gray-700 hover:shadow-md transition-shadow"
+                className={cn(
+                  "dark:bg-gray-800 dark:border-gray-700 hover:shadow-md transition-all border-l-4",
+                  backup.is_locked 
+                    ? "border-l-amber-500 shadow-sm bg-amber-50/30 dark:bg-amber-900/10" 
+                    : "border-l-transparent"
+                )}
               >
                 <CardContent className="p-4">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -529,6 +572,12 @@ export default function Backups() {
                         >
                           {t(badge.key)}
                         </span>
+                        {backup.is_locked && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 gap-1 animate-in fade-in zoom-in duration-300">
+                            <Lock className="w-3 h-3" />
+                            {t("status.locked") || "Protected"}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                         <span>{formatDate(backup.created_at)}</span>
@@ -573,6 +622,20 @@ export default function Backups() {
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => handleToggleLock(backup.id)}
+                        className={cn(
+                          "gap-1.5 transition-colors",
+                          backup.is_locked 
+                            ? "text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20" 
+                            : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        )}
+                        title={backup.is_locked ? t("actions.unlock") : t("actions.lock")}
+                      >
+                        {backup.is_locked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() =>
                           setConfirmAction({
                             type: "delete",
@@ -580,7 +643,12 @@ export default function Backups() {
                             backupName: displayName(backup),
                           })
                         }
-                        className="gap-1.5 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        disabled={backup.is_locked}
+                        className={cn(
+                          "gap-1.5 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20",
+                          backup.is_locked && "opacity-40 cursor-not-allowed grayscale"
+                        )}
+                        title={backup.is_locked ? t("deleteLockedTooltip") || "Locked backups cannot be deleted" : ""}
                       >
                         <Trash2 className="w-4 h-4" />
                         <span className="hidden sm:inline">{t("actions.delete")}</span>

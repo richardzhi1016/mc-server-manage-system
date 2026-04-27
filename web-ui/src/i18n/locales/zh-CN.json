@@ -428,7 +428,10 @@
       "search": "搜索",
       "rename": "重命名",
       "namePlaceholder": "备份名称（如 2026-04-18 12:00:00）",
-      "nameInputTitle": "为下次备份设置自定义名称"
+      "nameInputTitle": "为下次备份设置自定义名称",
+      "lock": "锁定备份",
+      "unlock": "解锁备份",
+      "lockOnCreate": "立即锁定"
     },
     "retention": {
       "prefix": "保留策略：最多保留最近的",
@@ -437,6 +440,10 @@
     "filters": {
       "all": "所有类型"
     },
+    "status": {
+      "locked": "已保护"
+    },
+    "deleteLockedTooltip": "锁定的备份无法删除",
     "noSearchResults": "没有找到符合条件的备份",
     "empty": "暂无备份",
     "emptyDesc": "点击\"创建备份\"为当前服务器创建第一个备份",
@@ -448,7 +455,9 @@
       "created": "备份创建成功",
       "restored": "备份恢复成功",
       "deleted": "备份已删除",
-      "renamed": "备份重命名成功"
+      "renamed": "备份重命名成功",
+      "locked": "备份已锁定",
+      "unlocked": "备份已解锁"
     },
     "errors": {
       "load": "加载备份列表失败",
@@ -456,7 +465,8 @@
       "restore": "恢复备份失败",
       "delete": "删除备份失败",
       "rename": "重命名备份失败",
-      "saveRetention": "保存保留策略失败"
+      "saveRetention": "保存保留策略失败",
+      "lock": "切换锁定状态失败"
     }
   },
   "files": {

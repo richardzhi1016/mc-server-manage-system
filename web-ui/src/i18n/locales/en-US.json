@@ -424,7 +424,10 @@
       "search": "Search",
       "rename": "Rename",
       "namePlaceholder": "Backup name (e.g. 2026-04-18 12:00:00)",
-      "nameInputTitle": "Custom name for the next backup"
+      "nameInputTitle": "Custom name for the next backup",
+      "lock": "Lock Backup",
+      "unlock": "Unlock Backup",
+      "lockOnCreate": "Lock immediately"
     },
     "retention": {
       "prefix": "Retention Policy: Keep the last",
@@ -433,6 +436,10 @@
     "filters": {
       "all": "All Types"
     },
+    "status": {
+      "locked": "Protected"
+    },
+    "deleteLockedTooltip": "Locked backups cannot be deleted",
     "noSearchResults": "No backups match your search criteria",
     "empty": "No backups",
     "emptyDesc": "Click \"Create Backup\" to create the first backup for this server",
@@ -444,7 +451,9 @@
       "created": "Backup created successfully",
       "restored": "Backup restored successfully",
       "deleted": "Backup deleted",
-      "renamed": "Backup renamed"
+      "renamed": "Backup renamed",
+      "locked": "Backup locked",
+      "unlocked": "Backup unlocked"
     },
     "errors": {
       "load": "Failed to load backup list",
@@ -452,7 +461,8 @@
       "restore": "Failed to restore backup",
       "delete": "Failed to delete backup",
       "rename": "Failed to rename backup",
-      "saveRetention": "Failed to save retention policy"
+      "saveRetention": "Failed to save retention policy",
+      "lock": "Failed to toggle backup lock"
     }
   },
   "files": {

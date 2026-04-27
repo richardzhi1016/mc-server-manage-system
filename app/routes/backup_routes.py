@@ -15,7 +15,8 @@ def create_backup():
     if not data or "server_name" not in data:
         return jsonify({"error": "Missing 'server_name'"}), 400
     custom_name = data.get("name")  # Optional custom alias
-    backup = backup_service.create_backup(data["server_name"], custom_name=custom_name)
+    is_locked = bool(data.get("is_locked", False))
+    backup = backup_service.create_backup(data["server_name"], custom_name=custom_name, is_locked=is_locked)
     if backup:
         return jsonify({"message": "Backup created", "backup": backup}), 201
     return jsonify({"error": "Failed to create backup"}), 500
@@ -50,6 +51,14 @@ def rename_backup(server_name: str, backup_id: str):
     if success:
         return jsonify({"message": "Backup renamed"}), 200
     return jsonify({"error": "Failed to rename backup"}), 500
+
+@backup_bp.route("/backups/<server_name>/<backup_id>/lock", methods=["PATCH"])
+def toggle_backup_lock(server_name: str, backup_id: str):
+    """Toggle the lock state of a backup."""
+    success = backup_service.toggle_backup_lock(server_name, backup_id)
+    if success:
+        return jsonify({"message": "Backup lock toggled"}), 200
+    return jsonify({"error": "Failed to toggle backup lock"}), 500
 
 @backup_bp.route("/backups/<server_name>/retention", methods=["GET"])
 def get_retention(server_name: str):

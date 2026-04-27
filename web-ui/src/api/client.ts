@@ -235,6 +235,16 @@ export async function renameBackup(
   return response.data
 }
 
+export async function toggleBackupLock(
+  serverName: string,
+  backupId: string
+): Promise<{ message: string }> {
+  const response = await apiClient.patch<{ message: string }>(
+    `/api/backups/${encodeURIComponent(serverName)}/${encodeURIComponent(backupId)}/lock`
+  )
+  return response.data
+}
+
 export async function listScheduledTasks(serverName?: string): Promise<ScheduledTaskListResponse> {
   const params = serverName ? { server_name: serverName } : {}
   const response = await apiClient.get<ScheduledTaskListResponse>("/api/scheduled-tasks", { params })
