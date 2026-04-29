@@ -396,21 +396,30 @@ export default function Backups() {
   }
 
   // ── Filtered list ─────────────────────────────────────────────────────────
-  const filteredBackups = backups.filter((backup) => {
-    const label = displayName(backup).toLowerCase()
-    const fileMatch = backup.filename.toLowerCase().includes(searchQuery.toLowerCase())
-    const nameMatch = label.includes(searchQuery.toLowerCase())
-    if (!fileMatch && !nameMatch) return false
+  const filteredBackups = backups
+    .filter((backup) => {
+      const label = displayName(backup).toLowerCase()
+      const fileMatch = backup.filename.toLowerCase().includes(searchQuery.toLowerCase())
+      const nameMatch = label.includes(searchQuery.toLowerCase())
+      if (!fileMatch && !nameMatch) return false
 
-    if (filterType === "all") return true
-    const badge = getTypeBadge(backup)
-    const typeMap: Record<string, string> = {
-      "types.startup": "startup",
-      "types.scheduled": "scheduled",
-      "types.manual": "manual",
-    }
-    return typeMap[badge.key] === filterType
-  })
+      if (filterType === "all") return true
+      const badge = getTypeBadge(backup)
+      const typeMap: Record<string, string> = {
+        "types.startup": "startup",
+        "types.scheduled": "scheduled",
+        "types.manual": "manual",
+      }
+      return typeMap[badge.key] === filterType
+    })
+    .sort((a, b) => {
+      // 1. Locked status (descending: locked first)
+      if (a.is_locked !== b.is_locked) {
+        return a.is_locked ? -1 : 1
+      }
+      // 2. Creation time (descending: newest first)
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    })
 
   // ─────────────────────────────────────────────────────────────────────────
   return (

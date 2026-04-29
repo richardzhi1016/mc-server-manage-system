@@ -44,7 +44,7 @@ def list_backups(server_name: str | None = None) -> list[dict[str, Any]]:
             except Exception:
                 continue
 
-    backups.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    backups.sort(key=lambda x: (x.get("is_locked", False), x.get("created_at", "")), reverse=True)
     return backups
 
 

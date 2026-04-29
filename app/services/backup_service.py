@@ -157,7 +157,7 @@ class BackupService:
             except Exception:
                 continue
 
-        backups.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        backups.sort(key=lambda x: (x.get("is_locked", False), x.get("created_at", "")), reverse=True)
         return backups
 
     def toggle_backup_lock(self, server_name: str, backup_id: str) -> bool:
